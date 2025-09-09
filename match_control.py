@@ -19,7 +19,7 @@ if 'away_color' not in st.session_state:
     st.session_state.away_color = '#ff7f0e'
 
 # Title
-st.title("Data-Analyse")
+st.title("Eredivisie 2025/2026 Data-Analyse")
 
 # Sidebar for appearance
 with st.sidebar:
