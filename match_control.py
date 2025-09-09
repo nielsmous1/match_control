@@ -19,17 +19,17 @@ if 'away_color' not in st.session_state:
     st.session_state.away_color = '#ff7f0e'
 
 # Title
-st.title("⚽ Match Control & Domination Analysis")
+st.title("Control & Gevaar Analyse")
 
 # Sidebar for appearance
 with st.sidebar:
     st.header("Appearance")
     col1, col2 = st.columns(2)
     with col1:
-        st.session_state.home_color = st.color_picker("Home Team Color", 
+        st.session_state.home_color = st.color_picker("Kleur Thuis", 
                                                       st.session_state.home_color)
     with col2:
-        st.session_state.away_color = st.color_picker("Away Team Color", 
+        st.session_state.away_color = st.color_picker("Kleur Uit", 
                                                       st.session_state.away_color)
 
 # Main screen: folder-only selection with team and match dropdowns
@@ -143,7 +143,7 @@ selected_match = None
 
 if available_teams:
     team_options = sorted(available_teams.values(), key=lambda s: s.lower())
-    selected_team = st.selectbox("Which team do you want to analyse?", team_options)
+    selected_team = st.selectbox("Selecteer een team", team_options)
     team_matches = []
     if selected_team:
         for info in files_info:
@@ -155,7 +155,7 @@ if available_teams:
         # Build friendly labels
         match_labels = [info['label'] for info in team_matches]
         if match_labels:
-            choice = st.selectbox("Which match do you want to analyse?", match_labels)
+            choice = st.selectbox("Selecteer een wedstrijd", match_labels)
             if choice:
                 sel = next((i for i in team_matches if i['label'] == choice), None)
                 if sel:
@@ -1030,7 +1030,7 @@ if events_data is not None:
         buf.seek(0)
         
         st.download_button(
-            label="📥 Download Chart",
+            label="📥 Download",
             data=buf,
             file_name=f"match_control_{file_name.replace('.json', '')}.png",
             mime="image/png"
