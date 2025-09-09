@@ -1018,22 +1018,256 @@ if events_data is not None:
             None,
             None
         )
-        
-        # Display the plot
-        st.pyplot(fig)
-        
-        # Download button for the figure
-        import io
-        buf = io.BytesIO()
-        fig.savefig(buf, format='png', dpi=150, bbox_inches='tight')
-        buf.seek(0)
-        
-        st.download_button(
-            label="📥 Download",
-            data=buf,
-            file_name=f"match_control_{file_name.replace('.json', '')}.png",
-            mime="image/png"
-        )
+
+        tab1, tab2 = st.tabs(["Controle & Gevaar", "Shot Map"])
+
+        with tab1:
+            st.pyplot(fig)
+            import io
+            buf = io.BytesIO()
+            fig.savefig(buf, format='png', dpi=150, bbox_inches='tight')
+            buf.seek(0)
+            st.download_button(
+                label="📥 Download",
+                data=buf,
+                file_name=f"match_control_{file_name.replace('.json', '')}.png",
+                mime="image/png"
+            )
+
+        # ---------- Shot Map Tab ----------
+        def draw_pitch(ax):
+            pitch = patches.Rectangle((-52.5, -34), 105, 68, linewidth=2,
+                                     edgecolor='gray', facecolor='white')
+            ax.add_patch(pitch)
+            ax.plot([0, 0], [-34, 34], 'gray', linestyle='-', linewidth=2)
+            center_circle = patches.Circle((0, 0), 9.15, linewidth=2,
+                                         edgecolor='gray', fill=False)
+            ax.add_patch(center_circle)
+            left_penalty = patches.Rectangle((-52.5, -20.16), 16.5, 40.32,
+                                           linewidth=2, edgecolor='gray', fill=False)
+            ax.add_patch(left_penalty)
+            right_penalty = patches.Rectangle((36, -20.16), 16.5, 40.32,
+                                            linewidth=2, edgecolor='gray', fill=False)
+            ax.add_patch(right_penalty)
+            left_goal_area = patches.Rectangle((-52.5, -9.18), 5.5, 18.36,
+                                             linewidth=2, edgecolor='gray', fill=False)
+            ax.add_patch(left_goal_area)
+            right_goal_area = patches.Rectangle((47, -9.18), 5.5, 18.36,
+                                              linewidth=2, edgecolor='gray', fill=False)
+            ax.add_patch(right_goal_area)
+            left_goal = patches.Rectangle((-54.5, -3.66), 2, 7.32,
+                                        linewidth=2, edgecolor='gray', fill=False)
+            ax.add_patch(left_goal)
+            right_goal = patches.Rectangle((52.5, -3.66), 2, 7.32,
+                                         linewidth=2, edgecolor='gray', fill=False)
+            ax.add_patch(right_goal)
+
+        def find_shot_events(events, team_name=None):
+            shot_events = []
+            SHOT_LABELS = [128, 143, 144, 142]
+            GOAL_LABELS = [146, 147, 148, 149, 150, 151]
+            for event in events:
+                is_shot = 'shot' in str(event.get('baseTypeName', '')).lower()
+                event_labels = event.get('labels', []) or []
+                has_shot_label = any(label in event_labels for label in SHOT_LABELS)
+                if is_shot or has_shot_label:
+                    if team_name is None or event.get('teamName') == team_name:
+                        is_goal = any(label in event_labels for label in GOAL_LABELS)
+                        shot_info = {
+                            'team': event.get('teamName', 'Unknown'),
+                            'player': event.get('playerName', 'Unknown'),
+                            'x': event.get('startPosXM', 0.0),
+                            'y': event.get('startPosYM', 0.0),
+                            'xG': event.get('metrics', {}).get('xG', 0.0),
+                            'PSxG': event.get('metrics', {}).get('PSxG', None),
+                            'is_goal': is_goal,
+                            'result': event.get('resultName', 'Unknown'),
+                            'type': event.get('subTypeName', 'Unknown'),
+                            'time': int((event.get('startTimeMs', 0) or 0) / 1000 / 60),
+                            'partId': event.get('partId', 1)
+                        }
+                        shot_events.append(shot_info)
+            return shot_events
+
+        def count_own_goals(events, team_name):
+            OWN_GOAL_LABEL = 205
+            own_goals = 0
+            for event in events:
+                event_labels = event.get('labels', []) or []
+                if OWN_GOAL_LABEL in event_labels and event.get('teamName') == team_name:
+                    own_goals += 1
+            return own_goals
+
+        with tab2:
+            metadata = events_data.get('metaData', {}) if isinstance(events_data, dict) else {}
+            home_team = metadata.get('homeTeamName') or metadata.get('homeTeam') or metadata.get('home') or 'Home'
+            away_team = metadata.get('awayTeamName') or metadata.get('awayTeam') or metadata.get('away') or 'Away'
+            events = events_data.get('data', []) if isinstance(events_data, dict) else []
+
+            all_shots = find_shot_events(events)
+            home_shots = [s for s in all_shots if s['team'] == home_team]
+            away_shots = [s for s in all_shots if s['team'] == away_team]
+
+            home_own_goals = count_own_goals(events, home_team)
+            away_own_goals = count_own_goals(events, away_team)
+
+            def calculate_shot_intervals(shots):
+                intervals = [0] * 6
+                second_half_start_time = 45
+                for event in events:
+                    if event.get('baseTypeId') == 14 and event.get('subTypeId') == 1400 and event.get('partId') == 2:
+                        second_half_start_time = int((event.get('startTimeMs', 0) or 0) / 1000 / 60)
+                        break
+                for shot in shots:
+                    minute = shot['time']
+                    part_id = shot['partId']
+                    if part_id == 1:
+                        if minute < 15:
+                            intervals[0] += 1
+                        elif minute < 30:
+                            intervals[1] += 1
+                        else:
+                            intervals[2] += 1
+                    elif part_id == 2:
+                        relative_minute = minute - second_half_start_time
+                        if relative_minute < 15:
+                            intervals[3] += 1
+                        elif relative_minute < 30:
+                            intervals[4] += 1
+                        else:
+                            intervals[5] += 1
+                return intervals
+
+            home_shot_intervals = calculate_shot_intervals(home_shots)
+            away_shot_intervals = calculate_shot_intervals(away_shots)
+            max_shots = max(max(home_shot_intervals) if home_shot_intervals else 0,
+                            max(away_shot_intervals) if away_shot_intervals else 0)
+
+            fig_shots = plt.figure(figsize=(22, 12))
+            gs2 = gridspec.GridSpec(1, 3, width_ratios=[0.7, 3, 0.7], wspace=0.1)
+            ax_home_bars = fig_shots.add_subplot(gs2[0])
+            ax_pitch = fig_shots.add_subplot(gs2[1])
+            ax_away_bars = fig_shots.add_subplot(gs2[2])
+            draw_pitch(ax_pitch)
+
+            stats = {
+                home_team: {'shots': 0, 'goals': 0, 'xG': 0.0, 'PSxG': 0.0, 'shots_on_target': 0},
+                away_team: {'shots': 0, 'goals': 0, 'xG': 0.0, 'PSxG': 0.0, 'shots_on_target': 0}
+            }
+
+            for shot in home_shots:
+                if shot['x'] > 0:
+                    x = -shot['x']; y = -shot['y']
+                else:
+                    x = shot['x']; y = shot['y']
+                marker_size = 50 + (shot['xG'] * 450)
+                if shot['is_goal']:
+                    alpha = 1.0; edge_color = 'gold'; edge_width = 3; stats[home_team]['goals'] += 1
+                else:
+                    alpha = 0.6; edge_color = 'black'; edge_width = 1
+                ax_pitch.scatter(x, y, s=marker_size, c=home_color, alpha=alpha,
+                                 edgecolors=edge_color, linewidths=edge_width, zorder=5)
+                stats[home_team]['shots'] += 1
+                stats[home_team]['xG'] += shot['xG']
+                if shot['PSxG']:
+                    stats[home_team]['PSxG'] += shot['PSxG']
+                    stats[home_team]['shots_on_target'] += 1
+
+            for shot in away_shots:
+                if shot['x'] < 0:
+                    x = -shot['x']; y = -shot['y']
+                else:
+                    x = shot['x']; y = shot['y']
+                marker_size = 50 + (shot['xG'] * 450)
+                if shot['is_goal']:
+                    alpha = 1.0; edge_color = 'gold'; edge_width = 3; stats[away_team]['goals'] += 1
+                else:
+                    alpha = 0.6; edge_color = 'black'; edge_width = 1
+                ax_pitch.scatter(x, y, s=marker_size, c=away_color, alpha=alpha,
+                                 edgecolors=edge_color, linewidths=edge_width, zorder=5)
+                stats[away_team]['shots'] += 1
+                stats[away_team]['xG'] += shot['xG']
+                if shot['PSxG']:
+                    stats[away_team]['PSxG'] += shot['PSxG']
+                    stats[away_team]['shots_on_target'] += 1
+
+            home_total_goals = stats[home_team]['goals'] + away_own_goals
+            away_total_goals = stats[away_team]['goals'] + home_own_goals
+
+            stats_labels = ['Doelpunten', 'Schoten', 'Schoten op doel', 'xG', 'xGOT']
+            home_values = [
+                f"{home_total_goals}",
+                f"{stats[home_team]['shots']}",
+                f"{stats[home_team]['shots_on_target']}",
+                f"{stats[home_team]['xG']:.2f}",
+                f"{stats[home_team]['PSxG']:.2f}",
+            ]
+            away_values = [
+                f"{away_total_goals}",
+                f"{stats[away_team]['shots']}",
+                f"{stats[away_team]['shots_on_target']}",
+                f"{stats[away_team]['xG']:.2f}",
+                f"{stats[away_team]['PSxG']:.2f}"
+            ]
+
+            ax_pitch.text(-20, 56, home_team, fontsize=14, fontweight='bold', color=home_color, ha='center', va='center')
+            ax_pitch.text(20, 56, away_team, fontsize=14, fontweight='bold', color=away_color, ha='center', va='center')
+
+            y_start = 52
+            for i, (label, home_val, away_val) in enumerate(zip(stats_labels, home_values, away_values)):
+                y_pos = y_start - (i * 3)
+                ax_pitch.text(-20, y_pos, home_val, fontsize=12, fontweight='bold', color='black', ha='center', va='center')
+                ax_pitch.text(0, y_pos, label, fontsize=10, color='gray', ha='center', va='center')
+                ax_pitch.text(20, y_pos, away_val, fontsize=12, fontweight='bold', color='black', ha='center', va='center')
+
+            ax_pitch.text(0, y_start - (len(stats_labels) * 3) - 5,
+                          "xG: Expected Goals (shot quality)\nxGOT: Expected Goals on Target",
+                          fontsize=9, color='gray', ha='center', va='top')
+
+            y_pos = np.arange(6)
+            bar_height = 0.6
+            ax_home_bars.barh(y_pos, home_shot_intervals, bar_height, color=home_color, alpha=0.7)
+            ax_home_bars.set_yticks(y_pos)
+            ax_home_bars.set_yticklabels(["0-15'", "15-30'", "30-45+'", "45-60'", "60-75'", "75-90+'"]) 
+            ax_home_bars.invert_xaxis()
+            ax_home_bars.set_xlabel("Aantal schoten")
+            ax_home_bars.spines['right'].set_visible(False)
+            ax_home_bars.spines['top'].set_visible(False)
+            ax_home_bars.spines['bottom'].set_visible(False)
+            ax_home_bars.spines['left'].set_visible(False)
+            ax_home_bars.yaxis.tick_right()
+            ax_home_bars.tick_params(axis='y', which='major', pad=10)
+            ax_home_bars.set_xlim(max_shots + 0.5, 0)
+
+            ax_away_bars.barh(y_pos, away_shot_intervals, bar_height, color=away_color, alpha=0.7)
+            ax_away_bars.set_yticks(y_pos)
+            ax_away_bars.set_yticklabels(["0-15'", "15-30'", "30-45+'", "45-60'", "60-75'", "75-90+'"]) 
+            ax_away_bars.set_xlabel("Aantal schoten")
+            ax_away_bars.spines['left'].set_visible(False)
+            ax_away_bars.spines['top'].set_visible(False)
+            ax_away_bars.spines['bottom'].set_visible(False)
+            ax_away_bars.spines['right'].setVisible = False
+            ax_away_bars.yaxis.tick_left()
+            ax_away_bars.tick_params(axis='y', which='major', pad=10)
+            ax_away_bars.set_xlim(0, max_shots + 0.5)
+
+            scale_text = "xG waarde"
+            ax_pitch.text(0, -40, scale_text, fontsize=10, fontweight='bold', ha='center', va='top')
+            scale_xg_values = [0.1, 0.3, 0.5, 0.7, 0.9]
+            scale_x_start = -20
+            scale_y = -44
+            for i, xg in enumerate(scale_xg_values):
+                size = 50 + (xg * 450)
+                x_pos = scale_x_start + (i * 10)
+                ax_pitch.scatter(x_pos, scale_y, s=size, c='gray', alpha=0.5, edgecolors='black', linewidths=1)
+                ax_pitch.text(x_pos, scale_y - 3, f'{xg:.1f}', ha='center', va='top', fontsize=8)
+
+            ax_pitch.set_xlim(-65, 65)
+            ax_pitch.set_ylim(-50, 60)
+            ax_pitch.set_aspect('equal')
+            ax_pitch.axis('off')
+
+            st.pyplot(fig_shots)
 else:
     st.info("Please select a team and match on the main screen to begin analysis.")
     
