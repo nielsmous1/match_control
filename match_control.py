@@ -1019,7 +1019,7 @@ if events_data is not None:
             None
         )
 
-        tab1, tab2, tab3 = st.tabs(["Controle & Gevaar", "Schoten", "xG Verloop"])
+        tab1, tab2, tab3, tab4 = st.tabs(["Controle & Gevaar", "Schoten", "xG Verloop", "Eredivisie Tabel"])
 
         with tab1:
             st.pyplot(fig)
@@ -1472,7 +1472,22 @@ if events_data is not None:
             ax_prob.spines['right'].set_visible(False)
             ax_prob.spines['left'].set_visible(False)
             ax_prob.spines['bottom'].set_visible(False)
-            ax_prob.set_title("Simulated Match Outcome Probability", fontsize=14, fontweight='bold')
+            # Add team stats above the probability bar
+            home_goals_count = len([g for g in home_goals if not g['player'].endswith('(OG)')])
+            away_goals_count = len([g for g in away_goals if not g['player'].endswith('(OG)')])
+            home_own_goals = len([g for g in home_goals if g['player'].endswith('(OG)')])
+            away_own_goals = len([g for g in away_goals if g['player'].endswith('(OG)')])
+            
+            # Total goals including own goals
+            home_total_goals_display = home_goals_count + away_own_goals
+            away_total_goals_display = away_goals_count + home_own_goals
+            
+            stats_text = f"{home_team_xg}: {home_total_goals_display} goals, {home_total_xg:.2f} xG  |  {away_team_xg}: {away_total_goals_display} goals, {away_total_xg:.2f} xG"
+            ax_prob.text(50, 0.3, stats_text, ha='center', va='center', fontsize=12, fontweight='bold', 
+                        bbox=dict(boxstyle='round,pad=0.5', facecolor='white', edgecolor='gray', alpha=0.9))
+            
+            # Add "Simulated Match Outcome" below the bar
+            ax_prob.text(50, -0.3, "Simulated Match Outcome", ha='center', va='center', fontsize=10, fontweight='bold')
 
             # Plot cumulative xG lines
             ax_plot.step(home_times, home_cumulative, where='post', color=home_color, linewidth=2.5, label=home_team_xg)
@@ -1549,6 +1564,154 @@ if events_data is not None:
                            fontsize=16, fontweight='bold', y=0.98)
 
             st.pyplot(fig_xg)
+
+        # ---------- Eredivisie Tabel Tab ----------
+        with tab4:
+            st.subheader("Eredivisie 2025/2026 Tabel")
+            
+            # Initialize league table data structure
+            league_data = {}
+            
+            # Process all matches to build league table
+            for file_info in files_info:
+                try:
+                    with open(file_info['path'], 'r', encoding='utf-8') as f:
+                        match_data = load_json_lenient(file_info['path'])
+                    
+                    if not match_data:
+                        continue
+                        
+                    metadata = match_data.get('metaData', {}) if isinstance(match_data, dict) else {}
+                    home_team = metadata.get('homeTeamName') or metadata.get('homeTeam') or metadata.get('home') or 'Home'
+                    away_team = metadata.get('awayTeamName') or metadata.get('awayTeam') or metadata.get('away') or 'Away'
+                    events = match_data.get('data', []) if isinstance(match_data, dict) else []
+                    
+                    # Initialize teams if not exists
+                    if home_team not in league_data:
+                        league_data[home_team] = {
+                            'matches_played': 0, 'points': 0, 'expected_points': 0,
+                            'goals_for': 0, 'goals_against': 0, 'xg_for': 0, 'xg_against': 0
+                        }
+                    if away_team not in league_data:
+                        league_data[away_team] = {
+                            'matches_played': 0, 'points': 0, 'expected_points': 0,
+                            'goals_for': 0, 'goals_against': 0, 'xg_for': 0, 'xg_against': 0
+                        }
+                    
+                    # Get shots and goals for this match
+                    all_shots_match = find_shot_events_xg(events)
+                    home_shots_match = [s for s in all_shots_match if s['team'] == home_team]
+                    away_shots_match = [s for s in all_shots_match if s['team'] == away_team]
+                    
+                    home_own_goals_match = count_own_goals_xg(events, home_team)
+                    away_own_goals_match = count_own_goals_xg(events, away_team)
+                    
+                    # Calculate goals (including own goals)
+                    home_goals_match = len([s for s in home_shots_match if s['is_goal']])
+                    away_goals_match = len([s for s in away_shots_match if s['is_goal']])
+                    home_own_goals_count = len(home_own_goals_match)
+                    away_own_goals_count = len(away_own_goals_match)
+                    
+                    # Total goals including own goals
+                    home_total_goals = home_goals_match + away_own_goals_count
+                    away_total_goals = away_goals_match + home_own_goals_count
+                    
+                    # Calculate xG
+                    home_xg = sum(shot['xG'] for shot in home_shots_match)
+                    away_xg = sum(shot['xG'] for shot in away_shots_match)
+                    
+                    # Calculate points
+                    if home_total_goals > away_total_goals:
+                        home_points = 3
+                        away_points = 0
+                    elif away_total_goals > home_total_goals:
+                        home_points = 0
+                        away_points = 3
+                    else:
+                        home_points = 1
+                        away_points = 1
+                    
+                    # Calculate expected points using simulation
+                    home_win_prob, draw_prob, away_win_prob = simulate_match(home_shots_match, away_shots_match)
+                    home_expected_points = (home_win_prob / 100) * 3 + (draw_prob / 100) * 1
+                    away_expected_points = (away_win_prob / 100) * 3 + (draw_prob / 100) * 1
+                    
+                    # Update league data
+                    league_data[home_team]['matches_played'] += 1
+                    league_data[home_team]['points'] += home_points
+                    league_data[home_team]['expected_points'] += home_expected_points
+                    league_data[home_team]['goals_for'] += home_total_goals
+                    league_data[home_team]['goals_against'] += away_total_goals
+                    league_data[home_team]['xg_for'] += home_xg
+                    league_data[home_team]['xg_against'] += away_xg
+                    
+                    league_data[away_team]['matches_played'] += 1
+                    league_data[away_team]['points'] += away_points
+                    league_data[away_team]['expected_points'] += away_expected_points
+                    league_data[away_team]['goals_for'] += away_total_goals
+                    league_data[away_team]['goals_against'] += home_total_goals
+                    league_data[away_team]['xg_for'] += away_xg
+                    league_data[away_team]['xg_against'] += home_xg
+                    
+                except Exception as e:
+                    continue
+            
+            # Convert to DataFrame and sort
+            if league_data:
+                import pandas as pd
+                
+                table_data = []
+                for team, stats in league_data.items():
+                    goal_diff = stats['goals_for'] - stats['goals_against']
+                    xg_diff = stats['xg_for'] - stats['xg_against']
+                    
+                    table_data.append({
+                        'Team': team,
+                        'MP': stats['matches_played'],
+                        'Pts': stats['points'],
+                        'xPts': round(stats['expected_points'], 1),
+                        'GF': stats['goals_for'],
+                        'GA': stats['goals_against'],
+                        'xG': round(stats['xg_for'], 1),
+                        'xGA': round(stats['xg_against'], 1),
+                        'GD': goal_diff,
+                        'xGD': round(xg_diff, 1)
+                    })
+                
+                df = pd.DataFrame(table_data)
+                df = df.sort_values(['Pts', 'GD', 'GF'], ascending=[False, False, False])
+                df = df.reset_index(drop=True)
+                df.index = df.index + 1
+                
+                # Display table
+                st.dataframe(
+                    df,
+                    use_container_width=True,
+                    column_config={
+                        "Team": st.column_config.TextColumn("Team", width="medium"),
+                        "MP": st.column_config.NumberColumn("Wed", help="Wedstrijden gespeeld"),
+                        "Pts": st.column_config.NumberColumn("Punten", help="Behaalde punten"),
+                        "xPts": st.column_config.NumberColumn("xPunten", help="Verwachte punten"),
+                        "GF": st.column_config.NumberColumn("Voor", help="Doelpunten voor"),
+                        "GA": st.column_config.NumberColumn("Tegen", help="Doelpunten tegen"),
+                        "xG": st.column_config.NumberColumn("xG", help="Expected Goals voor"),
+                        "xGA": st.column_config.NumberColumn("xGA", help="Expected Goals tegen"),
+                        "GD": st.column_config.NumberColumn("DV", help="Doelsaldo"),
+                        "xGD": st.column_config.NumberColumn("xDV", help="Expected Goals saldo")
+                    }
+                )
+                
+                # Add some summary statistics
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("Totaal Wedstrijden", len(files_info))
+                with col2:
+                    st.metric("Aantal Teams", len(league_data))
+                with col3:
+                    avg_matches = sum(stats['matches_played'] for stats in league_data.values()) / len(league_data) if league_data else 0
+                    st.metric("Gem. Wedstrijden per Team", f"{avg_matches:.1f}")
+            else:
+                st.warning("Geen wedstrijddata gevonden voor de tabel.")
 else:
     st.info("Please select a team and match on the main screen to begin analysis.")
     
