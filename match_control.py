@@ -19,7 +19,7 @@ if 'away_color' not in st.session_state:
     st.session_state.away_color = '#ff7f0e'
 
 # Title
-st.title("Controle & Gevaar Analyse")
+st.title("Data-Analyse")
 
 # Sidebar for appearance
 with st.sidebar:
@@ -1019,7 +1019,7 @@ if events_data is not None:
             None
         )
 
-        tab1, tab2 = st.tabs(["Controle & Gevaar", "Shot Map"])
+        tab1, tab2 = st.tabs(["Controle & Gevaar", "Schoten"])
 
         with tab1:
             st.pyplot(fig)
