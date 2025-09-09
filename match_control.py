@@ -36,8 +36,9 @@ with st.sidebar:
 events_data = None
 file_name = None
 
-# Use a fixed folder path; no UI control needed
-match_folder = "/Users/nielsmous/Documents/Streamlit/MatchEvents"
+# Resolve paths relative to this file so it works on Streamlit Cloud
+BASE_DIR = Path(__file__).parent
+match_folder = str((BASE_DIR / "MatchEvents").resolve())
 
 def load_json_lenient(file_path: str):
     try:
@@ -169,13 +170,17 @@ if available_teams:
 else:
     st.info("No JSON files found in the specified folder")
 
-# Load custom icons unconditionally
+# Load custom icons unconditionally (relative to repo)
 try:
-    ball_icon = mpimg.imread("icons/football.png")
-    sub_icon = mpimg.imread("icons/subicon.png")
-    redcard_icon = mpimg.imread("icons/red_card.png")
-except FileNotFoundError:
-    st.warning("Icon files not found in 'icons' folder. Using default markers.")
+    icons_dir = BASE_DIR / "icons"
+    ball_icon_path = icons_dir / "football.png"
+    sub_icon_path = icons_dir / "subicon.png"
+    redcard_icon_path = icons_dir / "red_card.png"
+    ball_icon = mpimg.imread(str(ball_icon_path))
+    sub_icon = mpimg.imread(str(sub_icon_path))
+    redcard_icon = mpimg.imread(str(redcard_icon_path))
+except Exception:
+    st.warning("Icon files not found in './icons'. Using default markers.")
     ball_icon = None
     sub_icon = None
     redcard_icon = None
