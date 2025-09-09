@@ -23,7 +23,6 @@ st.title("Controle & Gevaar Analyse")
 
 # Sidebar for appearance
 with st.sidebar:
-    st.header("Appearance")
     col1, col2 = st.columns(2)
     with col1:
         st.session_state.home_color = st.color_picker("Kleur Thuis", 
