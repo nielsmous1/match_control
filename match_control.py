@@ -10,7 +10,7 @@ import os
 from pathlib import Path
 
 # Page config
-st.set_page_config(page_title="Match Control Analysis", layout="wide")
+st.set_page_config(page_title="Eredivisie 2025/2026 Data-Analyse", layout="wide")
 
 # Initialize session state for colors
 if 'home_color' not in st.session_state:
