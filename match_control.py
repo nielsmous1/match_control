@@ -19,7 +19,7 @@ if 'away_color' not in st.session_state:
     st.session_state.away_color = '#ff7f0e'
 
 # Title
-st.title("Control & Gevaar Analyse")
+st.title("Controle & Gevaar Analyse")
 
 # Sidebar for appearance
 with st.sidebar:
