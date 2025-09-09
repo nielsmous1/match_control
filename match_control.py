@@ -1487,7 +1487,7 @@ if events_data is not None:
                         bbox=dict(boxstyle='round,pad=0.5', facecolor='white', edgecolor='gray', alpha=0.9))
             
             # Add "Simulated Match Outcome" below the bar
-            ax_prob.text(50, -0.3, "Simulated Match Outcome", ha='center', va='center', fontsize=10, fontweight='bold')
+            ax_prob.text(50, -0.3, "Verwacht resultaat o.b.v. kansen", ha='center', va='center', fontsize=10, fontweight='bold')
 
             # Plot cumulative xG lines
             ax_plot.step(home_times, home_cumulative, where='post', color=home_color, linewidth=2.5, label=home_team_xg)
@@ -1560,14 +1560,11 @@ if events_data is not None:
             ax_plot.set_xticklabels(tick_labels)
             ax_plot.set_facecolor('#F8F8F8')
 
-            fig_xg.suptitle(f'Cumulative xG and Simulated Match Outcome Probability\n{home_team_xg} vs {away_team_xg}',
-                           fontsize=16, fontweight='bold', y=0.98)
 
             st.pyplot(fig_xg)
 
         # ---------- Eredivisie Tabel Tab ----------
         with tab4:
-            st.subheader("Eredivisie 2025/2026 Tabel")
             
             # Initialize league table data structure
             league_data = {}
@@ -1696,8 +1693,8 @@ if events_data is not None:
                         "GA": st.column_config.NumberColumn("Tegen", help="Doelpunten tegen"),
                         "xG": st.column_config.NumberColumn("xG", help="Expected Goals voor"),
                         "xGA": st.column_config.NumberColumn("xGA", help="Expected Goals tegen"),
-                        "GD": st.column_config.NumberColumn("DV", help="Doelsaldo"),
-                        "xGD": st.column_config.NumberColumn("xDV", help="Expected Goals saldo")
+                        "GD": st.column_config.NumberColumn("DS", help="Doelsaldo"),
+                        "xGD": st.column_config.NumberColumn("xDS", help="Expected Goals saldo")
                     }
                 )
                 
