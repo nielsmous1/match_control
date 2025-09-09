@@ -1019,7 +1019,7 @@ if events_data is not None:
             None
         )
 
-        tab1, tab2 = st.tabs(["Controle & Gevaar", "Schoten"])
+        tab1, tab2, tab3 = st.tabs(["Controle & Gevaar", "Schoten", "xG Verloop"])
 
         with tab1:
             st.pyplot(fig)
@@ -1162,10 +1162,10 @@ if events_data is not None:
                     x = shot['x']; y = shot['y']
                 marker_size = 50 + (shot['xG'] * 450)
                 if shot['is_goal']:
-                    alpha = 1.0; edge_color = 'gold'; edge_width = 3; stats[home_team]['goals'] += 1
+                    face_color = home_color; edge_color = 'black'; edge_width = 2; stats[home_team]['goals'] += 1
                 else:
-                    alpha = 0.6; edge_color = 'black'; edge_width = 1
-                ax_pitch.scatter(x, y, s=marker_size, c=home_color, alpha=alpha,
+                    face_color = 'white'; edge_color = 'black'; edge_width = 1
+                ax_pitch.scatter(x, y, s=marker_size, c=face_color, alpha=1.0,
                                  edgecolors=edge_color, linewidths=edge_width, zorder=5)
                 stats[home_team]['shots'] += 1
                 stats[home_team]['xG'] += shot['xG']
@@ -1180,10 +1180,10 @@ if events_data is not None:
                     x = shot['x']; y = shot['y']
                 marker_size = 50 + (shot['xG'] * 450)
                 if shot['is_goal']:
-                    alpha = 1.0; edge_color = 'gold'; edge_width = 3; stats[away_team]['goals'] += 1
+                    face_color = away_color; edge_color = 'black'; edge_width = 2; stats[away_team]['goals'] += 1
                 else:
-                    alpha = 0.6; edge_color = 'black'; edge_width = 1
-                ax_pitch.scatter(x, y, s=marker_size, c=away_color, alpha=alpha,
+                    face_color = 'white'; edge_color = 'black'; edge_width = 1
+                ax_pitch.scatter(x, y, s=marker_size, c=face_color, alpha=1.0,
                                  edgecolors=edge_color, linewidths=edge_width, zorder=5)
                 stats[away_team]['shots'] += 1
                 stats[away_team]['xG'] += shot['xG']
@@ -1234,6 +1234,12 @@ if events_data is not None:
             ax_home_bars.yaxis.tick_right()
             ax_home_bars.tick_params(axis='y', which='major', pad=10)
             ax_home_bars.set_xlim(max_shots + 0.5, 0)
+            # Add dashed vertical guide lines behind bars
+            xticks = ax_home_bars.get_xticks()
+            ymin = y_pos[0] - bar_height * 0.6
+            ymax = y_pos[-1] + bar_height * 1.2
+            for tx in xticks:
+                ax_home_bars.vlines(x=tx, ymin=ymin, ymax=ymax, linestyles='--', colors='gray', linewidth=0.7, zorder=0, alpha=0.55)
 
             ax_away_bars.barh(y_pos, away_shot_intervals, bar_height, color=away_color, alpha=0.7)
             ax_away_bars.set_yticks(y_pos)
@@ -1242,10 +1248,16 @@ if events_data is not None:
             ax_away_bars.spines['left'].set_visible(False)
             ax_away_bars.spines['top'].set_visible(False)
             ax_away_bars.spines['bottom'].set_visible(False)
-            ax_away_bars.spines['right'].setVisible = False
+            ax_away_bars.spines['right'].set_visible(False)
             ax_away_bars.yaxis.tick_left()
             ax_away_bars.tick_params(axis='y', which='major', pad=10)
             ax_away_bars.set_xlim(0, max_shots + 0.5)
+            # Add dashed vertical guide lines behind bars
+            xticks = ax_away_bars.get_xticks()
+            ymin = y_pos[0] - bar_height * 0.6
+            ymax = y_pos[-1] + bar_height * 1.2
+            for tx in xticks:
+                ax_away_bars.vlines(x=tx, ymin=ymin, ymax=ymax, linestyles='--', colors='gray', linewidth=0.7, zorder=0, alpha=0.55)
 
             scale_text = "xG waarde"
             ax_pitch.text(0, -40, scale_text, fontsize=10, fontweight='bold', ha='center', va='top')
@@ -1264,6 +1276,279 @@ if events_data is not None:
             ax_pitch.axis('off')
 
             st.pyplot(fig_shots)
+
+        # ---------- xG Verloop Tab ----------
+        def get_halftime_offset(events):
+            """Calculate the time offset for the second half to account for halftime break"""
+            first_half_end = 45
+            second_half_start = 45
+            for event in events:
+                if (event.get('baseTypeId') == 14 and
+                    event.get('subTypeId') == 1401 and
+                    event.get('partId') == 1):
+                    first_half_end = event.get('startTimeMs', 0) / 1000 / 60
+                if (event.get('baseTypeId') == 14 and
+                    event.get('subTypeId') == 1400 and
+                    event.get('partId') == 2):
+                    second_half_start = event.get('startTimeMs', 0) / 1000 / 60
+            offset = second_half_start - first_half_end
+            return offset, second_half_start
+
+        def find_shot_events_xg(events, team_name=None):
+            """Find all shot events for xG plot with adjusted timing"""
+            shot_events = []
+            halftime_offset, second_half_start = get_halftime_offset(events)
+            SHOT_LABELS = [128, 143, 144, 142]
+            GOAL_LABELS = [146, 147, 148, 149, 150, 151]
+            for event in events:
+                is_shot = 'shot' in str(event.get('baseTypeName', '')).lower()
+                event_labels = event.get('labels', []) or []
+                has_shot_label = any(label in event_labels for label in SHOT_LABELS)
+                if is_shot or has_shot_label:
+                    if team_name is None or event.get('teamName') == team_name:
+                        is_goal = any(label in event_labels for label in GOAL_LABELS)
+                        event_time = event.get('startTimeMs', 0) / 1000 / 60
+                        part_id = event.get('partId', 1)
+                        if part_id == 2:
+                            adjusted_time = event_time - halftime_offset
+                        else:
+                            adjusted_time = event_time
+                        shot_info = {
+                            'team': event.get('teamName', 'Unknown'),
+                            'player': event.get('playerName', 'Unknown'),
+                            'xG': event.get('metrics', {}).get('xG', 0.0),
+                            'is_goal': is_goal,
+                            'time': adjusted_time,
+                            'partId': part_id
+                        }
+                        shot_events.append(shot_info)
+            return shot_events
+
+        def count_own_goals_xg(events, team_name):
+            """Count own goals with adjusted timing"""
+            OWN_GOAL_LABEL = 205
+            own_goal_events = []
+            halftime_offset, second_half_start = get_halftime_offset(events)
+            for event in events:
+                event_labels = event.get('labels', []) or []
+                if OWN_GOAL_LABEL in event_labels and event.get('teamName') == team_name:
+                    event_time = event.get('startTimeMs', 0) / 1000 / 60
+                    part_id = event.get('partId', 1)
+                    if part_id == 2:
+                        adjusted_time = event_time - halftime_offset
+                    else:
+                        adjusted_time = event_time
+                    own_goal_info = {
+                        'team': event.get('teamName', 'Unknown'),
+                        'player': event.get('playerName', 'Unknown'),
+                        'time': adjusted_time,
+                        'is_own_goal': True
+                    }
+                    own_goal_events.append(own_goal_info)
+            return own_goal_events
+
+        def simulate_match(home_shots, away_shots, num_simulations=10000):
+            """Simulate match outcomes based on xG for each shot"""
+            import random
+            home_wins = 0
+            away_wins = 0
+            draws = 0
+            for _ in range(num_simulations):
+                home_goals_sim = 0
+                away_goals_sim = 0
+                for shot in home_shots:
+                    if random.random() <= shot['xG']:
+                        home_goals_sim += 1
+                for shot in away_shots:
+                    if random.random() <= shot['xG']:
+                        away_goals_sim += 1
+                if home_goals_sim > away_goals_sim:
+                    home_wins += 1
+                elif away_goals_sim > home_goals_sim:
+                    away_wins += 1
+                else:
+                    draws += 1
+            total_simulations = home_wins + away_wins + draws
+            home_win_prob = (home_wins / total_simulations) * 100 if total_simulations > 0 else 0
+            draw_prob = (draws / total_simulations) * 100 if total_simulations > 0 else 0
+            away_win_prob = (away_wins / total_simulations) * 100 if total_simulations > 0 else 0
+            return home_win_prob, draw_prob, away_win_prob
+
+        with tab3:
+            # Get teams and events for xG plot
+            metadata = events_data.get('metaData', {}) if isinstance(events_data, dict) else {}
+            home_team_xg = metadata.get('homeTeamName') or metadata.get('homeTeam') or metadata.get('home') or 'Home'
+            away_team_xg = metadata.get('awayTeamName') or metadata.get('awayTeam') or metadata.get('away') or 'Away'
+            events_xg = events_data.get('data', []) if isinstance(events_data, dict) else []
+
+            all_shots_xg = find_shot_events_xg(events_xg)
+            home_shots_xg = sorted([s for s in all_shots_xg if s['team'] == home_team_xg], key=lambda x: x['time'])
+            away_shots_xg = sorted([s for s in all_shots_xg if s['team'] == away_team_xg], key=lambda x: x['time'])
+
+            home_own_goal_events_xg = count_own_goals_xg(events_xg, home_team_xg)
+            away_own_goal_events_xg = count_own_goals_xg(events_xg, away_team_xg)
+
+            def create_cumulative_data(shots, max_time=90):
+                times = [0]
+                cumulative_xg = [0]
+                goals = []
+                for shot in shots:
+                    times.append(shot['time'])
+                    cumulative_xg.append(cumulative_xg[-1] + shot['xG'])
+                    if shot['is_goal']:
+                        goals.append({
+                            'time': shot['time'],
+                            'xg': cumulative_xg[-1],
+                            'player': shot['player']
+                        })
+                if times and times[-1] < max_time:
+                    times.append(max_time)
+                    cumulative_xg.append(cumulative_xg[-1])
+                elif not times:
+                    times.append(max_time)
+                    cumulative_xg.append(0)
+                return times, cumulative_xg, goals
+
+            max_time = 90
+            if all_shots_xg:
+                max_time = max([shot['time'] for shot in all_shots_xg]) + 2
+                max_time = max(max_time, 90)
+
+            home_times, home_cumulative, home_goals = create_cumulative_data(home_shots_xg, max_time)
+            away_times, away_cumulative, away_goals = create_cumulative_data(away_shots_xg, max_time)
+
+            # Add own goals to goal events
+            for og in away_own_goal_events_xg:
+                idx = np.searchsorted(home_times, og['time'])
+                xg_at_time = home_cumulative[min(idx, len(home_cumulative)-1)] if home_cumulative else 0
+                home_goals.append({
+                    'time': og['time'],
+                    'xg': xg_at_time,
+                    'player': f"{og['player']} (OG)"
+                })
+            for og in home_own_goal_events_xg:
+                idx = np.searchsorted(away_times, og['time'])
+                xg_at_time = away_cumulative[min(idx, len(away_cumulative)-1)] if away_cumulative else 0
+                away_goals.append({
+                    'time': og['time'],
+                    'xg': xg_at_time,
+                    'player': f"{og['player']} (OG)"
+                })
+
+            home_goals = sorted(home_goals, key=lambda x: x['time'])
+            away_goals = sorted(away_goals, key=lambda x: x['time'])
+
+            home_total_goals = len(home_goals)
+            away_total_goals = len(away_goals)
+            home_total_xg = home_cumulative[-1] if home_cumulative else 0
+            away_total_xg = away_cumulative[-1] if away_cumulative else 0
+
+            home_win_prob, draw_prob, away_win_prob = simulate_match(home_shots_xg, away_shots_xg)
+
+            fig_xg = plt.figure(figsize=(14, 12))
+            gs_xg = gridspec.GridSpec(2, 1, height_ratios=[1, 4], hspace=0.3)
+            ax_prob = fig_xg.add_subplot(gs_xg[0])
+            ax_plot = fig_xg.add_subplot(gs_xg[1])
+
+            # Plot probability bar
+            prob_bar_height = 0.5
+            y_pos = [0]
+            ax_prob.barh(y_pos, [home_win_prob], color=home_color, height=prob_bar_height, label=f'{home_team_xg} Win ({home_win_prob:.1f}%)')
+            ax_prob.barh(y_pos, [draw_prob], left=[home_win_prob], color='gray', height=prob_bar_height, label=f'Draw ({draw_prob:.1f}%)')
+            ax_prob.barh(y_pos, [away_win_prob], left=[home_win_prob + draw_prob], color=away_color, height=prob_bar_height, label=f'{away_team_xg} Win ({away_win_prob:.1f}%)')
+
+            if home_win_prob > 0:
+                ax_prob.text(home_win_prob/2, 0, f'{home_win_prob:.1f}%', ha='center', va='center', color='white', fontweight='bold')
+            if draw_prob > 0:
+                ax_prob.text(home_win_prob + draw_prob/2, 0, f'{draw_prob:.1f}%', ha='center', va='center', color='white', fontweight='bold')
+            if away_win_prob > 0:
+                ax_prob.text(home_win_prob + draw_prob + away_win_prob/2, 0, f'{away_win_prob:.1f}%', ha='center', va='center', color='white', fontweight='bold')
+
+            ax_prob.set_xlim(0, 100)
+            ax_prob.set_ylim(-prob_bar_height/2, prob_bar_height/2)
+            ax_prob.set_yticks([])
+            ax_prob.set_xticks([])
+            ax_prob.spines['top'].set_visible(False)
+            ax_prob.spines['right'].set_visible(False)
+            ax_prob.spines['left'].set_visible(False)
+            ax_prob.spines['bottom'].set_visible(False)
+            ax_prob.set_title("Simulated Match Outcome Probability", fontsize=14, fontweight='bold')
+
+            # Plot cumulative xG lines
+            ax_plot.step(home_times, home_cumulative, where='post', color=home_color, linewidth=2.5, label=home_team_xg)
+            ax_plot.step(away_times, away_cumulative, where='post', color=away_color, linewidth=2.5, label=away_team_xg)
+            ax_plot.fill_between(home_times, 0, home_cumulative, step='post', alpha=0.3, color=home_color)
+            ax_plot.fill_between(away_times, 0, away_cumulative, step='post', alpha=0.3, color=away_color)
+
+            # Mark goals chronologically
+            all_goals = []
+            for goal in home_goals:
+                all_goals.append({**goal, 'team': home_team_xg, 'is_home': True})
+            for goal in away_goals:
+                all_goals.append({**goal, 'team': away_team_xg, 'is_home': False})
+            all_goals = sorted(all_goals, key=lambda x: x['time'])
+
+            home_score = 0
+            away_score = 0
+            for goal in all_goals:
+                if goal['is_home']:
+                    home_score += 1
+                    idx = np.searchsorted(home_times, goal['time'])
+                    goal_xg = home_cumulative[min(idx, len(home_cumulative)-1)] if home_cumulative else 0
+                    ax_plot.plot(goal['time'], goal_xg, 'o', color='white', markersize=12,
+                                 markeredgecolor='black', markeredgewidth=2, zorder=6)
+                    score_text = f"{home_score}-{away_score}"
+                    player_text = goal['player'].split()[-1] if len(goal['player'].split()) > 1 else goal['player']
+                    ax_plot.annotate(f"{score_text} | {player_text}",
+                                     xy=(goal['time'], goal_xg),
+                                     xytext=(goal['time'], goal_xg + 0.15),
+                                     fontsize=9, fontweight='bold',
+                                     bbox=dict(boxstyle='round,pad=0.3', facecolor='white', edgecolor='black', alpha=0.9),
+                                     ha='center', va='bottom')
+                else:
+                    away_score += 1
+                    idx = np.searchsorted(away_times, goal['time'])
+                    goal_xg = away_cumulative[min(idx, len(away_cumulative)-1)] if away_cumulative else 0
+                    ax_plot.plot(goal['time'], goal_xg, 'o', color='white', markersize=12,
+                                 markeredgecolor='black', markeredgewidth=2, zorder=6)
+                    score_text = f"{home_score}-{away_score}"
+                    player_text = goal['player'].split()[-1] if len(goal['player'].split()) > 1 else goal['player']
+                    ax_plot.annotate(f"{score_text} | {player_text}",
+                                     xy=(goal['time'], goal_xg),
+                                     xytext=(goal['time'], goal_xg + 0.15),
+                                     fontsize=9, fontweight='bold',
+                                     bbox=dict(boxstyle='round,pad=0.3', facecolor='white', edgecolor='black', alpha=0.9),
+                                     ha='center', va='bottom')
+
+            ax_plot.set_xlabel('Minuut', fontsize=12, fontweight='bold')
+            ax_plot.set_ylabel('xG', fontsize=12, fontweight='bold')
+            ax_plot.set_xlim(0, max_time)
+            ax_plot.set_ylim(0, max(3.0, max(home_total_xg, away_total_xg) + 0.5))
+            ax_plot.grid(True, alpha=0.3, linestyle='-', linewidth=0.5)
+            ax_plot.set_axisbelow(True)
+
+            # Add halftime line
+            first_half_end = None
+            for event in events_xg:
+                if (event.get('baseTypeId') == 14 and
+                    event.get('subTypeId') == 1401 and
+                    event.get('partId') == 1):
+                    first_half_end = event.get('startTimeMs', 0) / 1000 / 60
+                    break
+            if first_half_end is not None:
+                adjusted_halftime = first_half_end - get_halftime_offset(events_xg)[0]
+                ax_plot.axvline(x=adjusted_halftime, color='gray', linestyle='--', linewidth=1, alpha=0.5)
+
+            tick_positions = [0, 15, 30, 45, 60, 75, 90]
+            tick_labels = ['0', '15', '30', '45', '60', '75', '90']
+            ax_plot.set_xticks(tick_positions)
+            ax_plot.set_xticklabels(tick_labels)
+            ax_plot.set_facecolor('#F8F8F8')
+
+            fig_xg.suptitle(f'Cumulative xG and Simulated Match Outcome Probability\n{home_team_xg} vs {away_team_xg}',
+                           fontsize=16, fontweight='bold', y=0.98)
+
+            st.pyplot(fig_xg)
 else:
     st.info("Please select a team and match on the main screen to begin analysis.")
     
