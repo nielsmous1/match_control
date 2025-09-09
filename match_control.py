@@ -1220,10 +1220,6 @@ if events_data is not None:
                 ax_pitch.text(0, y_pos, label, fontsize=10, color='gray', ha='center', va='center')
                 ax_pitch.text(20, y_pos, away_val, fontsize=12, fontweight='bold', color='black', ha='center', va='center')
 
-            ax_pitch.text(0, y_start - (len(stats_labels) * 3) - 5,
-                          "xG: Expected Goals (shot quality)\nxGOT: Expected Goals on Target",
-                          fontsize=9, color='gray', ha='center', va='top')
-
             y_pos = np.arange(6)
             bar_height = 0.6
             ax_home_bars.barh(y_pos, home_shot_intervals, bar_height, color=home_color, alpha=0.7)
