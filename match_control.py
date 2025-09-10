@@ -1162,9 +1162,9 @@ if events_data is not None:
                     x = shot['x']; y = shot['y']
                 marker_size = 50 + (shot['xG'] * 450)
                 if shot['is_goal']:
-                    face_color = home_color; edge_color = 'black'; edge_width = 2; stats[home_team]['goals'] += 1
+                    face_color = home_color; edge_color = home_color; edge_width = 2; stats[home_team]['goals'] += 1
                 else:
-                    face_color = 'white'; edge_color = 'black'; edge_width = 1
+                    face_color = 'white'; edge_color = home_color; edge_width = 1
                 ax_pitch.scatter(x, y, s=marker_size, c=face_color, alpha=1.0,
                                  edgecolors=edge_color, linewidths=edge_width, zorder=5)
                 stats[home_team]['shots'] += 1
@@ -1180,9 +1180,9 @@ if events_data is not None:
                     x = shot['x']; y = shot['y']
                 marker_size = 50 + (shot['xG'] * 450)
                 if shot['is_goal']:
-                    face_color = away_color; edge_color = 'black'; edge_width = 2; stats[away_team]['goals'] += 1
+                    face_color = away_color; edge_color = away_color; edge_width = 2; stats[away_team]['goals'] += 1
                 else:
-                    face_color = 'white'; edge_color = 'black'; edge_width = 1
+                    face_color = 'white'; edge_color = away_color; edge_width = 1
                 ax_pitch.scatter(x, y, s=marker_size, c=face_color, alpha=1.0,
                                  edgecolors=edge_color, linewidths=edge_width, zorder=5)
                 stats[away_team]['shots'] += 1
@@ -1498,14 +1498,25 @@ if events_data is not None:
             # Labels under probability segments
             label_y = -0.18
             if home_win_prob > 0:
-                ax_prob.text(home_win_prob/2, label_y, f"Winst {home_team_xg}", ha='center', va='center', fontsize=10, fontweight='bold')
+                ax_prob.text(home_win_prob/2, label_y, f"Winst {home_team_xg}", ha='center', va='center', fontsize=9, fontweight='bold', color='white')
             if draw_prob > 0:
-                ax_prob.text(home_win_prob + draw_prob/2, label_y, "Gelijkspel", ha='center', va='center', fontsize=10, fontweight='bold')
+                ax_prob.text(home_win_prob + draw_prob/2, label_y, "Gelijkspel", ha='center', va='center', fontsize=9, fontweight='bold', color='white')
             if away_win_prob > 0:
-                ax_prob.text(home_win_prob + draw_prob + away_win_prob/2, label_y, f"Winst {away_team_xg}", ha='center', va='center', fontsize=10, fontweight='bold')
+                ax_prob.text(home_win_prob + draw_prob + away_win_prob/2, label_y, f"Winst {away_team_xg}", ha='center', va='center', fontsize=9, fontweight='bold', color='white')
 
             # Add "Simulated Match Outcome" below the bar
-            ax_prob.text(50, -0.3, "Simulated Match Outcome", ha='center', va='center', fontsize=10, fontweight='bold')
+            ax_prob.text(50, -0.3, "Verwacht resultaat o.b.v. kansen", ha='center', va='center', fontsize=10, fontweight='bold')
+
+            # Scoreboard rows aligned with bar width (0..100)
+            # Row 1: Doelpunten
+            ax_prob.text(0, 0.48, f"{home_total_goals_display}", ha='left', va='center', fontsize=11, fontweight='bold', color=home_color)
+            ax_prob.text(50, 0.48, "Doelpunten", ha='center', va='center', fontsize=10, color='gray')
+            ax_prob.text(100, 0.48, f"{away_total_goals_display}", ha='right', va='center', fontsize=11, fontweight='bold', color=away_color)
+
+            # Row 2: xG totals
+            ax_prob.text(0, 0.12, f"{home_total_xg:.2f}", ha='left', va='center', fontsize=11, fontweight='bold', color=home_color)
+            ax_prob.text(50, 0.12, "xG", ha='center', va='center', fontsize=10, color='gray')
+            ax_prob.text(100, 0.12, f"{away_total_xg:.2f}", ha='right', va='center', fontsize=11, fontweight='bold', color=away_color)
 
             # Plot cumulative xG lines
             ax_plot.step(home_times, home_cumulative, where='post', color=home_color, linewidth=2.5, label=home_team_xg)
@@ -1569,17 +1580,14 @@ if events_data is not None:
                     first_half_end = event.get('startTimeMs', 0) / 1000 / 60
                     break
             if first_half_end is not None:
-                adjusted_halftime = first_half_end - get_halftime_offset(events_xg)[0]
-                ax_plot.axvline(x=adjusted_halftime, color='gray', linestyle='--', linewidth=1, alpha=0.5)
+                # Draw at the actual first-half end minute (no offset correction)
+                ax_plot.axvline(x=first_half_end, color='gray', linestyle='--', linewidth=1, alpha=0.5)
 
             tick_positions = [0, 15, 30, 45, 60, 75, 90]
             tick_labels = ['0', '15', '30', '45', '60', '75', '90']
             ax_plot.set_xticks(tick_positions)
             ax_plot.set_xticklabels(tick_labels)
             ax_plot.set_facecolor('#F8F8F8')
-
-            fig_xg.suptitle(f'Cumulative xG and Simulated Match Outcome Probability\n{home_team_xg} vs {away_team_xg}',
-                           fontsize=16, fontweight='bold', y=0.98)
 
             st.pyplot(fig_xg)
             import io
