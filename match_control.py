@@ -1521,14 +1521,14 @@ if events_data is not None:
                 home_logo_x = 15  # Fixed position to the left
                 ax_prob.imshow(home_logo, extent=(home_logo_x - logo_width/2, home_logo_x + logo_width/2, 
                                                 logo_y_center - logo_height/2, logo_y_center + logo_height/2), 
-                              aspect='equal', zorder=10)
+                              aspect='auto', zorder=10)
             
             # Away team logo (right side)
             if away_logo is not None:
                 away_logo_x = 85  # Fixed position to the right
                 ax_prob.imshow(away_logo, extent=(away_logo_x - logo_width/2, away_logo_x + logo_width/2, 
                                                 logo_y_center - logo_height/2, logo_y_center + logo_height/2), 
-                              aspect='equal', zorder=10)
+                              aspect='auto', zorder=10)
             
             # Scoreboard above the probability bar
             home_goals_count = len([g for g in home_goals if not g['player'].endswith('(OG)')])
