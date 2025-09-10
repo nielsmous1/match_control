@@ -1460,19 +1460,30 @@ if events_data is not None:
             ax_prob = fig_xg.add_subplot(gs_xg[0])
             ax_plot = fig_xg.add_subplot(gs_xg[1])
 
-            # Plot probability bar (smaller)
-            prob_bar_height = 0.25
+            # Plot probability bar (much smaller)
+            prob_bar_height = 0.15  # 0.33 of original 0.5
             y_pos = [0]
-            ax_prob.barh(y_pos, [home_win_prob], color=home_color, height=prob_bar_height, label=f'{home_team_xg} Win ({home_win_prob:.1f}%)')
-            ax_prob.barh(y_pos, [draw_prob], left=[home_win_prob], color='gray', height=prob_bar_height, label=f'Draw ({draw_prob:.1f}%)')
-            ax_prob.barh(y_pos, [away_win_prob], left=[home_win_prob + draw_prob], color=away_color, height=prob_bar_height, label=f'{away_team_xg} Win ({away_win_prob:.1f}%)')
+            # Scale bar width to 50% of original (25-75 instead of 0-100)
+            bar_width_scale = 0.5
+            home_width_scaled = home_win_prob * bar_width_scale
+            draw_width_scaled = draw_prob * bar_width_scale
+            away_width_scaled = away_win_prob * bar_width_scale
+            
+            # Center the bar at x=50
+            bar_start = 50 - (50 * bar_width_scale)  # 25
+            bar_end = 50 + (50 * bar_width_scale)    # 75
+            
+            ax_prob.barh(y_pos, [home_width_scaled], left=[bar_start], color=home_color, height=prob_bar_height, label=f'{home_team_xg} Win ({home_win_prob:.1f}%)')
+            ax_prob.barh(y_pos, [draw_width_scaled], left=[bar_start + home_width_scaled], color='gray', height=prob_bar_height, label=f'Draw ({draw_prob:.1f}%)')
+            ax_prob.barh(y_pos, [away_width_scaled], left=[bar_start + home_width_scaled + draw_width_scaled], color=away_color, height=prob_bar_height, label=f'{away_team_xg} Win ({away_win_prob:.1f}%)')
 
+            # Update percentage text positions for scaled bar
             if home_win_prob > 0:
-                ax_prob.text(home_win_prob/2, 0, f'{home_win_prob:.1f}%', ha='center', va='center', color='white', fontweight='bold')
+                ax_prob.text(bar_start + home_width_scaled/2, 0, f'{home_win_prob:.1f}%', ha='center', va='center', color='white', fontweight='bold')
             if draw_prob > 0:
-                ax_prob.text(home_win_prob + draw_prob/2, 0, f'{draw_prob:.1f}%', ha='center', va='center', color='white', fontweight='bold')
+                ax_prob.text(bar_start + home_width_scaled + draw_width_scaled/2, 0, f'{draw_prob:.1f}%', ha='center', va='center', color='white', fontweight='bold')
             if away_win_prob > 0:
-                ax_prob.text(home_win_prob + draw_prob + away_win_prob/2, 0, f'{away_win_prob:.1f}%', ha='center', va='center', color='white', fontweight='bold')
+                ax_prob.text(bar_start + home_width_scaled + draw_width_scaled + away_width_scaled/2, 0, f'{away_win_prob:.1f}%', ha='center', va='center', color='white', fontweight='bold')
 
             ax_prob.set_xlim(0, 100)
             ax_prob.set_ylim(-prob_bar_height/2, prob_bar_height/2)
@@ -1492,16 +1503,19 @@ if events_data is not None:
             home_total_goals_display = home_goals_count + away_own_goals
             away_total_goals_display = away_goals_count + home_own_goals
 
-            # Scoreboard rows aligned with smaller bar width (25-75)
-            # Row 1: Doelpunten (closer to bar)
-            ax_prob.text(25, 0.15, f"{home_total_goals_display}", ha='left', va='center', fontsize=10, fontweight='bold', color=home_color)
-            ax_prob.text(50, 0.15, "Doelpunten", ha='center', va='center', fontsize=9, color='gray')
-            ax_prob.text(75, 0.15, f"{away_total_goals_display}", ha='right', va='center', fontsize=10, fontweight='bold', color=away_color)
+            # Scoreboard rows above the bar
+            # Row 1: Doelpunten
+            ax_prob.text(bar_start, 0.25, f"{home_total_goals_display}", ha='left', va='center', fontsize=10, fontweight='bold', color=home_color)
+            ax_prob.text(50, 0.25, "Doelpunten", ha='center', va='center', fontsize=9, color='gray')
+            ax_prob.text(bar_end, 0.25, f"{away_total_goals_display}", ha='right', va='center', fontsize=10, fontweight='bold', color=away_color)
 
-            # Row 2: xG totals (right below Doelpunten)
-            ax_prob.text(25, 0.08, f"{home_total_xg:.2f}", ha='left', va='center', fontsize=10, fontweight='bold', color=home_color)
-            ax_prob.text(50, 0.08, "xG", ha='center', va='center', fontsize=9, color='gray')
-            ax_prob.text(75, 0.08, f"{away_total_xg:.2f}", ha='right', va='center', fontsize=10, fontweight='bold', color=away_color)
+            # Row 2: xG totals
+            ax_prob.text(bar_start, 0.18, f"{home_total_xg:.2f}", ha='left', va='center', fontsize=10, fontweight='bold', color=home_color)
+            ax_prob.text(50, 0.18, "xG", ha='center', va='center', fontsize=9, color='gray')
+            ax_prob.text(bar_end, 0.18, f"{away_total_xg:.2f}", ha='right', va='center', fontsize=10, fontweight='bold', color=away_color)
+
+            # Add "Verwacht resultaat o.b.v. kansen" below the bar
+            ax_prob.text(50, -0.15, "Verwacht resultaat o.b.v. kansen", ha='center', va='center', fontsize=10, fontweight='bold')
 
             # Plot cumulative xG lines
             ax_plot.step(home_times, home_cumulative, where='post', color=home_color, linewidth=2.5, label=home_team_xg)
