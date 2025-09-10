@@ -1512,21 +1512,22 @@ if events_data is not None:
             ax_prob.spines['bottom'].set_visible(False)
             
             # Add team logos on both sides of the bar
-            logo_size = 0.08  # Size of the logo
+            logo_width = 6  # Width of the logo in x-axis units
+            logo_height = 0.12  # Height of the logo in y-axis units
             logo_y_center = 0.0  # Center vertically with the bar
             
             # Home team logo (left side)
             if home_logo is not None:
-                home_logo_x = bar_start - 8  # Position to the left of the bar
-                ax_prob.imshow(home_logo, extent=(home_logo_x - logo_size/2, home_logo_x + logo_size/2, 
-                                                logo_y_center - logo_size/2, logo_y_center + logo_size/2), 
+                home_logo_x = bar_start - 10  # Position to the left of the bar
+                ax_prob.imshow(home_logo, extent=(home_logo_x - logo_width/2, home_logo_x + logo_width/2, 
+                                                logo_y_center - logo_height/2, logo_y_center + logo_height/2), 
                               aspect='auto', zorder=10)
             
             # Away team logo (right side)
             if away_logo is not None:
-                away_logo_x = bar_end + 8  # Position to the right of the bar
-                ax_prob.imshow(away_logo, extent=(away_logo_x - logo_size/2, away_logo_x + logo_size/2, 
-                                                logo_y_center - logo_size/2, logo_y_center + logo_size/2), 
+                away_logo_x = bar_end + 10  # Position to the right of the bar
+                ax_prob.imshow(away_logo, extent=(away_logo_x - logo_width/2, away_logo_x + logo_width/2, 
+                                                logo_y_center - logo_height/2, logo_y_center + logo_height/2), 
                               aspect='auto', zorder=10)
             
             # Scoreboard above the probability bar
