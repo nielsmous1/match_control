@@ -1486,7 +1486,7 @@ if events_data is not None:
             draw_width_scaled = draw_prob * bar_width_scale
             away_width_scaled = away_win_prob * bar_width_scale
             
-            # Center the bar at x=50
+            # Center the bar at x=50 (accounting for y-axis labels in the plot below)
             bar_start = 50 - (50 * bar_width_scale)  # 25
             bar_end = 50 + (50 * bar_width_scale)    # 75
             
@@ -1494,16 +1494,18 @@ if events_data is not None:
             ax_prob.barh(y_pos, [draw_width_scaled], left=[bar_start + home_width_scaled], color='gray', height=prob_bar_height, label=f'Draw ({draw_prob:.1f}%)')
             ax_prob.barh(y_pos, [away_width_scaled], left=[bar_start + home_width_scaled + draw_width_scaled], color=away_color, height=prob_bar_height, label=f'{away_team_xg} Win ({away_win_prob:.1f}%)')
 
-            # Update percentage text positions for scaled bar
-            if home_win_prob > 0:
+            # Update percentage text positions for scaled bar (only if there's enough space)
+            min_width_for_text = 8  # Minimum width needed to display text
+            
+            if home_win_prob > 0 and home_width_scaled >= min_width_for_text:
                 ax_prob.text(bar_start + home_width_scaled/2, 0, f'{home_win_prob:.1f}%', ha='center', va='center', color='white', fontweight='bold', fontsize=12)
-            if draw_prob > 0:
+            if draw_prob > 0 and draw_width_scaled >= min_width_for_text:
                 ax_prob.text(bar_start + home_width_scaled + draw_width_scaled/2, 0, f'{draw_prob:.1f}%', ha='center', va='center', color='white', fontweight='bold', fontsize=12)
-            if away_win_prob > 0:
+            if away_win_prob > 0 and away_width_scaled >= min_width_for_text:
                 ax_prob.text(bar_start + home_width_scaled + draw_width_scaled + away_width_scaled/2, 0, f'{away_win_prob:.1f}%', ha='center', va='center', color='white', fontweight='bold', fontsize=12)
 
             ax_prob.set_xlim(0, 100)
-            ax_prob.set_ylim(-0.15, 0.25)  # Fixed y-limits to show the actual bar height
+            ax_prob.set_ylim(-0.25, 0.15)  # Moved bar chart down, closer to xG plot
             ax_prob.set_yticks([])
             ax_prob.set_xticks([])
             ax_prob.spines['top'].set_visible(False)
@@ -1558,17 +1560,17 @@ if events_data is not None:
 
             # Scoreboard rows above the bar
             # Row 1: Doelpunten
-            ax_prob.text(bar_start, 0.20, f"{home_total_goals_display}", ha='left', va='center', fontsize=14, fontweight='bold', color=home_color)
-            ax_prob.text(50, 0.20, "Doelpunten", ha='center', va='center', fontsize=12, color='gray')
-            ax_prob.text(bar_end, 0.20, f"{away_total_goals_display}", ha='right', va='center', fontsize=14, fontweight='bold', color=away_color)
+            ax_prob.text(bar_start, 0.10, f"{home_total_goals_display}", ha='left', va='center', fontsize=14, fontweight='bold', color=home_color)
+            ax_prob.text(50, 0.10, "Doelpunten", ha='center', va='center', fontsize=12, color='gray')
+            ax_prob.text(bar_end, 0.10, f"{away_total_goals_display}", ha='right', va='center', fontsize=14, fontweight='bold', color=away_color)
 
             # Row 2: xG totals
-            ax_prob.text(bar_start, 0.15, f"{home_total_xg:.2f}", ha='left', va='center', fontsize=14, fontweight='bold', color=home_color)
-            ax_prob.text(50, 0.15, "xG", ha='center', va='center', fontsize=12, color='gray')
-            ax_prob.text(bar_end, 0.15, f"{away_total_xg:.2f}", ha='right', va='center', fontsize=14, fontweight='bold', color=away_color)
+            ax_prob.text(bar_start, 0.05, f"{home_total_xg:.2f}", ha='left', va='center', fontsize=14, fontweight='bold', color=home_color)
+            ax_prob.text(50, 0.05, "xG", ha='center', va='center', fontsize=12, color='gray')
+            ax_prob.text(bar_end, 0.05, f"{away_total_xg:.2f}", ha='right', va='center', fontsize=14, fontweight='bold', color=away_color)
 
             # Add "Verwacht resultaat o.b.v. kansen" below the bar
-            ax_prob.text(50, -0.12, "Verwacht resultaat o.b.v. kansen", ha='center', va='center', fontsize=12, fontweight='bold')
+            ax_prob.text(50, -0.20, "Verwacht resultaat o.b.v. kansen", ha='center', va='center', fontsize=12, fontweight='bold')
 
             # Plot cumulative xG lines
             ax_plot.step(home_times, home_cumulative, where='post', color=home_color, linewidth=2.5, label=home_team_xg)
