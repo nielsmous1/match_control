@@ -1519,16 +1519,32 @@ if events_data is not None:
             # Home team logo (left side)
             if home_logo is not None:
                 home_logo_x = 15  # Fixed position to the left
-                ax_prob.imshow(home_logo, extent=(home_logo_x - logo_width/2, home_logo_x + logo_width/2, 
-                                                logo_y_center - logo_height/2, logo_y_center + logo_height/2), 
-                              aspect='auto', zorder=10)
+                # Calculate aspect ratio to maintain proportions
+                logo_aspect = home_logo.shape[1] / home_logo.shape[0]  # width/height
+                if logo_aspect > 1:  # Wider than tall
+                    adjusted_width = logo_height * logo_aspect
+                    ax_prob.imshow(home_logo, extent=(home_logo_x - adjusted_width/2, home_logo_x + adjusted_width/2, 
+                                                    logo_y_center - logo_height/2, logo_y_center + logo_height/2), 
+                                  aspect='auto', zorder=10)
+                else:  # Taller than wide or square
+                    ax_prob.imshow(home_logo, extent=(home_logo_x - logo_width/2, home_logo_x + logo_width/2, 
+                                                    logo_y_center - logo_height/2, logo_y_center + logo_height/2), 
+                                  aspect='auto', zorder=10)
             
             # Away team logo (right side)
             if away_logo is not None:
                 away_logo_x = 85  # Fixed position to the right
-                ax_prob.imshow(away_logo, extent=(away_logo_x - logo_width/2, away_logo_x + logo_width/2, 
-                                                logo_y_center - logo_height/2, logo_y_center + logo_height/2), 
-                              aspect='auto', zorder=10)
+                # Calculate aspect ratio to maintain proportions
+                logo_aspect = away_logo.shape[1] / away_logo.shape[0]  # width/height
+                if logo_aspect > 1:  # Wider than tall
+                    adjusted_width = logo_height * logo_aspect
+                    ax_prob.imshow(away_logo, extent=(away_logo_x - adjusted_width/2, away_logo_x + adjusted_width/2, 
+                                                    logo_y_center - logo_height/2, logo_y_center + logo_height/2), 
+                                  aspect='auto', zorder=10)
+                else:  # Taller than wide or square
+                    ax_prob.imshow(away_logo, extent=(away_logo_x - logo_width/2, away_logo_x + logo_width/2, 
+                                                    logo_y_center - logo_height/2, logo_y_center + logo_height/2), 
+                                  aspect='auto', zorder=10)
             
             # Scoreboard above the probability bar
             home_goals_count = len([g for g in home_goals if not g['player'].endswith('(OG)')])
