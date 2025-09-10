@@ -184,6 +184,19 @@ except Exception:
     sub_icon = None
     redcard_icon = None
 
+def load_team_logo(team_name):
+    """Load team logo from logos folder"""
+    try:
+        logos_dir = BASE_DIR / "logos"
+        logo_path = logos_dir / f"{team_name}.png"
+        
+        if logo_path.exists():
+            return mpimg.imread(str(logo_path))
+        
+        return None
+    except Exception:
+        return None
+
 # Make colors available globally for the function
 home_color = st.session_state.home_color
 away_color = st.session_state.away_color
@@ -1390,6 +1403,10 @@ if events_data is not None:
             home_team_xg = metadata.get('homeTeamName') or metadata.get('homeTeam') or metadata.get('home') or 'Home'
             away_team_xg = metadata.get('awayTeamName') or metadata.get('awayTeam') or metadata.get('away') or 'Away'
             events_xg = events_data.get('data', []) if isinstance(events_data, dict) else []
+            
+            # Load team logos
+            home_logo = load_team_logo(home_team_xg)
+            away_logo = load_team_logo(away_team_xg)
 
             all_shots_xg = find_shot_events_xg(events_xg)
             home_shots_xg = sorted([s for s in all_shots_xg if s['team'] == home_team_xg], key=lambda x: x['time'])
@@ -1493,6 +1510,25 @@ if events_data is not None:
             ax_prob.spines['right'].set_visible(False)
             ax_prob.spines['left'].set_visible(False)
             ax_prob.spines['bottom'].set_visible(False)
+            
+            # Add team logos on both sides of the bar
+            logo_size = 0.08  # Size of the logo
+            logo_y_center = 0.0  # Center vertically with the bar
+            
+            # Home team logo (left side)
+            if home_logo is not None:
+                home_logo_x = bar_start - 8  # Position to the left of the bar
+                ax_prob.imshow(home_logo, extent=(home_logo_x - logo_size/2, home_logo_x + logo_size/2, 
+                                                logo_y_center - logo_size/2, logo_y_center + logo_size/2), 
+                              aspect='auto', zorder=10)
+            
+            # Away team logo (right side)
+            if away_logo is not None:
+                away_logo_x = bar_end + 8  # Position to the right of the bar
+                ax_prob.imshow(away_logo, extent=(away_logo_x - logo_size/2, away_logo_x + logo_size/2, 
+                                                logo_y_center - logo_size/2, logo_y_center + logo_size/2), 
+                              aspect='auto', zorder=10)
+            
             # Scoreboard above the probability bar
             home_goals_count = len([g for g in home_goals if not g['player'].endswith('(OG)')])
             away_goals_count = len([g for g in away_goals if not g['player'].endswith('(OG)')])
