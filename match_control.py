@@ -1461,7 +1461,7 @@ if events_data is not None:
             ax_plot = fig_xg.add_subplot(gs_xg[1])
 
             # Plot probability bar (much smaller)
-            prob_bar_height = 0.03  # Much shorter bar
+            prob_bar_height = 0.08  # Much shorter bar
             y_pos = [0]
             # Scale bar width to 50% of original (25-75 instead of 0-100)
             bar_width_scale = 0.5
