@@ -110,13 +110,13 @@ if os.path.exists(match_folder):
     for p in json_files:
         home, away, yyyymmdd = parse_teams_from_filename(p.name)
         # Only use filename-derived teams to avoid partial tokens from metadata
-        # Build friendly label like: "Home vs Away DD.MM.YYYY"
+        # Build friendly label like: "Home - Away DD-MM-YYYY"
         label = p.name
         if home and away and yyyymmdd and len(yyyymmdd) == 8:
             dd = yyyymmdd[6:8]
             mm = yyyymmdd[4:6]
             yyyy = yyyymmdd[0:4]
-            label = f"{home} vs {away} {dd}.{mm}.{yyyy}"
+            label = f"{home} - {away} {dd}-{mm}-{yyyy}"
         # Build canonical team map (case-insensitive dedupe)
         if home:
             key = home.strip().lower()
@@ -1460,8 +1460,8 @@ if events_data is not None:
             ax_prob = fig_xg.add_subplot(gs_xg[0])
             ax_plot = fig_xg.add_subplot(gs_xg[1])
 
-            # Plot probability bar
-            prob_bar_height = 0.5
+            # Plot probability bar (smaller)
+            prob_bar_height = 0.25
             y_pos = [0]
             ax_prob.barh(y_pos, [home_win_prob], color=home_color, height=prob_bar_height, label=f'{home_team_xg} Win ({home_win_prob:.1f}%)')
             ax_prob.barh(y_pos, [draw_prob], left=[home_win_prob], color='gray', height=prob_bar_height, label=f'Draw ({draw_prob:.1f}%)')
@@ -1492,31 +1492,16 @@ if events_data is not None:
             home_total_goals_display = home_goals_count + away_own_goals
             away_total_goals_display = away_goals_count + home_own_goals
 
-            scoreboard_text = f"{home_team_xg} {home_total_goals_display} - {away_total_goals_display} {away_team_xg}"
-            ax_prob.text(50, 0.3, scoreboard_text, ha='center', va='center', fontsize=14, fontweight='bold')
+            # Scoreboard rows aligned with smaller bar width (25-75)
+            # Row 1: Doelpunten (closer to bar)
+            ax_prob.text(25, 0.15, f"{home_total_goals_display}", ha='left', va='center', fontsize=10, fontweight='bold', color=home_color)
+            ax_prob.text(50, 0.15, "Doelpunten", ha='center', va='center', fontsize=9, color='gray')
+            ax_prob.text(75, 0.15, f"{away_total_goals_display}", ha='right', va='center', fontsize=10, fontweight='bold', color=away_color)
 
-            # Labels under probability segments
-            label_y = -0.18
-            if home_win_prob > 0:
-                ax_prob.text(home_win_prob/2, label_y, f"Winst {home_team_xg}", ha='center', va='center', fontsize=9, fontweight='bold', color='white')
-            if draw_prob > 0:
-                ax_prob.text(home_win_prob + draw_prob/2, label_y, "Gelijkspel", ha='center', va='center', fontsize=9, fontweight='bold', color='white')
-            if away_win_prob > 0:
-                ax_prob.text(home_win_prob + draw_prob + away_win_prob/2, label_y, f"Winst {away_team_xg}", ha='center', va='center', fontsize=9, fontweight='bold', color='white')
-
-            # Add "Simulated Match Outcome" below the bar
-            ax_prob.text(50, -0.3, "Verwacht resultaat o.b.v. kansen", ha='center', va='center', fontsize=10, fontweight='bold')
-
-            # Scoreboard rows aligned with bar width (0..100)
-            # Row 1: Doelpunten
-            ax_prob.text(0, 0.48, f"{home_total_goals_display}", ha='left', va='center', fontsize=11, fontweight='bold', color=home_color)
-            ax_prob.text(50, 0.48, "Doelpunten", ha='center', va='center', fontsize=10, color='gray')
-            ax_prob.text(100, 0.48, f"{away_total_goals_display}", ha='right', va='center', fontsize=11, fontweight='bold', color=away_color)
-
-            # Row 2: xG totals
-            ax_prob.text(0, 0.12, f"{home_total_xg:.2f}", ha='left', va='center', fontsize=11, fontweight='bold', color=home_color)
-            ax_prob.text(50, 0.12, "xG", ha='center', va='center', fontsize=10, color='gray')
-            ax_prob.text(100, 0.12, f"{away_total_xg:.2f}", ha='right', va='center', fontsize=11, fontweight='bold', color=away_color)
+            # Row 2: xG totals (right below Doelpunten)
+            ax_prob.text(25, 0.08, f"{home_total_xg:.2f}", ha='left', va='center', fontsize=10, fontweight='bold', color=home_color)
+            ax_prob.text(50, 0.08, "xG", ha='center', va='center', fontsize=9, color='gray')
+            ax_prob.text(75, 0.08, f"{away_total_xg:.2f}", ha='right', va='center', fontsize=10, fontweight='bold', color=away_color)
 
             # Plot cumulative xG lines
             ax_plot.step(home_times, home_cumulative, where='post', color=home_color, linewidth=2.5, label=home_team_xg)
