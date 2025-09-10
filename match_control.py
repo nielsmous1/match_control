@@ -10,7 +10,7 @@ import os
 from pathlib import Path
 
 # Page config
-st.set_page_config(page_title="Eredivisie 2025/2026 Data-Analyse", layout="wide")
+st.set_page_config(page_title="Match Control Analysis", layout="wide")
 
 # Initialize session state for colors
 if 'home_color' not in st.session_state:
@@ -1276,6 +1276,16 @@ if events_data is not None:
             ax_pitch.axis('off')
 
             st.pyplot(fig_shots)
+            import io
+            buf2 = io.BytesIO()
+            fig_shots.savefig(buf2, format='png', dpi=150, bbox_inches='tight')
+            buf2.seek(0)
+            st.download_button(
+                label="📥 Download",
+                data=buf2,
+                file_name=f"shot_map_{file_name.replace('.json', '')}.png",
+                mime="image/png"
+            )
 
         # ---------- xG Verloop Tab ----------
         def get_halftime_offset(events):
@@ -1472,22 +1482,30 @@ if events_data is not None:
             ax_prob.spines['right'].set_visible(False)
             ax_prob.spines['left'].set_visible(False)
             ax_prob.spines['bottom'].set_visible(False)
-            # Add team stats above the probability bar
+            # Scoreboard above the probability bar
             home_goals_count = len([g for g in home_goals if not g['player'].endswith('(OG)')])
             away_goals_count = len([g for g in away_goals if not g['player'].endswith('(OG)')])
             home_own_goals = len([g for g in home_goals if g['player'].endswith('(OG)')])
             away_own_goals = len([g for g in away_goals if g['player'].endswith('(OG)')])
-            
+
             # Total goals including own goals
             home_total_goals_display = home_goals_count + away_own_goals
             away_total_goals_display = away_goals_count + home_own_goals
-            
-            stats_text = f"{home_team_xg}: {home_total_goals_display} goals, {home_total_xg:.2f} xG  |  {away_team_xg}: {away_total_goals_display} goals, {away_total_xg:.2f} xG"
-            ax_prob.text(50, 0.3, stats_text, ha='center', va='center', fontsize=12, fontweight='bold', 
-                        bbox=dict(boxstyle='round,pad=0.5', facecolor='white', edgecolor='gray', alpha=0.9))
-            
+
+            scoreboard_text = f"{home_team_xg} {home_total_goals_display} - {away_total_goals_display} {away_team_xg}"
+            ax_prob.text(50, 0.3, scoreboard_text, ha='center', va='center', fontsize=14, fontweight='bold')
+
+            # Labels under probability segments
+            label_y = -0.18
+            if home_win_prob > 0:
+                ax_prob.text(home_win_prob/2, label_y, f"Winst {home_team_xg}", ha='center', va='center', fontsize=10, fontweight='bold')
+            if draw_prob > 0:
+                ax_prob.text(home_win_prob + draw_prob/2, label_y, "Gelijkspel", ha='center', va='center', fontsize=10, fontweight='bold')
+            if away_win_prob > 0:
+                ax_prob.text(home_win_prob + draw_prob + away_win_prob/2, label_y, f"Winst {away_team_xg}", ha='center', va='center', fontsize=10, fontweight='bold')
+
             # Add "Simulated Match Outcome" below the bar
-            ax_prob.text(50, -0.3, "Verwacht resultaat o.b.v. kansen", ha='center', va='center', fontsize=10, fontweight='bold')
+            ax_prob.text(50, -0.3, "Simulated Match Outcome", ha='center', va='center', fontsize=10, fontweight='bold')
 
             # Plot cumulative xG lines
             ax_plot.step(home_times, home_cumulative, where='post', color=home_color, linewidth=2.5, label=home_team_xg)
@@ -1560,11 +1578,24 @@ if events_data is not None:
             ax_plot.set_xticklabels(tick_labels)
             ax_plot.set_facecolor('#F8F8F8')
 
+            fig_xg.suptitle(f'Cumulative xG and Simulated Match Outcome Probability\n{home_team_xg} vs {away_team_xg}',
+                           fontsize=16, fontweight='bold', y=0.98)
 
             st.pyplot(fig_xg)
+            import io
+            buf3 = io.BytesIO()
+            fig_xg.savefig(buf3, format='png', dpi=150, bbox_inches='tight')
+            buf3.seek(0)
+            st.download_button(
+                label="📥 Download",
+                data=buf3,
+                file_name=f"xg_verloop_{file_name.replace('.json', '')}.png",
+                mime="image/png"
+            )
 
         # ---------- Eredivisie Tabel Tab ----------
         with tab4:
+            st.subheader("Eredivisie 2025/2026 Tabel")
             
             # Initialize league table data structure
             league_data = {}
@@ -1693,20 +1724,11 @@ if events_data is not None:
                         "GA": st.column_config.NumberColumn("Tegen", help="Doelpunten tegen"),
                         "xG": st.column_config.NumberColumn("xG", help="Expected Goals voor"),
                         "xGA": st.column_config.NumberColumn("xGA", help="Expected Goals tegen"),
-                        "GD": st.column_config.NumberColumn("DS", help="Doelsaldo"),
-                        "xGD": st.column_config.NumberColumn("xDS", help="Expected Goals saldo")
+                        "GD": st.column_config.NumberColumn("DV", help="Doelsaldo"),
+                        "xGD": st.column_config.NumberColumn("xDV", help="Expected Goals saldo")
                     }
                 )
-                
-                # Add some summary statistics
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.metric("Totaal Wedstrijden", len(files_info))
-                with col2:
-                    st.metric("Aantal Teams", len(league_data))
-                with col3:
-                    avg_matches = sum(stats['matches_played'] for stats in league_data.values()) / len(league_data) if league_data else 0
-                    st.metric("Gem. Wedstrijden per Team", f"{avg_matches:.1f}")
+                # Summary statistics removed per request
             else:
                 st.warning("Geen wedstrijddata gevonden voor de tabel.")
 else:
