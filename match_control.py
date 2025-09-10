@@ -1464,7 +1464,7 @@ if events_data is not None:
             prob_bar_height = 0.08  # Much shorter bar
             y_pos = [0]
             # Scale bar width to 50% of original (25-75 instead of 0-100)
-            bar_width_scale = 0.5
+            bar_width_scale = 0.2
             home_width_scaled = home_win_prob * bar_width_scale
             draw_width_scaled = draw_prob * bar_width_scale
             away_width_scaled = away_win_prob * bar_width_scale
