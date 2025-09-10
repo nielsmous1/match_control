@@ -116,7 +116,7 @@ if os.path.exists(match_folder):
             dd = yyyymmdd[6:8]
             mm = yyyymmdd[4:6]
             yyyy = yyyymmdd[0:4]
-            label = f"{home} - {away} {dd}-{mm}-{yyyy}"
+            label = f"{home} - {away}, {dd}-{mm}-{yyyy}"
         # Build canonical team map (case-insensitive dedupe)
         if home:
             key = home.strip().lower()
@@ -1486,7 +1486,7 @@ if events_data is not None:
                 ax_prob.text(bar_start + home_width_scaled + draw_width_scaled + away_width_scaled/2, 0, f'{away_win_prob:.1f}%', ha='center', va='center', color='white', fontweight='bold', fontsize=12)
 
             ax_prob.set_xlim(0, 100)
-            ax_prob.set_ylim(-prob_bar_height/2, prob_bar_height/2)
+            ax_prob.set_ylim(-0.15, 0.25)  # Fixed y-limits to show the actual bar height
             ax_prob.set_yticks([])
             ax_prob.set_xticks([])
             ax_prob.spines['top'].set_visible(False)
@@ -1722,6 +1722,7 @@ if events_data is not None:
                 st.dataframe(
                     df,
                     use_container_width=True,
+                    height=(len(df) + 1) * 35 + 3,  # Show all rows without scrolling
                     column_config={
                         "Team": st.column_config.TextColumn("Team", width="medium"),
                         "MP": st.column_config.NumberColumn("Wed", help="Wedstrijden gespeeld"),
