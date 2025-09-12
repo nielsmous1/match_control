@@ -1814,27 +1814,18 @@ if events_data is not None:
                     
                     # Time interval controls
                     st.subheader("Tijdsinterval Instellingen")
-                    col1, col2 = st.columns(2)
                     
-                    with col1:
-                        start_minute = st.slider(
-                            "Start minuut",
-                            min_value=0,
-                            max_value=120,
-                            value=0,
-                            step=1,
-                            help="Start van het te analyseren tijdsinterval"
-                        )
+                    # Dual range slider for time interval
+                    time_range = st.slider(
+                        "Selecteer tijdsinterval (minuten)",
+                        min_value=0,
+                        max_value=120,
+                        value=(0, 90),
+                        step=1,
+                        help="Sleep de handvatten om het tijdsinterval aan te passen"
+                    )
                     
-                    with col2:
-                        end_minute = st.slider(
-                            "Eind minuut", 
-                            min_value=0,
-                            max_value=120,
-                            value=90,
-                            step=1,
-                            help="Eind van het te analyseren tijdsinterval"
-                        )
+                    start_minute, end_minute = time_range
                     
                     # Ensure end_minute is greater than start_minute
                     if end_minute <= start_minute:
@@ -2120,19 +2111,9 @@ if events_data is not None:
                             start_minute, end_minute
                         )
 
-                        # Create figure with 4 subplots (2x2)
-                        fig_positions = plt.figure(figsize=(16, 12))
-                        gs_positions = gridspec.GridSpec(2, 2, hspace=0.3, wspace=0.2)
-
-                        # Plot configurations
-                        # Home team attacks from left to right in normalized view
-                        # Away team attacks from right to left in normalized view
-                        plot_configs = [
-                            (gs_positions[0, 0], home_in_possession, f'{home_team_pos} - Met Bal', home_color, 'left'),
-                            (gs_positions[0, 1], home_out_of_possession, f'{home_team_pos} - Zonder Bal', home_color, 'left'),
-                            (gs_positions[1, 0], away_in_possession, f'{away_team_pos} - Met Bal', away_color, 'right'),
-                            (gs_positions[1, 1], away_out_of_possession, f'{away_team_pos} - Zonder Bal', away_color, 'right')
-                        ]
+                        # Create figure with 2 subplots (1x2) - one for each possession phase
+                        fig_positions = plt.figure(figsize=(20, 10))
+                        gs_positions = gridspec.GridSpec(1, 2, hspace=0.2, wspace=0.1)
 
                         # Calculate minimum appearances threshold based on time window
                         if start_minute is not None and end_minute is not None:
@@ -2144,43 +2125,61 @@ if events_data is not None:
                             # For full game, use higher threshold
                             min_appearances = 20 # Higher threshold for positions
 
-                        for subplot_spec, positions, title, color, attacking_side in plot_configs:
-                            ax = fig_positions.add_subplot(subplot_spec)
-                            draw_pitch_positions(ax)
+                        # Plot 1: Home team in possession (left side)
+                        ax1 = fig_positions.add_subplot(gs_positions[0])
+                        draw_pitch_positions(ax1)
+                        ax1.set_title(f'{home_team_pos} - Met Bal', fontsize=16, fontweight='bold', pad=15)
 
-                            # Add title
-                            ax.set_title(title, fontsize=14, fontweight='bold', pad=10)
+                        # Filter and plot home team in possession
+                        filtered_home_in = {
+                            pid: pos for pid, pos in home_in_possession.items()
+                            if pos['appearances'] >= min_appearances
+                        }
 
-                            # Filter out players with very few appearances
-                            filtered_positions = {
-                                pid: pos for pid, pos in positions.items()
-                                if pos['appearances'] >= min_appearances
-                            }
+                        if filtered_home_in:
+                            for player_id, pos in filtered_home_in.items():
+                                x = pos['x']
+                                y = pos['y']
+                                # Home team always attacks left to right (no flipping needed)
+                                
+                                # Plot player position
+                                ax1.scatter(x, y, s=600, c=home_color, alpha=0.8,
+                                          edgecolors='white', linewidths=2, zorder=5)
 
-                            if filtered_positions:
-                                # Plot positions (coordinates are already normalized for half-time switch)
-                                for player_id, pos in filtered_positions.items():
-                                    x = pos['x']
-                                    y = pos['y']
+                                # Add shirt number
+                                shirt_number = pos.get('shirt', '?')
+                                ax1.text(x, y, str(shirt_number),
+                                       color='white', fontsize=11, fontweight='bold',
+                                       ha='center', va='center', zorder=6)
 
-                                    # Flip coordinates based on team's attacking direction
-                                    if attacking_side == 'left':
-                                        # Home team - already normalized to attack left to right
-                                        pass
-                                    else:
-                                        # Away team - flip to show attacking right to left
-                                        x = -x
-                                        y = -y
+                        # Plot 2: Away team in possession (right side)
+                        ax2 = fig_positions.add_subplot(gs_positions[1])
+                        draw_pitch_positions(ax2)
+                        ax2.set_title(f'{away_team_pos} - Met Bal', fontsize=16, fontweight='bold', pad=15)
 
-                                    # Plot player position
-                                    ax.scatter(x, y, s=500, c=color, alpha=0.7,
-                                              edgecolors='white', linewidths=2, zorder=5)
+                        # Filter and plot away team in possession
+                        filtered_away_in = {
+                            pid: pos for pid, pos in away_in_possession.items()
+                            if pos['appearances'] >= min_appearances
+                        }
 
-                                    # Add shirt number
-                                    shirt_number = pos.get('shirt', '?')
-                                    ax.text(x, y, str(shirt_number),
-                                           color='white', fontsize=10, fontweight='bold',
-                                           ha='center', va='center', zorder=6)
+                        if filtered_away_in:
+                            for player_id, pos in filtered_away_in.items():
+                                x = pos['x']
+                                y = pos['y']
+                                # Away team attacks right to left, so flip coordinates
+                                x = -x
+                                y = -y
+                                
+                                # Plot player position
+                                ax2.scatter(x, y, s=600, c=away_color, alpha=0.8,
+                                          edgecolors='white', linewidths=2, zorder=5)
+
+                                # Add shirt number
+                                shirt_number = pos.get('shirt', '?')
+                                ax2.text(x, y, str(shirt_number),
+                                       color='white', fontsize=11, fontweight='bold',
+                                       ha='center', va='center', zorder=6)
 
                         # Add main title with time range
                         if start_minute is not None and end_minute is not None:
@@ -2224,15 +2223,11 @@ if events_data is not None:
                         
                         # Player counts
                         st.write("**Aantal spelers per fase:**")
-                        col1, col2, col3, col4 = st.columns(4)
+                        col1, col2 = st.columns(2)
                         with col1:
                             st.write(f"**{home_team_pos} Met Bal:** {len(home_in_possession)}")
                         with col2:
-                            st.write(f"**{home_team_pos} Zonder Bal:** {len(home_out_of_possession)}")
-                        with col3:
                             st.write(f"**{away_team_pos} Met Bal:** {len(away_in_possession)}")
-                        with col4:
-                            st.write(f"**{away_team_pos} Zonder Bal:** {len(away_out_of_possession)}")
                         
                 except Exception as e:
                     st.error(f"Fout bij het laden van het positions bestand: {str(e)}")
@@ -2242,8 +2237,9 @@ if events_data is not None:
                 st.write("**Instructies:**")
                 st.write("1. Selecteer eerst een wedstrijd in de hoofdinterface")
                 st.write("2. Upload het bijbehorende positions.json bestand")
-                st.write("3. Stel het gewenste tijdsinterval in met de schuifbalken")
-                st.write("4. De analyse toont de gemiddelde posities van beide teams in en uit balbezit")
+                st.write("3. Stel het gewenste tijdsinterval in met de dubbele schuifbalk")
+                st.write("4. De analyse toont de gemiddelde posities van beide teams wanneer zij in balbezit zijn")
+                st.write("5. De thuisploeg valt altijd aan van links naar rechts")
 
 else:
     st.info("Please select a team and match on the main screen to begin analysis.")
