@@ -1991,9 +1991,78 @@ if events_data is not None:
 
                             return first_half_end_ms, second_half_start_ms
 
+                        def determine_coordinate_system(positions_data, events_data):
+                            """Determine if coordinates need to be flipped to ensure home team is on left"""
+                            events = events_data.get('data', [])
+                            frames = positions_data.get('data', [])
+                            
+                            # Find the first period start event to check initial positioning
+                            first_period_start = None
+                            for event in events:
+                                if (event.get('baseTypeId') == 14 and
+                                    event.get('subTypeId') == 1400 and
+                                    event.get('partId') == 1):
+                                    first_period_start = event.get('startTimeMs', 0)
+                                    break
+                            
+                            if first_period_start is None:
+                                return False  # Default to no flipping if we can't determine
+                            
+                            # Find a frame close to the start of the first period
+                            closest_frame = None
+                            min_time_diff = float('inf')
+                            
+                            for frame in frames:
+                                frame_time = frame.get('t', 0)
+                                time_diff = abs(frame_time - first_period_start)
+                                if time_diff < min_time_diff and time_diff < 30000:  # Within 30 seconds
+                                    min_time_diff = time_diff
+                                    closest_frame = frame
+                            
+                            if closest_frame is None:
+                                return False  # Default to no flipping if we can't find a frame
+                            
+                            # Check home team goalkeeper position
+                            home_players = closest_frame.get('h', [])
+                            away_players = closest_frame.get('a', [])
+                            
+                            home_gk_x = None
+                            away_gk_x = None
+                            
+                            # Find goalkeepers (usually shirt number 1 or lowest number)
+                            for player in home_players:
+                                shirt = player.get('s', '')
+                                if shirt == '1' or shirt == '01':  # Goalkeeper typically wears #1
+                                    home_gk_x = player.get('x', 0)
+                                    break
+                            
+                            for player in away_players:
+                                shirt = player.get('s', '')
+                                if shirt == '1' or shirt == '01':  # Goalkeeper typically wears #1
+                                    away_gk_x = player.get('x', 0)
+                                    break
+                            
+                            # If we can't find goalkeepers by shirt number, use the most extreme x positions
+                            if home_gk_x is None or away_gk_x is None:
+                                home_x_coords = [p.get('x', 0) for p in home_players]
+                                away_x_coords = [p.get('x', 0) for p in away_players]
+                                
+                                if home_x_coords and away_x_coords:
+                                    # Use the most extreme (furthest from center) x coordinates
+                                    home_gk_x = min(home_x_coords) if min(home_x_coords) < 0 else max(home_x_coords)
+                                    away_gk_x = min(away_x_coords) if min(away_x_coords) < 0 else max(away_x_coords)
+                            
+                            # If we still can't determine, default to no flipping
+                            if home_gk_x is None or away_gk_x is None:
+                                return False
+                            
+                            # Home team should be on the left (lower x coordinate)
+                            # If home GK is to the right of away GK, we need to flip coordinates
+                            return home_gk_x > away_gk_x
+
                         def calculate_average_positions(positions_data, events_data, possession_phases, home_team, away_team,
                                                        first_half_end_ms, second_half_start_ms,
-                                                       start_minute=None, end_minute=None):
+                                                       start_minute=None, end_minute=None, needs_initial_flip=False):
                             """Calculate average positions for each player at the time of passes"""
                             from collections import defaultdict
                             
@@ -2060,10 +2129,20 @@ if events_data is not None:
                                         x = player.get('x', 0)
                                         y = player.get('y', 0)
 
-                                        # Flip coordinates for second half (teams switch sides)
-                                        if is_second_half:
+                                        # Apply initial coordinate flip if needed (to ensure home team is on left)
+                                        if needs_initial_flip:
                                             x = -x
                                             y = -y
+
+                                        # Apply halftime coordinate flip
+                                        # If home team was on left in first half, flip for second half
+                                        # If home team was on right in first half (already flipped), don't flip for second half
+                                        if is_second_half:
+                                            if not needs_initial_flip:  # Home was on left in first half, flip for second half
+                                                x = -x
+                                                y = -y
+                                            # If needs_initial_flip is True, home was on right in first half, 
+                                            # so after halftime they'll be on left (no additional flip needed)
 
                                         if current_possession_team == home_team:
                                             positions[f'{home_team}_in_possession'][player_id]['x'].append(x)
@@ -2082,10 +2161,20 @@ if events_data is not None:
                                         x = player.get('x', 0)
                                         y = player.get('y', 0)
 
-                                        # Flip coordinates for second half (teams switch sides)
-                                        if is_second_half:
+                                        # Apply initial coordinate flip if needed (to ensure home team is on left)
+                                        if needs_initial_flip:
                                             x = -x
                                             y = -y
+
+                                        # Apply halftime coordinate flip
+                                        # If home team was on left in first half, flip for second half
+                                        # If home team was on right in first half (already flipped), don't flip for second half
+                                        if is_second_half:
+                                            if not needs_initial_flip:  # Home was on left in first half, flip for second half
+                                                x = -x
+                                                y = -y
+                                            # If needs_initial_flip is True, home was on right in first half, 
+                                            # so after halftime they'll be on left (no additional flip needed)
 
                                         if current_possession_team == away_team:
                                             positions[f'{away_team}_in_possession'][player_id]['x'].append(x)
@@ -2116,6 +2205,9 @@ if events_data is not None:
 
                         # Get half-time information
                         first_half_end_ms, second_half_start_ms = get_halftime_info(events_data)
+                        
+                        # Determine if we need to flip coordinates initially to ensure home team is on left
+                        needs_initial_flip = determine_coordinate_system(positions_data, events_data)
 
                         # Calculate positions for first period
                         possession_phases_1, home_team_pos, away_team_pos = determine_possession_phases(
@@ -2124,7 +2216,7 @@ if events_data is not None:
                         home_in_1, home_out_1, away_in_1, away_out_1 = calculate_average_positions(
                             positions_data, events_data, possession_phases_1, home_team_pos, away_team_pos,
                             first_half_end_ms, second_half_start_ms,
-                            start_minute_1, end_minute_1
+                            start_minute_1, end_minute_1, needs_initial_flip
                         )
 
                         # Calculate positions for second period
@@ -2134,7 +2226,7 @@ if events_data is not None:
                         home_in_2, home_out_2, away_in_2, away_out_2 = calculate_average_positions(
                             positions_data, events_data, possession_phases_2, home_team_pos, away_team_pos,
                             first_half_end_ms, second_half_start_ms,
-                            start_minute_2, end_minute_2
+                            start_minute_2, end_minute_2, needs_initial_flip
                         )
 
                         # Create figure with 4 subplots (2x2) - comparison view
@@ -2162,7 +2254,7 @@ if events_data is not None:
                                 for player_id, pos in filtered_home_in.items():
                                     x = pos['x']
                                     y = pos['y']
-                                    # Home team always attacks left to right (no flipping needed)
+                                    # Coordinates are already properly oriented (home team on left)
                                     
                                     # Plot player position
                                     ax.scatter(x, y, s=500, c=home_color, alpha=0.8,
@@ -2184,9 +2276,7 @@ if events_data is not None:
                                 for player_id, pos in filtered_away_out.items():
                                     x = pos['x']
                                     y = pos['y']
-                                    # Away team out of possession - flip coordinates so home keeper is on left
-                                    x = -x
-                                    y = -y
+                                    # Coordinates are already properly oriented (away team on right)
                                     
                                     # Plot player position
                                     ax.scatter(x, y, s=500, c=away_color, alpha=0.6,
@@ -2213,9 +2303,7 @@ if events_data is not None:
                                 for player_id, pos in filtered_away_in.items():
                                     x = pos['x']
                                     y = pos['y']
-                                    # Away team in possession - flip coordinates so they attack right to left
-                                    x = -x
-                                    y = -y
+                                    # Coordinates are already properly oriented (away team on right)
                                     
                                     # Plot player position
                                     ax.scatter(x, y, s=500, c=away_color, alpha=0.8,
@@ -2237,7 +2325,7 @@ if events_data is not None:
                                 for player_id, pos in filtered_home_out.items():
                                     x = pos['x']
                                     y = pos['y']
-                                    # Home team out of possession - no flipping needed, home keeper stays on left
+                                    # Coordinates are already properly oriented (home team on left)
                                     
                                     # Plot player position
                                     ax.scatter(x, y, s=500, c=home_color, alpha=0.6,
