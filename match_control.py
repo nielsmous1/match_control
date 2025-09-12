@@ -1815,21 +1815,39 @@ if events_data is not None:
                     # Time interval controls
                     st.subheader("Tijdsinterval Instellingen")
                     
-                    # Dual range slider for time interval
-                    time_range = st.slider(
-                        "Selecteer tijdsinterval (minuten)",
-                        min_value=0,
-                        max_value=120,
-                        value=(0, 90),
-                        step=1,
-                        help="Sleep de handvatten om het tijdsinterval aan te passen"
-                    )
+                    col1, col2 = st.columns(2)
                     
-                    start_minute, end_minute = time_range
+                    with col1:
+                        st.write("**Eerste Periode**")
+                        time_range_1 = st.slider(
+                            "Selecteer eerste tijdsinterval (minuten)",
+                            min_value=0,
+                            max_value=120,
+                            value=(0, 45),
+                            step=1,
+                            help="Sleep de handvatten om het eerste tijdsinterval aan te passen",
+                            key="time_range_1"
+                        )
+                        start_minute_1, end_minute_1 = time_range_1
                     
-                    # Ensure end_minute is greater than start_minute
-                    if end_minute <= start_minute:
-                        st.warning("Eind minuut moet groter zijn dan start minuut.")
+                    with col2:
+                        st.write("**Tweede Periode**")
+                        time_range_2 = st.slider(
+                            "Selecteer tweede tijdsinterval (minuten)",
+                            min_value=0,
+                            max_value=120,
+                            value=(45, 90),
+                            step=1,
+                            help="Sleep de handvatten om het tweede tijdsinterval aan te passen",
+                            key="time_range_2"
+                        )
+                        start_minute_2, end_minute_2 = time_range_2
+                    
+                    # Validation
+                    if end_minute_1 <= start_minute_1:
+                        st.warning("Eind minuut van eerste periode moet groter zijn dan start minuut.")
+                    elif end_minute_2 <= start_minute_2:
+                        st.warning("Eind minuut van tweede periode moet groter zijn dan start minuut.")
                     else:
                         # Get team names from events data
                         metadata = events_data.get('metaData', {}) if isinstance(events_data, dict) else {}
@@ -2099,102 +2117,167 @@ if events_data is not None:
                         # Get half-time information
                         first_half_end_ms, second_half_start_ms = get_halftime_info(events_data)
 
-                        # Determine possession phases
-                        possession_phases, home_team_pos, away_team_pos = determine_possession_phases(
-                            events_data, start_minute, end_minute
+                        # Calculate positions for first period
+                        possession_phases_1, home_team_pos, away_team_pos = determine_possession_phases(
+                            events_data, start_minute_1, end_minute_1
                         )
-
-                        # Calculate average positions with time filter
-                        home_in_possession, home_out_of_possession, away_in_possession, away_out_of_possession = calculate_average_positions(
-                            positions_data, events_data, possession_phases, home_team_pos, away_team_pos,
+                        home_in_1, home_out_1, away_in_1, away_out_1 = calculate_average_positions(
+                            positions_data, events_data, possession_phases_1, home_team_pos, away_team_pos,
                             first_half_end_ms, second_half_start_ms,
-                            start_minute, end_minute
+                            start_minute_1, end_minute_1
                         )
 
-                        # Create figure with 2 subplots (1x2) - one for each possession phase
-                        fig_positions = plt.figure(figsize=(20, 10))
-                        gs_positions = gridspec.GridSpec(1, 2, hspace=0.2, wspace=0.1)
+                        # Calculate positions for second period
+                        possession_phases_2, home_team_pos, away_team_pos = determine_possession_phases(
+                            events_data, start_minute_2, end_minute_2
+                        )
+                        home_in_2, home_out_2, away_in_2, away_out_2 = calculate_average_positions(
+                            positions_data, events_data, possession_phases_2, home_team_pos, away_team_pos,
+                            first_half_end_ms, second_half_start_ms,
+                            start_minute_2, end_minute_2
+                        )
 
-                        # Calculate minimum appearances threshold based on time window
-                        if start_minute is not None and end_minute is not None:
-                            # For specific time windows, use lower threshold
-                            time_window_minutes = end_minute - start_minute
-                            # Adjust threshold based on the duration and average events per minute
-                            min_appearances = max(1, int(time_window_minutes * 0.2)) # Lower threshold for positions
-                        else:
-                            # For full game, use higher threshold
-                            min_appearances = 20 # Higher threshold for positions
+                        # Create figure with 4 subplots (2x2) - comparison view
+                        fig_positions = plt.figure(figsize=(24, 16))
+                        gs_positions = gridspec.GridSpec(2, 2, hspace=0.3, wspace=0.15)
 
-                        # Plot 1: Home team in possession (left side)
+                        # Calculate minimum appearances threshold based on time windows
+                        time_window_1 = end_minute_1 - start_minute_1
+                        time_window_2 = end_minute_2 - start_minute_2
+                        min_appearances_1 = max(1, int(time_window_1 * 0.2))
+                        min_appearances_2 = max(1, int(time_window_2 * 0.2))
+
+                        def plot_team_positions(ax, home_in, home_out, away_in, away_out, title, min_appearances):
+                            """Helper function to plot team positions"""
+                            draw_pitch_positions(ax)
+                            ax.set_title(title, fontsize=14, fontweight='bold', pad=12)
+
+                            # Filter and plot home team in possession
+                            filtered_home_in = {
+                                pid: pos for pid, pos in home_in.items()
+                                if pos['appearances'] >= min_appearances
+                            }
+
+                            if filtered_home_in:
+                                for player_id, pos in filtered_home_in.items():
+                                    x = pos['x']
+                                    y = pos['y']
+                                    # Home team always attacks left to right (no flipping needed)
+                                    
+                                    # Plot player position
+                                    ax.scatter(x, y, s=500, c=home_color, alpha=0.8,
+                                              edgecolors='white', linewidths=2, zorder=5)
+
+                                    # Add shirt number
+                                    shirt_number = pos.get('shirt', '?')
+                                    ax.text(x, y, str(shirt_number),
+                                           color='white', fontsize=10, fontweight='bold',
+                                           ha='center', va='center', zorder=6)
+
+                            # Filter and plot away team out of possession
+                            filtered_away_out = {
+                                pid: pos for pid, pos in away_out.items()
+                                if pos['appearances'] >= min_appearances
+                            }
+
+                            if filtered_away_out:
+                                for player_id, pos in filtered_away_out.items():
+                                    x = pos['x']
+                                    y = pos['y']
+                                    # Away team out of possession - flip coordinates so home keeper is on left
+                                    x = -x
+                                    y = -y
+                                    
+                                    # Plot player position
+                                    ax.scatter(x, y, s=500, c=away_color, alpha=0.6,
+                                              edgecolors='white', linewidths=2, zorder=5)
+
+                                    # Add shirt number
+                                    shirt_number = pos.get('shirt', '?')
+                                    ax.text(x, y, str(shirt_number),
+                                           color='white', fontsize=10, fontweight='bold',
+                                           ha='center', va='center', zorder=6)
+
+                        def plot_away_possession(ax, home_in, home_out, away_in, away_out, title, min_appearances):
+                            """Helper function to plot away team possession"""
+                            draw_pitch_positions(ax)
+                            ax.set_title(title, fontsize=14, fontweight='bold', pad=12)
+
+                            # Filter and plot away team in possession
+                            filtered_away_in = {
+                                pid: pos for pid, pos in away_in.items()
+                                if pos['appearances'] >= min_appearances
+                            }
+
+                            if filtered_away_in:
+                                for player_id, pos in filtered_away_in.items():
+                                    x = pos['x']
+                                    y = pos['y']
+                                    # Away team in possession - flip coordinates so they attack right to left
+                                    x = -x
+                                    y = -y
+                                    
+                                    # Plot player position
+                                    ax.scatter(x, y, s=500, c=away_color, alpha=0.8,
+                                              edgecolors='white', linewidths=2, zorder=5)
+
+                                    # Add shirt number
+                                    shirt_number = pos.get('shirt', '?')
+                                    ax.text(x, y, str(shirt_number),
+                                           color='white', fontsize=10, fontweight='bold',
+                                           ha='center', va='center', zorder=6)
+
+                            # Filter and plot home team out of possession
+                            filtered_home_out = {
+                                pid: pos for pid, pos in home_out.items()
+                                if pos['appearances'] >= min_appearances
+                            }
+
+                            if filtered_home_out:
+                                for player_id, pos in filtered_home_out.items():
+                                    x = pos['x']
+                                    y = pos['y']
+                                    # Home team out of possession - no flipping needed, home keeper stays on left
+                                    
+                                    # Plot player position
+                                    ax.scatter(x, y, s=500, c=home_color, alpha=0.6,
+                                              edgecolors='white', linewidths=2, zorder=5)
+
+                                    # Add shirt number
+                                    shirt_number = pos.get('shirt', '?')
+                                    ax.text(x, y, str(shirt_number),
+                                           color='white', fontsize=10, fontweight='bold',
+                                           ha='center', va='center', zorder=6)
+
+                        # Plot 1: First period - Home team in possession
                         ax1 = fig_positions.add_subplot(gs_positions[0])
-                        draw_pitch_positions(ax1)
-                        ax1.set_title(f'{home_team_pos} - Met Bal', fontsize=16, fontweight='bold', pad=15)
+                        plot_team_positions(ax1, home_in_1, home_out_1, away_in_1, away_out_1, 
+                                          f'Eerste Periode ({start_minute_1}-{end_minute_1} min)\n{home_team_pos} Met Bal', 
+                                          min_appearances_1)
 
-                        # Filter and plot home team in possession
-                        filtered_home_in = {
-                            pid: pos for pid, pos in home_in_possession.items()
-                            if pos['appearances'] >= min_appearances
-                        }
-
-                        if filtered_home_in:
-                            for player_id, pos in filtered_home_in.items():
-                                x = pos['x']
-                                y = pos['y']
-                                # Home team always attacks left to right (no flipping needed)
-                                
-                                # Plot player position
-                                ax1.scatter(x, y, s=600, c=home_color, alpha=0.8,
-                                          edgecolors='white', linewidths=2, zorder=5)
-
-                                # Add shirt number
-                                shirt_number = pos.get('shirt', '?')
-                                ax1.text(x, y, str(shirt_number),
-                                       color='white', fontsize=11, fontweight='bold',
-                                       ha='center', va='center', zorder=6)
-
-                        # Plot 2: Away team in possession (right side)
+                        # Plot 2: First period - Away team in possession
                         ax2 = fig_positions.add_subplot(gs_positions[1])
-                        draw_pitch_positions(ax2)
-                        ax2.set_title(f'{away_team_pos} - Met Bal', fontsize=16, fontweight='bold', pad=15)
+                        plot_away_possession(ax2, home_in_1, home_out_1, away_in_1, away_out_1, 
+                                           f'Eerste Periode ({start_minute_1}-{end_minute_1} min)\n{away_team_pos} Met Bal', 
+                                           min_appearances_1)
 
-                        # Filter and plot away team in possession
-                        filtered_away_in = {
-                            pid: pos for pid, pos in away_in_possession.items()
-                            if pos['appearances'] >= min_appearances
-                        }
+                        # Plot 3: Second period - Home team in possession
+                        ax3 = fig_positions.add_subplot(gs_positions[2])
+                        plot_team_positions(ax3, home_in_2, home_out_2, away_in_2, away_out_2, 
+                                          f'Tweede Periode ({start_minute_2}-{end_minute_2} min)\n{home_team_pos} Met Bal', 
+                                          min_appearances_2)
 
-                        if filtered_away_in:
-                            for player_id, pos in filtered_away_in.items():
-                                x = pos['x']
-                                y = pos['y']
-                                # Away team attacks right to left, so flip coordinates
-                                x = -x
-                                y = -y
-                                
-                                # Plot player position
-                                ax2.scatter(x, y, s=600, c=away_color, alpha=0.8,
-                                          edgecolors='white', linewidths=2, zorder=5)
+                        # Plot 4: Second period - Away team in possession
+                        ax4 = fig_positions.add_subplot(gs_positions[3])
+                        plot_away_possession(ax4, home_in_2, home_out_2, away_in_2, away_out_2, 
+                                           f'Tweede Periode ({start_minute_2}-{end_minute_2} min)\n{away_team_pos} Met Bal', 
+                                           min_appearances_2)
 
-                                # Add shirt number
-                                shirt_number = pos.get('shirt', '?')
-                                ax2.text(x, y, str(shirt_number),
-                                       color='white', fontsize=11, fontweight='bold',
-                                       ha='center', va='center', zorder=6)
+                        # Add main title
+                        fig_positions.suptitle(f'Positie Vergelijking: {home_team_pos} vs {away_team_pos}\nEerste Periode ({start_minute_1}-{end_minute_1} min) vs Tweede Periode ({start_minute_2}-{end_minute_2} min)',
+                                            fontsize=18, fontweight='bold')
 
-                        # Add main title with time range
-                        if start_minute is not None and end_minute is not None:
-                            time_range = f' (Minuut {start_minute}-{end_minute})'
-                        elif start_minute is not None:
-                            time_range = f' (From minute {start_minute})'
-                        elif end_minute is not None:
-                            time_range = f' (Until minute {end_minute})'
-                        else:
-                            time_range = ' (Full Match)'
-
-                        fig_positions.suptitle(f'Average Positions Analysis{time_range}\n{home_team_pos} vs {away_team_pos}',
-                                            fontsize=16, fontweight='bold')
-
-                        plt.tight_layout(rect=[0, 0, 1, 0.96])
+                        plt.tight_layout(rect=[0, 0, 1, 0.95])
 
                         st.pyplot(fig_positions)
                         
@@ -2204,42 +2287,69 @@ if events_data is not None:
                         fig_positions.savefig(buf_positions, format='png', dpi=300, bbox_inches='tight')
                         buf_positions.seek(0)
                         st.download_button(
-                            label="📥 Download Posities Plot",
+                            label="📥 Download Positie Vergelijking",
                             data=buf_positions,
-                            file_name=f"average_positions_{start_minute}_{end_minute}_{file_name.replace('.json', '')}.png",
+                            file_name=f"position_comparison_{start_minute_1}_{end_minute_1}_vs_{start_minute_2}_{end_minute_2}_{file_name.replace('.json', '')}.png",
                             mime="image/png"
                         )
                         
                         # Display statistics
-                        st.subheader("Analyse Statistieken")
+                        st.subheader("Vergelijkings Statistieken")
+                        
+                        # First period stats
+                        st.write("**Eerste Periode Statistieken:**")
                         col1, col2, col3 = st.columns(3)
-                        
                         with col1:
-                            st.metric("Positie Fases", len(possession_phases))
+                            st.metric("Positie Fases", len(possession_phases_1))
                         with col2:
-                            st.metric("Tijdsinterval", f"{start_minute}-{end_minute} min")
+                            st.metric("Tijdsinterval", f"{start_minute_1}-{end_minute_1} min")
                         with col3:
-                            st.metric("Min. Appearances", min_appearances)
+                            st.metric("Min. Appearances", min_appearances_1)
                         
-                        # Player counts
-                        st.write("**Aantal spelers per fase:**")
+                        # Second period stats
+                        st.write("**Tweede Periode Statistieken:**")
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            st.metric("Positie Fases", len(possession_phases_2))
+                        with col2:
+                            st.metric("Tijdsinterval", f"{start_minute_2}-{end_minute_2} min")
+                        with col3:
+                            st.metric("Min. Appearances", min_appearances_2)
+                        
+                        # Player counts comparison
+                        st.write("**Aantal spelers per periode:**")
                         col1, col2 = st.columns(2)
                         with col1:
-                            st.write(f"**{home_team_pos} Met Bal:** {len(home_in_possession)}")
+                            st.write(f"**Eerste Periode ({start_minute_1}-{end_minute_1} min):**")
+                            st.write(f"  • {home_team_pos} Met Bal: {len(home_in_1)} spelers")
+                            st.write(f"  • {home_team_pos} Zonder Bal: {len(home_out_1)} spelers")
+                            st.write(f"  • {away_team_pos} Met Bal: {len(away_in_1)} spelers")
+                            st.write(f"  • {away_team_pos} Zonder Bal: {len(away_out_1)} spelers")
                         with col2:
-                            st.write(f"**{away_team_pos} Met Bal:** {len(away_in_possession)}")
+                            st.write(f"**Tweede Periode ({start_minute_2}-{end_minute_2} min):**")
+                            st.write(f"  • {home_team_pos} Met Bal: {len(home_in_2)} spelers")
+                            st.write(f"  • {home_team_pos} Zonder Bal: {len(home_out_2)} spelers")
+                            st.write(f"  • {away_team_pos} Met Bal: {len(away_in_2)} spelers")
+                            st.write(f"  • {away_team_pos} Zonder Bal: {len(away_out_2)} spelers")
                         
                 except Exception as e:
                     st.error(f"Fout bij het laden van het positions bestand: {str(e)}")
                     st.write("Zorg ervoor dat het bestand een geldig positions.json bestand is.")
             else:
-                st.info("Upload een positions.json bestand om de gemiddelde posities te analyseren.")
+                st.info("Upload een positions.json bestand om de gemiddelde posities te vergelijken tussen twee tijdsintervallen.")
                 st.write("**Instructies:**")
                 st.write("1. Selecteer eerst een wedstrijd in de hoofdinterface")
                 st.write("2. Upload het bijbehorende positions.json bestand")
-                st.write("3. Stel het gewenste tijdsinterval in met de dubbele schuifbalk")
-                st.write("4. De analyse toont de gemiddelde posities van beide teams wanneer zij in balbezit zijn")
-                st.write("5. De thuisploeg valt altijd aan van links naar rechts")
+                st.write("3. Stel twee tijdsintervallen in voor vergelijking:")
+                st.write("   • Eerste Periode: bijvoorbeeld 0-20 minuten")
+                st.write("   • Tweede Periode: bijvoorbeeld 20-40 minuten")
+                st.write("4. De analyse toont 4 plots in vergelijkingsformaat:")
+                st.write("   • Boven-links: Eerste periode - Thuisploeg met bal")
+                st.write("   • Boven-rechts: Eerste periode - Uitploeg met bal")
+                st.write("   • Onder-links: Tweede periode - Thuisploeg met bal")
+                st.write("   • Onder-rechts: Tweede periode - Uitploeg met bal")
+                st.write("5. Elke plot toont beide teams (met en zonder bal)")
+                st.write("6. De thuisploeg keeper staat altijd aan de linkerkant van het veld")
 
 else:
     st.info("Please select a team and match on the main screen to begin analysis.")
