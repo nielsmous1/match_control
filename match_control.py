@@ -1032,7 +1032,7 @@ if events_data is not None:
             None
         )
 
-        tab1, tab2, tab3, tab4 = st.tabs(["Controle & Gevaar", "Schoten", "xG Verloop", "Eredivisie Tabel"])
+        tab1, tab2, tab3, tab4, tab5 = st.tabs(["Controle & Gevaar", "Schoten", "xG Verloop", "Eredivisie Tabel", "Gemiddelde Posities"])
 
         with tab1:
             st.pyplot(fig)
@@ -1794,6 +1794,457 @@ if events_data is not None:
                 # Summary statistics removed per request
             else:
                 st.warning("Geen wedstrijddata gevonden voor de tabel.")
+
+        # ---------- Average Positions Tab ----------
+        with tab5:
+            st.subheader("Gemiddelde Posities Analyse")
+            st.write("Upload een positions.json bestand om de gemiddelde posities van teams in en uit balbezit te analyseren.")
+            
+            # File upload for positions data
+            positions_file = st.file_uploader(
+                "Upload positions.json bestand",
+                type=['json'],
+                help="Upload het positions.json bestand voor de geselecteerde wedstrijd"
+            )
+            
+            if positions_file is not None:
+                try:
+                    # Load positions data
+                    positions_data = json.load(positions_file)
+                    
+                    # Time interval controls
+                    st.subheader("Tijdsinterval Instellingen")
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        start_minute = st.slider(
+                            "Start minuut",
+                            min_value=0,
+                            max_value=120,
+                            value=0,
+                            step=1,
+                            help="Start van het te analyseren tijdsinterval"
+                        )
+                    
+                    with col2:
+                        end_minute = st.slider(
+                            "Eind minuut", 
+                            min_value=0,
+                            max_value=120,
+                            value=90,
+                            step=1,
+                            help="Eind van het te analyseren tijdsinterval"
+                        )
+                    
+                    # Ensure end_minute is greater than start_minute
+                    if end_minute <= start_minute:
+                        st.warning("Eind minuut moet groter zijn dan start minuut.")
+                    else:
+                        # Get team names from events data
+                        metadata = events_data.get('metaData', {}) if isinstance(events_data, dict) else {}
+                        home_team_pos = metadata.get('homeTeamName') or metadata.get('homeTeam') or metadata.get('home') or 'Home'
+                        away_team_pos = metadata.get('awayTeamName') or metadata.get('awayTeam') or metadata.get('away') or 'Away'
+                        
+                        # Import the average positions functions
+                        def draw_pitch_positions(ax):
+                            """Draw a football pitch with meter-based coordinates"""
+                            # Pitch outline (105m x 68m, centered at 0,0)
+                            pitch = patches.Rectangle((-52.5, -34), 105, 68, linewidth=2,
+                                                     edgecolor='gray', facecolor='#2A5A2A')
+                            ax.add_patch(pitch)
+
+                            # Center line
+                            ax.plot([0, 0], [-34, 34], 'white', linestyle='-', linewidth=2)
+
+                            # Center circle
+                            center_circle = patches.Circle((0, 0), 9.15, linewidth=2,
+                                                         edgecolor='white', fill=False)
+                            ax.add_patch(center_circle)
+
+                            # Penalty areas
+                            left_penalty = patches.Rectangle((-52.5, -20.16), 16.5, 40.32,
+                                                           linewidth=2, edgecolor='white', fill=False)
+                            ax.add_patch(left_penalty)
+
+                            right_penalty = patches.Rectangle((36, -20.16), 16.5, 40.32,
+                                                            linewidth=2, edgecolor='white', fill=False)
+                            ax.add_patch(right_penalty)
+
+                            # 6-yard boxes
+                            left_goal_area = patches.Rectangle((-52.5, -9.18), 5.5, 18.36,
+                                                             linewidth=2, edgecolor='white', fill=False)
+                            ax.add_patch(left_goal_area)
+
+                            right_goal_area = patches.Rectangle((47, -9.18), 5.5, 18.36,
+                                                              linewidth=2, edgecolor='white', fill=False)
+                            ax.add_patch(right_goal_area)
+
+                            # Goals
+                            left_goal = patches.Rectangle((-54.5, -3.66), 2, 7.32,
+                                                        linewidth=2, edgecolor='white', fill=False)
+                            ax.add_patch(left_goal)
+
+                            right_goal = patches.Rectangle((52.5, -3.66), 2, 7.32,
+                                                         linewidth=2, edgecolor='white', fill=False)
+                            ax.add_patch(right_goal)
+
+                            # Set axis properties
+                            ax.set_xlim(-56, 56)
+                            ax.set_ylim(-36, 36)
+                            ax.set_aspect('equal')
+                            ax.axis('off')
+
+                        def determine_possession_phases(events_data, start_minute=None, end_minute=None):
+                            """Determine possession phases from events data based on passes"""
+                            events = events_data.get('data', [])
+                            metadata = events_data.get('metaData', {})
+                            home_team = metadata.get('homeTeamName', 'Home')
+                            away_team = metadata.get('awayTeamName', 'Away')
+
+                            # Convert minute filters to milliseconds
+                            start_ms = start_minute * 60 * 1000 if start_minute is not None else 0
+                            end_ms = end_minute * 60 * 1000 if end_minute is not None else float('inf')
+
+                            possession_phases = []
+                            current_possession = None
+                            start_time = start_ms
+
+                            # Only consider passes for possession
+                            PASS_BASE_TYPE_ID = 1
+
+                            # Sort events by time
+                            events = sorted(events, key=lambda x: x.get('startTimeMs', 0))
+
+                            for event in events:
+                                event_team = event.get('teamName', '')
+                                event_time = event.get('startTimeMs', 0)
+                                base_type_id = event.get('baseTypeId')
+
+                                # Skip events outside the time window
+                                if event_time < start_ms or event_time > end_ms:
+                                    continue
+
+                                # Check if this event is a pass
+                                is_pass = base_type_id == PASS_BASE_TYPE_ID
+
+                                if is_pass and event_team:
+                                    if current_possession != event_team:
+                                        # Possession changed
+                                        if current_possession is not None:
+                                            # Save the previous possession phase
+                                            possession_phases.append({
+                                                'team': current_possession,
+                                                'start': start_time,
+                                                'end': event_time
+                                            })
+
+                                        # Start new possession phase
+                                        current_possession = event_team
+                                        start_time = event_time
+
+                            # Add the last possession phase
+                            if current_possession is not None:
+                                # Find the last event time within our window
+                                last_time = start_time
+                                for event in events:
+                                    event_time = event.get('startTimeMs', 0)
+                                    if start_ms <= event_time <= end_ms:
+                                        last_time = max(last_time, event_time)
+
+                                possession_phases.append({
+                                    'team': current_possession,
+                                    'start': start_time,
+                                    'end': min(last_time, end_ms)
+                                })
+
+                            return possession_phases, home_team, away_team
+
+                        def get_halftime_info(events_data):
+                            """Get information about half-time from events data"""
+                            events = events_data.get('data', [])
+
+                            # Find the end of first half and start of second half
+                            first_half_end_ms = 45 * 60 * 1000  # Default to 45 minutes
+                            second_half_start_ms = 45 * 60 * 1000  # Default
+
+                            for event in events:
+                                # Look for Period End of first half
+                                if (event.get('baseTypeId') == 14 and
+                                    event.get('subTypeId') == 1401 and
+                                    event.get('partId') == 1):
+                                    first_half_end_ms = event.get('startTimeMs', first_half_end_ms)
+
+                                # Look for Period Start of second half
+                                if (event.get('baseTypeId') == 14 and
+                                    event.get('subTypeId') == 1400 and
+                                    event.get('partId') == 2):
+                                    second_half_start_ms = event.get('startTimeMs', second_half_start_ms)
+
+                            return first_half_end_ms, second_half_start_ms
+
+                        def calculate_average_positions(positions_data, events_data, possession_phases, home_team, away_team,
+                                                       first_half_end_ms, second_half_start_ms,
+                                                       start_minute=None, end_minute=None):
+                            """Calculate average positions for each player at the time of passes"""
+                            from collections import defaultdict
+                            
+                            frames = positions_data.get('data', [])
+                            events = events_data.get('data', [])
+
+                            # Convert minute filters to milliseconds
+                            start_ms = start_minute * 60 * 1000 if start_minute is not None else 0
+                            end_ms = end_minute * 60 * 1000 if end_minute is not None else float('inf')
+
+                            # Initialize position accumulators for both in and out of possession
+                            positions = {
+                                f'{home_team}_in_possession': defaultdict(lambda: {'x': [], 'y': [], 'shirt': None}),
+                                f'{away_team}_in_possession': defaultdict(lambda: {'x': [], 'y': [], 'shirt': None}),
+                                f'{home_team}_out_of_possession': defaultdict(lambda: {'x': [], 'y': [], 'shirt': None}),
+                                f'{away_team}_out_of_possession': defaultdict(lambda: {'x': [], 'y': [], 'shirt': None})
+                            }
+
+                            # Create a mapping of timestamp to frame data for quick lookup
+                            frame_map = {frame.get('t', 0): frame for frame in frames}
+
+                            # Sort frames by time
+                            sorted_frames = sorted(frames, key=lambda x: x.get('t', 0))
+
+                            # Determine possession at each frame's timestamp
+                            possession_at_frame = {}
+                            possession_index = 0
+                            for frame in sorted_frames:
+                                frame_time = frame.get('t', 0)
+                                # Find the possession phase that this frame's time falls into
+                                while possession_index < len(possession_phases) and \
+                                      possession_phases[possession_index]['end'] < frame_time:
+                                    possession_index += 1
+
+                                if possession_index < len(possession_phases) and \
+                                   possession_phases[possession_index]['start'] <= frame_time <= possession_phases[possession_index]['end']:
+                                    possession_at_frame[frame_time] = possession_phases[possession_index]['team']
+                                else:
+                                    # If a frame doesn't fall cleanly into a phase, assume the previous phase continues
+                                    # This is a simplification, but handles gaps
+                                    if possession_index > 0:
+                                        possession_at_frame[frame_time] = possession_phases[possession_index - 1]['team']
+                                    else:
+                                        possession_at_frame[frame_time] = None # No possession information yet
+
+                            # Process each frame
+                            for frame in sorted_frames:
+                                frame_time = frame.get('t', 0)
+
+                                # Skip frames outside the time window
+                                if frame_time < start_ms or frame_time > end_ms:
+                                    continue
+
+                                current_possession_team = possession_at_frame.get(frame_time)
+
+                                # Determine if we're in second half for coordinate flipping
+                                is_second_half = frame_time >= second_half_start_ms
+
+                                # Process home team players in this frame
+                                home_players = frame.get('h', [])
+                                for player in home_players:
+                                    player_id = player.get('p')
+                                    if player_id:
+                                        x = player.get('x', 0)
+                                        y = player.get('y', 0)
+
+                                        # Flip coordinates for second half (teams switch sides)
+                                        if is_second_half:
+                                            x = -x
+                                            y = -y
+
+                                        if current_possession_team == home_team:
+                                            positions[f'{home_team}_in_possession'][player_id]['x'].append(x)
+                                            positions[f'{home_team}_in_possession'][player_id]['y'].append(y)
+                                            positions[f'{home_team}_in_possession'][player_id]['shirt'] = player.get('s', '')
+                                        elif current_possession_team == away_team:
+                                            positions[f'{home_team}_out_of_possession'][player_id]['x'].append(x)
+                                            positions[f'{home_team}_out_of_possession'][player_id]['y'].append(y)
+                                            positions[f'{home_team}_out_of_possession'][player_id]['shirt'] = player.get('s', '')
+
+                                # Process away team players in this frame
+                                away_players = frame.get('a', [])
+                                for player in away_players:
+                                    player_id = player.get('p')
+                                    if player_id:
+                                        x = player.get('x', 0)
+                                        y = player.get('y', 0)
+
+                                        # Flip coordinates for second half (teams switch sides)
+                                        if is_second_half:
+                                            x = -x
+                                            y = -y
+
+                                        if current_possession_team == away_team:
+                                            positions[f'{away_team}_in_possession'][player_id]['x'].append(x)
+                                            positions[f'{away_team}_in_possession'][player_id]['y'].append(y)
+                                            positions[f'{away_team}_in_possession'][player_id]['shirt'] = player.get('s', '')
+                                        elif current_possession_team == home_team:
+                                            positions[f'{away_team}_out_of_possession'][player_id]['x'].append(x)
+                                            positions[f'{away_team}_out_of_possession'][player_id]['y'].append(y)
+                                            positions[f'{away_team}_out_of_possession'][player_id]['shirt'] = player.get('s', '')
+
+                            # Calculate averages
+                            average_positions = {}
+                            for phase_key, players in positions.items():
+                                average_positions[phase_key] = {}
+                                for player_id, coords in players.items():
+                                    if coords['x'] and coords['y']:
+                                        average_positions[phase_key][player_id] = {
+                                            'x': np.mean(coords['x']),
+                                            'y': np.mean(coords['y']),
+                                            'shirt': coords['shirt'],
+                                            'appearances': len(coords['x'])
+                                        }
+
+                            return (average_positions[f'{home_team}_in_possession'],
+                                    average_positions[f'{home_team}_out_of_possession'],
+                                    average_positions[f'{away_team}_in_possession'],
+                                    average_positions[f'{away_team}_out_of_possession'])
+
+                        # Get half-time information
+                        first_half_end_ms, second_half_start_ms = get_halftime_info(events_data)
+
+                        # Determine possession phases
+                        possession_phases, home_team_pos, away_team_pos = determine_possession_phases(
+                            events_data, start_minute, end_minute
+                        )
+
+                        # Calculate average positions with time filter
+                        home_in_possession, home_out_of_possession, away_in_possession, away_out_of_possession = calculate_average_positions(
+                            positions_data, events_data, possession_phases, home_team_pos, away_team_pos,
+                            first_half_end_ms, second_half_start_ms,
+                            start_minute, end_minute
+                        )
+
+                        # Create figure with 4 subplots (2x2)
+                        fig_positions = plt.figure(figsize=(16, 12))
+                        gs_positions = gridspec.GridSpec(2, 2, hspace=0.3, wspace=0.2)
+
+                        # Plot configurations
+                        # Home team attacks from left to right in normalized view
+                        # Away team attacks from right to left in normalized view
+                        plot_configs = [
+                            (gs_positions[0, 0], home_in_possession, f'{home_team_pos} - Met Bal', home_color, 'left'),
+                            (gs_positions[0, 1], home_out_of_possession, f'{home_team_pos} - Zonder Bal', home_color, 'left'),
+                            (gs_positions[1, 0], away_in_possession, f'{away_team_pos} - Met Bal', away_color, 'right'),
+                            (gs_positions[1, 1], away_out_of_possession, f'{away_team_pos} - Zonder Bal', away_color, 'right')
+                        ]
+
+                        # Calculate minimum appearances threshold based on time window
+                        if start_minute is not None and end_minute is not None:
+                            # For specific time windows, use lower threshold
+                            time_window_minutes = end_minute - start_minute
+                            # Adjust threshold based on the duration and average events per minute
+                            min_appearances = max(1, int(time_window_minutes * 0.2)) # Lower threshold for positions
+                        else:
+                            # For full game, use higher threshold
+                            min_appearances = 20 # Higher threshold for positions
+
+                        for subplot_spec, positions, title, color, attacking_side in plot_configs:
+                            ax = fig_positions.add_subplot(subplot_spec)
+                            draw_pitch_positions(ax)
+
+                            # Add title
+                            ax.set_title(title, fontsize=14, fontweight='bold', pad=10)
+
+                            # Filter out players with very few appearances
+                            filtered_positions = {
+                                pid: pos for pid, pos in positions.items()
+                                if pos['appearances'] >= min_appearances
+                            }
+
+                            if filtered_positions:
+                                # Plot positions (coordinates are already normalized for half-time switch)
+                                for player_id, pos in filtered_positions.items():
+                                    x = pos['x']
+                                    y = pos['y']
+
+                                    # Flip coordinates based on team's attacking direction
+                                    if attacking_side == 'left':
+                                        # Home team - already normalized to attack left to right
+                                        pass
+                                    else:
+                                        # Away team - flip to show attacking right to left
+                                        x = -x
+                                        y = -y
+
+                                    # Plot player position
+                                    ax.scatter(x, y, s=500, c=color, alpha=0.7,
+                                              edgecolors='white', linewidths=2, zorder=5)
+
+                                    # Add shirt number
+                                    shirt_number = pos.get('shirt', '?')
+                                    ax.text(x, y, str(shirt_number),
+                                           color='white', fontsize=10, fontweight='bold',
+                                           ha='center', va='center', zorder=6)
+
+                        # Add main title with time range
+                        if start_minute is not None and end_minute is not None:
+                            time_range = f' (Minuut {start_minute}-{end_minute})'
+                        elif start_minute is not None:
+                            time_range = f' (From minute {start_minute})'
+                        elif end_minute is not None:
+                            time_range = f' (Until minute {end_minute})'
+                        else:
+                            time_range = ' (Full Match)'
+
+                        fig_positions.suptitle(f'Average Positions Analysis{time_range}\n{home_team_pos} vs {away_team_pos}',
+                                            fontsize=16, fontweight='bold')
+
+                        plt.tight_layout(rect=[0, 0, 1, 0.96])
+
+                        st.pyplot(fig_positions)
+                        
+                        # Download button
+                        import io
+                        buf_positions = io.BytesIO()
+                        fig_positions.savefig(buf_positions, format='png', dpi=300, bbox_inches='tight')
+                        buf_positions.seek(0)
+                        st.download_button(
+                            label="📥 Download Posities Plot",
+                            data=buf_positions,
+                            file_name=f"average_positions_{start_minute}_{end_minute}_{file_name.replace('.json', '')}.png",
+                            mime="image/png"
+                        )
+                        
+                        # Display statistics
+                        st.subheader("Analyse Statistieken")
+                        col1, col2, col3 = st.columns(3)
+                        
+                        with col1:
+                            st.metric("Positie Fases", len(possession_phases))
+                        with col2:
+                            st.metric("Tijdsinterval", f"{start_minute}-{end_minute} min")
+                        with col3:
+                            st.metric("Min. Appearances", min_appearances)
+                        
+                        # Player counts
+                        st.write("**Aantal spelers per fase:**")
+                        col1, col2, col3, col4 = st.columns(4)
+                        with col1:
+                            st.write(f"**{home_team_pos} Met Bal:** {len(home_in_possession)}")
+                        with col2:
+                            st.write(f"**{home_team_pos} Zonder Bal:** {len(home_out_of_possession)}")
+                        with col3:
+                            st.write(f"**{away_team_pos} Met Bal:** {len(away_in_possession)}")
+                        with col4:
+                            st.write(f"**{away_team_pos} Zonder Bal:** {len(away_out_of_possession)}")
+                        
+                except Exception as e:
+                    st.error(f"Fout bij het laden van het positions bestand: {str(e)}")
+                    st.write("Zorg ervoor dat het bestand een geldig positions.json bestand is.")
+            else:
+                st.info("Upload een positions.json bestand om de gemiddelde posities te analyseren.")
+                st.write("**Instructies:**")
+                st.write("1. Selecteer eerst een wedstrijd in de hoofdinterface")
+                st.write("2. Upload het bijbehorende positions.json bestand")
+                st.write("3. Stel het gewenste tijdsinterval in met de schuifbalken")
+                st.write("4. De analyse toont de gemiddelde posities van beide teams in en uit balbezit")
+
 else:
     st.info("Please select a team and match on the main screen to begin analysis.")
     
