@@ -2279,7 +2279,7 @@ if events_data is not None:
                                     # Coordinates are already properly oriented (away team on right)
                                     
                                     # Plot player position
-                                    ax.scatter(x, y, s=500, c=away_color, alpha=0.6,
+                                    ax.scatter(x, y, s=500, c=away_color, alpha=0.8,
                                               edgecolors='white', linewidths=2, zorder=5)
 
                                     # Add shirt number
@@ -2328,7 +2328,7 @@ if events_data is not None:
                                     # Coordinates are already properly oriented (home team on left)
                                     
                                     # Plot player position
-                                    ax.scatter(x, y, s=500, c=home_color, alpha=0.6,
+                                    ax.scatter(x, y, s=500, c=home_color, alpha=0.8,
                                               edgecolors='white', linewidths=2, zorder=5)
 
                                     # Add shirt number
@@ -2340,32 +2340,28 @@ if events_data is not None:
                         # Plot 1: First period - Home team in possession
                         ax1 = fig_positions.add_subplot(gs_positions[0])
                         plot_team_positions(ax1, home_in_1, home_out_1, away_in_1, away_out_1, 
-                                          f'Eerste Periode ({start_minute_1}-{end_minute_1} min)\n{home_team_pos} Met Bal', 
+                                          f'{start_minute_1}-{end_minute_1} min\nBalbezit {home_team_pos}', 
                                           min_appearances_1)
 
                         # Plot 2: First period - Away team in possession
                         ax2 = fig_positions.add_subplot(gs_positions[1])
                         plot_away_possession(ax2, home_in_1, home_out_1, away_in_1, away_out_1, 
-                                           f'Eerste Periode ({start_minute_1}-{end_minute_1} min)\n{away_team_pos} Met Bal', 
+                                           f'{start_minute_1}-{end_minute_1} min\nBalbezit {away_team_pos}', 
                                            min_appearances_1)
 
                         # Plot 3: Second period - Home team in possession
                         ax3 = fig_positions.add_subplot(gs_positions[2])
                         plot_team_positions(ax3, home_in_2, home_out_2, away_in_2, away_out_2, 
-                                          f'Tweede Periode ({start_minute_2}-{end_minute_2} min)\n{home_team_pos} Met Bal', 
+                                          f'{start_minute_2}-{end_minute_2} min\nBalbezit {home_team_pos}', 
                                           min_appearances_2)
 
                         # Plot 4: Second period - Away team in possession
                         ax4 = fig_positions.add_subplot(gs_positions[3])
                         plot_away_possession(ax4, home_in_2, home_out_2, away_in_2, away_out_2, 
-                                           f'Tweede Periode ({start_minute_2}-{end_minute_2} min)\n{away_team_pos} Met Bal', 
+                                           f'{start_minute_2}-{end_minute_2} min\nBalbezit {away_team_pos}', 
                                            min_appearances_2)
 
-                        # Add main title
-                        fig_positions.suptitle(f'Positie Vergelijking: {home_team_pos} vs {away_team_pos}\nEerste Periode ({start_minute_1}-{end_minute_1} min) vs Tweede Periode ({start_minute_2}-{end_minute_2} min)',
-                                            fontsize=18, fontweight='bold')
-
-                        plt.tight_layout(rect=[0, 0, 1, 0.95])
+                        plt.tight_layout(rect=[0, 0, 1, 1])
 
                         st.pyplot(fig_positions)
                         
