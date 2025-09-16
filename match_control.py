@@ -1892,10 +1892,15 @@ if events_data is not None:
                             # Determine zone based on possession type and startThird
                             zone = None
                             
-                            # Check for goal kick (Doeltrap)
+                            # Check for goal kick (Doeltrap) - only if possessionType is GOAL_KICK
                             if possession_type == GOAL_KICK_POSSESSION_TYPE:
                                 zone = 'doeltrap'
-                            # Check for other zones using startThird
+                            # For all other sequence starts, use startThird from descriptives
+                            elif 'descriptives' in event and 'startThird' in event['descriptives']:
+                                start_third = event['descriptives']['startThird']
+                                if start_third in [1, 2, 3]:
+                                    zone = f'zone_{start_third}'
+                            # Fallback: check startThird directly in event
                             elif 'startThird' in event:
                                 start_third = event.get('startThird')
                                 if start_third in [1, 2, 3]:
@@ -2017,7 +2022,22 @@ if events_data is not None:
                     sequence_starts = find_sequence_starts(events)
                     
                     # Debug information
-                    st.write(f"Found {len(sequence_starts)} sequence starts")
+                    # Check how many events have sequenceStart: true
+                    total_sequence_start_events = sum(1 for event in events if event.get('sequenceStart', False))
+                    st.write(f"Total events with sequenceStart: true: {total_sequence_start_events}")
+                    st.write(f"Found {len(sequence_starts)} sequence starts after zone filtering")
+                    
+                    # Show first few sequence starts for debugging
+                    if sequence_starts:
+                        st.write("First few sequence starts:")
+                        for i, seq in enumerate(sequence_starts[:5]):
+                            st.write(f"  {i+1}. Zone: {seq['zone']}, Team: {seq['team']}, Time: {seq['time']}ms, Type: {seq['possession_type_name']}")
+                    else:
+                        st.write("No sequence starts found. Checking first few events with sequenceStart: true...")
+                        sequence_start_events = [event for event in events if event.get('sequenceStart', False)][:5]
+                        for i, event in enumerate(sequence_start_events):
+                            st.write(f"  {i+1}. Team: {event.get('teamName')}, Time: {event.get('startTimeMs')}ms, PossessionType: {event.get('possessionTypeName')}, Descriptives: {event.get('descriptives', {})}")
+                    
                     st.write(f"Positions data type: {type(positions_data)}")
                     if isinstance(positions_data, dict):
                         st.write(f"Positions data keys: {list(positions_data.keys())}")
