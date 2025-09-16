@@ -2037,6 +2037,50 @@ if events_data is not None:
                     plt.tight_layout()
                     st.pyplot(fig)
                     
+                    # Main control plot from tab1
+                    st.subheader("📊 Match Control Plot")
+                    st.write("Control plot van de geselecteerde wedstrijd:")
+                    
+                    # Create the main control plot (same as tab1)
+                    control_data = calculate_game_control_and_domination(events_data, home_team, away_team)
+                    
+                    # Create control plot figure
+                    fig_control_main, ax_control_main = plt.subplots(figsize=(12, 6))
+                    
+                    # Calculate control percentages
+                    home_control_events = [e for e in control_data['control_events'] if e['team'] == home_team]
+                    away_control_events = [e for e in control_data['control_events'] if e['team'] == away_team]
+                    
+                    total_home_control = sum(e['value'] for e in home_control_events)
+                    total_away_control = sum(e['value'] for e in away_control_events)
+                    total_control = total_home_control + total_away_control
+                    
+                    if total_control > 0:
+                        home_control_pct = (total_home_control / total_control) * 100
+                        away_control_pct = (total_away_control / total_control) * 100
+                        
+                        # Create horizontal bar chart
+                        ax_control_main.barh([1], [home_control_pct], color=home_color, alpha=0.8, height=0.85)
+                        ax_control_main.barh([1], [away_control_pct], left=[home_control_pct], color=away_color, alpha=0.8, height=0.85)
+                        
+                        # Add percentage labels
+                        ax_control_main.text(home_control_pct/2, 1, f'{home_control_pct:.1f}%', 
+                                          ha='center', va='center', fontweight='bold', color='white')
+                        ax_control_main.text(home_control_pct + away_control_pct/2, 1, f'{away_control_pct:.1f}%', 
+                                          ha='center', va='center', fontweight='bold', color='white')
+                    
+                    ax_control_main.set_xlim(0, 100)
+                    ax_control_main.set_ylim(0.5, 1.5)
+                    ax_control_main.set_yticks([1])
+                    ax_control_main.set_yticklabels(['Match Control'])
+                    ax_control_main.set_xlabel('Control Percentage (%)')
+                    ax_control_main.spines['top'].set_visible(False)
+                    ax_control_main.spines['right'].set_visible(False)
+                    ax_control_main.spines['bottom'].set_visible(False)
+                    
+                    plt.tight_layout()
+                    st.pyplot(fig_control_main)
+                    
                     # Control plot with time filtering
                     st.subheader("📊 Control Plot met Tijdsfiltering")
                     
@@ -2128,7 +2172,7 @@ if events_data is not None:
                         })
                     
                     stats_df = pd.DataFrame(stats_data)
-                    st.dataframe(stats_df, width='stretch')
+                    st.dataframe(stats_df)
                     
                     # Show possession type breakdown
                     st.subheader("📊 Possession Type Breakdown")
@@ -2147,7 +2191,7 @@ if events_data is not None:
                     
                     possession_df = pd.DataFrame(possession_data)
                     if not possession_df.empty:
-                        st.dataframe(possession_df, width='stretch')
+                        st.dataframe(possession_df)
                     
                     # Show total sequence starts
                     total_sequences = len(sequence_starts)
@@ -2218,12 +2262,12 @@ if events_data is not None:
                 team_counts.columns = ['Team', 'Count of Recoveries/Interceptions (x > -17.5)']
                 
                 # Display the counts per team
-                st.dataframe(team_counts, width='stretch')
+                st.dataframe(team_counts)
                 
                 # Show detailed events table
                 if not recovery_interception_df.empty:
                     st.subheader("📋 Gedetailleerde High Recoveries")
-                    st.dataframe(recovery_interception_df, width='stretch')
+                    st.dataframe(recovery_interception_df)
                 else:
                     st.info("Geen High Recoveries gevonden in deze wedstrijd.")
                 
@@ -2265,7 +2309,7 @@ if events_data is not None:
                 final_third_df = pd.DataFrame(final_third_data)
                 
                 if not final_third_df.empty:
-                    st.dataframe(final_third_df, width='stretch')
+                    st.dataframe(final_third_df)
                 else:
                     st.info("Geen Final Third Entries gevonden in deze wedstrijd.")
                 
