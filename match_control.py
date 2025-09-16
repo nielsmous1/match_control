@@ -1938,18 +1938,34 @@ if events_data is not None:
 
                     def get_player_positions_at_time(positions_data, target_time, tolerance_ms=2000):
                         """Get player positions at a specific time with tolerance"""
-                        frames = positions_data.get('data', [])
+                        # Handle different positions data structures
+                        if isinstance(positions_data, dict):
+                            frames = positions_data.get('data', [])
+                        elif isinstance(positions_data, list):
+                            frames = positions_data
+                        else:
+                            return []
                         
                         # Find frame closest to target time
                         closest_frame = None
                         min_diff = float('inf')
                         
                         for frame in frames:
-                            frame_time = frame.get('time', 0)
+                            # Handle different frame structures
+                            if isinstance(frame, dict):
+                                frame_time = frame.get('time', 0)
+                                players = frame.get('players', [])
+                            elif isinstance(frame, (list, tuple)) and len(frame) >= 2:
+                                # Handle tuple/list format: (time, players)
+                                frame_time = frame[0] if isinstance(frame[0], (int, float)) else 0
+                                players = frame[1] if isinstance(frame[1], list) else []
+                            else:
+                                continue
+                                
                             diff = abs(frame_time - target_time)
                             if diff < min_diff and diff <= tolerance_ms:
                                 min_diff = diff
-                                closest_frame = frame
+                                closest_frame = {'players': players}
                         
                         if closest_frame:
                             return closest_frame.get('players', [])
@@ -1969,13 +1985,23 @@ if events_data is not None:
                             players = get_player_positions_at_time(positions_data, event_time)
                             
                             for player in players:
-                                if player.get('teamName') == team:
+                                # Handle different player data structures
+                                if isinstance(player, dict):
+                                    player_team = player.get('teamName', '')
                                     player_id = player.get('playerId')
                                     x = player.get('x', 0)
                                     y = player.get('y', 0)
-                                    
-                                    if player_id and x is not None and y is not None:
-                                        player_positions[player_id].append((x, y))
+                                elif isinstance(player, (list, tuple)) and len(player) >= 4:
+                                    # Handle tuple/list format: (playerId, teamName, x, y, ...)
+                                    player_id = player[0]
+                                    player_team = player[1]
+                                    x = player[2]
+                                    y = player[3]
+                                else:
+                                    continue
+                                
+                                if player_team == team and player_id and x is not None and y is not None:
+                                    player_positions[player_id].append((x, y))
                         
                         # Calculate averages
                         avg_positions = {}
@@ -1989,6 +2015,16 @@ if events_data is not None:
 
                     # Find sequence starts
                     sequence_starts = find_sequence_starts(events)
+                    
+                    # Debug information
+                    st.write(f"Found {len(sequence_starts)} sequence starts")
+                    st.write(f"Positions data type: {type(positions_data)}")
+                    if isinstance(positions_data, dict):
+                        st.write(f"Positions data keys: {list(positions_data.keys())}")
+                    elif isinstance(positions_data, list):
+                        st.write(f"Positions data length: {len(positions_data)}")
+                        if positions_data:
+                            st.write(f"First frame type: {type(positions_data[0])}")
                     
                     # Define zones
                     zones = ['doeltrap', 'zone_1', 'zone_2', 'zone_3']
@@ -2009,6 +2045,10 @@ if events_data is not None:
                         
                         home_positions = calculate_zone_average_positions(sequence_starts, positions_data, zone, home_team)
                         away_positions = calculate_zone_average_positions(sequence_starts, positions_data, zone, away_team)
+                        
+                        # Debug: show position counts
+                        if i == 0:  # Only show for first zone to avoid spam
+                            st.write(f"Zone {zone}: Home positions: {len(home_positions)}, Away positions: {len(away_positions)}")
                         
                         # Plot home team (in possession)
                         for player_id, (x, y) in home_positions.items():
