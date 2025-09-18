@@ -1809,53 +1809,9 @@ if events_data is not None:
                     # Load positions data
                     positions_data = json.load(positions_file)
                     
-                    # Debug positions data structure
-                    st.write("=== POSITIONS DATA DEBUG ===")
-                    st.write(f"Positions data type: {type(positions_data)}")
-                    if isinstance(positions_data, dict):
-                        st.write(f"Positions data keys: {list(positions_data.keys())}")
-                        if 'data' in positions_data:
-                            st.write(f"Data length: {len(positions_data['data'])}")
-                            if positions_data['data']:
-                                st.write(f"First frame type: {type(positions_data['data'][0])}")
-                                st.write(f"First frame keys: {list(positions_data['data'][0].keys()) if isinstance(positions_data['data'][0], dict) else 'Not a dict'}")
-                                # Show first frame structure
-                                first_frame = positions_data['data'][0]
-                                st.write(f"First frame: {first_frame}")
-                    elif isinstance(positions_data, list):
-                        st.write(f"Positions data length: {len(positions_data)}")
-                        if positions_data:
-                            st.write(f"First frame type: {type(positions_data[0])}")
-                            st.write(f"First frame: {positions_data[0]}")
-                    st.write("=== END DEBUG ===")
-                    
-                    # Get match info - try different ways to extract team names
-                    home_team = 'Home'
-                    away_team = 'Away'
-                    
-                    if events:
-                        # Try to get team names from events
-                        for event in events:
-                            if 'homeTeamName' in event:
-                                home_team = event['homeTeamName']
-                                break
-                            elif 'homeTeam' in event:
-                                home_team = event['homeTeam']
-                                break
-                        
-                        for event in events:
-                            if 'awayTeamName' in event:
-                                away_team = event['awayTeamName']
-                                break
-                            elif 'awayTeam' in event:
-                                away_team = event['awayTeam']
-                                break
-                    
-                    # Debug team names
-                    st.write(f"=== TEAM NAMES DEBUG ===")
-                    st.write(f"Home team: {home_team}")
-                    st.write(f"Away team: {away_team}")
-                    st.write("=== END TEAM NAMES DEBUG ===")
+                    # Get match info
+                    home_team = events[0].get('homeTeamName', 'Home') if events else 'Home'
+                    away_team = events[0].get('awayTeamName', 'Away') if events else 'Away'
                     
                     # Define colors
                     home_color = '#1f77b4'
@@ -1866,10 +1822,6 @@ if events_data is not None:
                     start_minute = st.slider("Start Minute", 0, int(max_time), 0, key="start_minute")
                     end_minute = st.slider("End Minute", start_minute, int(max_time), int(max_time), key="end_minute")
                     
-                    def load_data(events_data, positions_data):
-                        """Load both events and positions data"""
-                        return events_data, positions_data
-
                     def get_halftime_info(events):
                         """Get information about half-time from events data"""
                         match_start_ms = 0 # Default
@@ -1977,14 +1929,6 @@ if events_data is not None:
                         frames = positions_data.get('data', [])
                         # Sort frames by time for efficient processing
                         frames.sort(key=lambda x: x.get('t', 0))
-                        
-                        # Debug frames
-                        st.write(f"=== FRAMES DEBUG ===")
-                        st.write(f"Number of frames: {len(frames)}")
-                        if frames:
-                            st.write(f"First frame: {frames[0]}")
-                            st.write(f"First frame keys: {list(frames[0].keys()) if isinstance(frames[0], dict) else 'Not a dict'}")
-                        st.write("=== END FRAMES DEBUG ===")
 
                         _, _, second_half_start_ms, _ = get_halftime_info(events_data.get('data', []))
 
@@ -2003,13 +1947,8 @@ if events_data is not None:
                                 frame for frame in frames
                                 if sequence_start_time <= frame.get('t', 0) < sequence_end_time
                             ]
-                            
-                            # Debug relevant frames
-                            st.write(f"Sequence {seq_info['sequence_id']}: Start time {sequence_start_time}ms, End time {sequence_end_time}ms")
-                            st.write(f"Found {len(relevant_frames)} relevant frames")
 
                             if not relevant_frames:
-                                 st.write(f"No relevant frames found for sequence {seq_info['sequence_id']}")
                                  continue # Skip if no position data for this sequence start window
 
                             # Process frames within the window
@@ -2018,29 +1957,19 @@ if events_data is not None:
                                 is_second_half = frame_time >= second_half_start_ms if second_half_start_ms is not None else False
 
                                 # Determine which players are on the field for this team at this time
-                                # Use the team names from the events data to match with positions data
+                                # This is complex without explicit lineup/sub data in position frames.
+                                # Simplification: Assume players listed in the frame for the team are on the field.
                                 team_players_in_frame = []
-                                home_team_name = events_data.get('metaData', {}).get('homeTeamName', 'Home')
-                                away_team_name = events_data.get('metaData', {}).get('awayTeamName', 'Away')
-                                
-                                # Debug team matching
-                                st.write(f"Team: {team}, Home: {home_team_name}, Away: {away_team_name}")
-                                
-                                if team == home_team_name:
+                                if team == events_data.get('metaData', {}).get('homeTeamName', 'Home'):
                                      team_players_in_frame = frame.get('h', [])
-                                     st.write(f"Using 'h' for home team, found {len(team_players_in_frame)} players")
-                                elif team == away_team_name:
+                                elif team == events_data.get('metaData', {}).get('awayTeamName', 'Away'):
                                      team_players_in_frame = frame.get('a', [])
-                                     st.write(f"Using 'a' for away team, found {len(team_players_in_frame)} players")
                                 else:
-                                     st.write(f"Team name mismatch: {team} not found in {home_team_name} or {away_team_name}")
-                                     # Fallback: try to match by checking if team name contains home/away
-                                     if 'home' in team.lower() or team == 'Home':
+                                     # Try to match by group (Home/Away) if team names are not consistent
+                                     if team == events_data.get('metaData', {}).get('homeTeam', 'Home'):
                                          team_players_in_frame = frame.get('h', [])
-                                         st.write(f"Fallback to 'h', found {len(team_players_in_frame)} players")
-                                     elif 'away' in team.lower() or team == 'Away':
+                                     elif team == events_data.get('metaData', {}).get('awayTeam', 'Away'):
                                          team_players_in_frame = frame.get('a', [])
-                                         st.write(f"Fallback to 'a', found {len(team_players_in_frame)} players")
 
                                 for player in team_players_in_frame:
                                     player_id = player.get('p')
@@ -2108,28 +2037,14 @@ if events_data is not None:
                         # Categorize sequence starts within the time window
                         sequence_starts_categorized = categorize_sequence_starts(events, start_minute, end_minute)
 
-                        st.write(f"=== SEQUENCE STARTS DEBUG ===")
-                        st.write(f"Found {len(sequence_starts_categorized)} relevant sequence starts.")
-                        if sequence_starts_categorized:
-                            st.write("First few sequence starts:")
-                            for i, seq in enumerate(sequence_starts_categorized[:3]):
-                                st.write(f"  {i+1}. Team: {seq['team']}, Zone: {seq['zone']}, Time: {seq['start_time_ms']}ms")
-                        else:
-                            st.write("No sequence starts found. Checking events with sequenceStart: true...")
-                            seq_start_events = [e for e in events if e.get('sequenceStart', False)][:5]
-                            for i, event in enumerate(seq_start_events):
-                                st.write(f"  {i+1}. Team: {event.get('teamName')}, Time: {event.get('startTimeMs')}ms, Descriptives: {event.get('descriptives', {})}")
-                        st.write("=== END SEQUENCE DEBUG ===")
-
                         if not sequence_starts_categorized:
                             st.warning(f"No relevant sequence starts found in the specified time window ({start_minute}-{end_minute} minutes).")
                             return
 
+                        st.write(f"Found {len(sequence_starts_categorized)} relevant sequence starts.")
+
                         # Calculate average positions during the start of these sequences
-                        st.write("=== POSITION CALCULATION DEBUG ===")
                         average_positions_data = calculate_average_positions_during_sequences(positions_data, events_data, sequence_starts_categorized)
-                        st.write(f"Average positions data: {average_positions_data}")
-                        st.write("=== END POSITION DEBUG ===")
 
                         if not average_positions_data:
                             st.warning("No position data found for the calculated sequence starts.")
@@ -2233,11 +2148,6 @@ if events_data is not None:
                             'awayTeamName': away_team
                         }
                     }
-                    
-                    # Debug events data structure
-                    st.write(f"=== EVENTS DATA DEBUG ===")
-                    st.write(f"Events data: {events_data}")
-                    st.write("=== END EVENTS DATA DEBUG ===")
                     
                     # Plot the average positions
                     plot_average_positions_by_zone(events_data, positions_data, start_minute, end_minute)
