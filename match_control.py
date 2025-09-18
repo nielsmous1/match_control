@@ -1809,6 +1809,26 @@ if events_data is not None:
                     # Load positions data
                     positions_data = json.load(positions_file)
                     
+                    # Debug positions data structure
+                    st.write("=== POSITIONS DATA DEBUG ===")
+                    st.write(f"Positions data type: {type(positions_data)}")
+                    if isinstance(positions_data, dict):
+                        st.write(f"Positions data keys: {list(positions_data.keys())}")
+                        if 'data' in positions_data:
+                            st.write(f"Data length: {len(positions_data['data'])}")
+                            if positions_data['data']:
+                                st.write(f"First frame type: {type(positions_data['data'][0])}")
+                                st.write(f"First frame keys: {list(positions_data['data'][0].keys()) if isinstance(positions_data['data'][0], dict) else 'Not a dict'}")
+                                # Show first frame structure
+                                first_frame = positions_data['data'][0]
+                                st.write(f"First frame: {first_frame}")
+                    elif isinstance(positions_data, list):
+                        st.write(f"Positions data length: {len(positions_data)}")
+                        if positions_data:
+                            st.write(f"First frame type: {type(positions_data[0])}")
+                            st.write(f"First frame: {positions_data[0]}")
+                    st.write("=== END DEBUG ===")
+                    
                     # Get match info
                     home_team = events[0].get('homeTeamName', 'Home') if events else 'Home'
                     away_team = events[0].get('awayTeamName', 'Away') if events else 'Away'
@@ -1933,6 +1953,14 @@ if events_data is not None:
                         frames = positions_data.get('data', [])
                         # Sort frames by time for efficient processing
                         frames.sort(key=lambda x: x.get('t', 0))
+                        
+                        # Debug frames
+                        st.write(f"=== FRAMES DEBUG ===")
+                        st.write(f"Number of frames: {len(frames)}")
+                        if frames:
+                            st.write(f"First frame: {frames[0]}")
+                            st.write(f"First frame keys: {list(frames[0].keys()) if isinstance(frames[0], dict) else 'Not a dict'}")
+                        st.write("=== END FRAMES DEBUG ===")
 
                         _, _, second_half_start_ms, _ = get_halftime_info(events_data.get('data', []))
 
@@ -1951,8 +1979,13 @@ if events_data is not None:
                                 frame for frame in frames
                                 if sequence_start_time <= frame.get('t', 0) < sequence_end_time
                             ]
+                            
+                            # Debug relevant frames
+                            st.write(f"Sequence {seq_info['sequence_id']}: Start time {sequence_start_time}ms, End time {sequence_end_time}ms")
+                            st.write(f"Found {len(relevant_frames)} relevant frames")
 
                             if not relevant_frames:
+                                 st.write(f"No relevant frames found for sequence {seq_info['sequence_id']}")
                                  continue # Skip if no position data for this sequence start window
 
                             # Process frames within the window
@@ -2041,14 +2074,28 @@ if events_data is not None:
                         # Categorize sequence starts within the time window
                         sequence_starts_categorized = categorize_sequence_starts(events, start_minute, end_minute)
 
+                        st.write(f"=== SEQUENCE STARTS DEBUG ===")
+                        st.write(f"Found {len(sequence_starts_categorized)} relevant sequence starts.")
+                        if sequence_starts_categorized:
+                            st.write("First few sequence starts:")
+                            for i, seq in enumerate(sequence_starts_categorized[:3]):
+                                st.write(f"  {i+1}. Team: {seq['team']}, Zone: {seq['zone']}, Time: {seq['start_time_ms']}ms")
+                        else:
+                            st.write("No sequence starts found. Checking events with sequenceStart: true...")
+                            seq_start_events = [e for e in events if e.get('sequenceStart', False)][:5]
+                            for i, event in enumerate(seq_start_events):
+                                st.write(f"  {i+1}. Team: {event.get('teamName')}, Time: {event.get('startTimeMs')}ms, Descriptives: {event.get('descriptives', {})}")
+                        st.write("=== END SEQUENCE DEBUG ===")
+
                         if not sequence_starts_categorized:
                             st.warning(f"No relevant sequence starts found in the specified time window ({start_minute}-{end_minute} minutes).")
                             return
 
-                        st.write(f"Found {len(sequence_starts_categorized)} relevant sequence starts.")
-
                         # Calculate average positions during the start of these sequences
+                        st.write("=== POSITION CALCULATION DEBUG ===")
                         average_positions_data = calculate_average_positions_during_sequences(positions_data, events_data, sequence_starts_categorized)
+                        st.write(f"Average positions data: {average_positions_data}")
+                        st.write("=== END POSITION DEBUG ===")
 
                         if not average_positions_data:
                             st.warning("No position data found for the calculated sequence starts.")
