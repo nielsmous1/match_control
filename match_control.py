@@ -1829,9 +1829,33 @@ if events_data is not None:
                             st.write(f"First frame: {positions_data[0]}")
                     st.write("=== END DEBUG ===")
                     
-                    # Get match info
-                    home_team = events[0].get('homeTeamName', 'Home') if events else 'Home'
-                    away_team = events[0].get('awayTeamName', 'Away') if events else 'Away'
+                    # Get match info - try different ways to extract team names
+                    home_team = 'Home'
+                    away_team = 'Away'
+                    
+                    if events:
+                        # Try to get team names from events
+                        for event in events:
+                            if 'homeTeamName' in event:
+                                home_team = event['homeTeamName']
+                                break
+                            elif 'homeTeam' in event:
+                                home_team = event['homeTeam']
+                                break
+                        
+                        for event in events:
+                            if 'awayTeamName' in event:
+                                away_team = event['awayTeamName']
+                                break
+                            elif 'awayTeam' in event:
+                                away_team = event['awayTeam']
+                                break
+                    
+                    # Debug team names
+                    st.write(f"=== TEAM NAMES DEBUG ===")
+                    st.write(f"Home team: {home_team}")
+                    st.write(f"Away team: {away_team}")
+                    st.write("=== END TEAM NAMES DEBUG ===")
                     
                     # Define colors
                     home_color = '#1f77b4'
@@ -1994,19 +2018,29 @@ if events_data is not None:
                                 is_second_half = frame_time >= second_half_start_ms if second_half_start_ms is not None else False
 
                                 # Determine which players are on the field for this team at this time
-                                # This is complex without explicit lineup/sub data in position frames.
-                                # Simplification: Assume players listed in the frame for the team are on the field.
+                                # Use the team names from the events data to match with positions data
                                 team_players_in_frame = []
-                                if team == events_data.get('metaData', {}).get('homeTeamName', 'Home'):
+                                home_team_name = events_data.get('metaData', {}).get('homeTeamName', 'Home')
+                                away_team_name = events_data.get('metaData', {}).get('awayTeamName', 'Away')
+                                
+                                # Debug team matching
+                                st.write(f"Team: {team}, Home: {home_team_name}, Away: {away_team_name}")
+                                
+                                if team == home_team_name:
                                      team_players_in_frame = frame.get('h', [])
-                                elif team == events_data.get('metaData', {}).get('awayTeamName', 'Away'):
+                                     st.write(f"Using 'h' for home team, found {len(team_players_in_frame)} players")
+                                elif team == away_team_name:
                                      team_players_in_frame = frame.get('a', [])
+                                     st.write(f"Using 'a' for away team, found {len(team_players_in_frame)} players")
                                 else:
-                                     # Try to match by group (Home/Away) if team names are not consistent
-                                     if team == events_data.get('metaData', {}).get('homeTeam', 'Home'):
+                                     st.write(f"Team name mismatch: {team} not found in {home_team_name} or {away_team_name}")
+                                     # Fallback: try to match by checking if team name contains home/away
+                                     if 'home' in team.lower() or team == 'Home':
                                          team_players_in_frame = frame.get('h', [])
-                                     elif team == events_data.get('metaData', {}).get('awayTeam', 'Away'):
+                                         st.write(f"Fallback to 'h', found {len(team_players_in_frame)} players")
+                                     elif 'away' in team.lower() or team == 'Away':
                                          team_players_in_frame = frame.get('a', [])
+                                         st.write(f"Fallback to 'a', found {len(team_players_in_frame)} players")
 
                                 for player in team_players_in_frame:
                                     player_id = player.get('p')
@@ -2199,6 +2233,11 @@ if events_data is not None:
                             'awayTeamName': away_team
                         }
                     }
+                    
+                    # Debug events data structure
+                    st.write(f"=== EVENTS DATA DEBUG ===")
+                    st.write(f"Events data: {events_data}")
+                    st.write("=== END EVENTS DATA DEBUG ===")
                     
                     # Plot the average positions
                     plot_average_positions_by_zone(events_data, positions_data, start_minute, end_minute)
