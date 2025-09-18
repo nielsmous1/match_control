@@ -9,6 +9,7 @@ import matplotlib.image as mpimg
 import os
 from pathlib import Path
 from collections import defaultdict
+from mplsoccer import Pitch
 
 # Page config
 st.set_page_config(page_title="Match Control Analysis", layout="wide")
@@ -1798,472 +1799,367 @@ if events_data is not None:
 
         # ---------- Average Positions Tab ----------
         with tab5:
-            st.subheader("Gemiddelde Posities Analyse - Sequence Starts")
-            st.write("Upload een positions.json bestand om de gemiddelde posities van teams tijdens sequence starts te analyseren.")
+            st.header("Gemiddelde Posities")
             
-            # File upload for positions data
-            positions_file = st.file_uploader(
-                "Upload positions.json bestand",
-                type=['json'],
-                help="Upload het positions.json bestand voor de geselecteerde wedstrijd"
-            )
+            # File upload for positions
+            positions_file = st.file_uploader("Upload positions.json file", type=['json'], key="positions_upload")
             
-            if positions_file is not None and events_data is not None:
+            if positions_file is not None:
                 try:
                     # Load positions data
                     positions_data = json.load(positions_file)
-                    events = events_data.get('data', [])
                     
-                    # Get team names
-                    metadata = events_data.get('metaData', {}) if isinstance(events_data, dict) else {}
-                    home_team = metadata.get('homeTeamName') or metadata.get('homeTeam') or metadata.get('home') or 'Home'
-                    away_team = metadata.get('awayTeamName') or metadata.get('awayTeam') or metadata.get('away') or 'Away'
-                    
-                    def draw_pitch_positions(ax):
-                        """Draw a football pitch with meter-based coordinates"""
-                        # Pitch outline (105m x 68m, centered at 0,0)
-                        pitch = patches.Rectangle((-52.5, -34), 105, 68, linewidth=2,
-                                                 edgecolor='gray', facecolor='#2A5A2A')
-                        ax.add_patch(pitch)
-
-                        # Center line
-                        ax.plot([0, 0], [-34, 34], 'white', linestyle='-', linewidth=2)
-
-                        # Center circle
-                        center_circle = patches.Circle((0, 0), 9.15, linewidth=2,
-                                                     edgecolor='white', fill=False)
-                        ax.add_patch(center_circle)
-
-                        # Penalty areas
-                        left_penalty = patches.Rectangle((-52.5, -20.16), 16.5, 40.32,
-                                                       linewidth=2, edgecolor='white', fill=False)
-                        ax.add_patch(left_penalty)
-
-                        right_penalty = patches.Rectangle((36, -20.16), 16.5, 40.32,
-                                                        linewidth=2, edgecolor='white', fill=False)
-                        ax.add_patch(right_penalty)
-
-                        # 6-yard boxes
-                        left_goal_area = patches.Rectangle((-52.5, -9.18), 5.5, 18.36,
-                                                         linewidth=2, edgecolor='white', fill=False)
-                        ax.add_patch(left_goal_area)
-
-                        right_goal_area = patches.Rectangle((47, -9.18), 5.5, 18.36,
-                                                          linewidth=2, edgecolor='white', fill=False)
-                        ax.add_patch(right_goal_area)
-
-                        # Goals
-                        left_goal = patches.Rectangle((-54.5, -3.66), 2, 7.32,
-                                                    linewidth=2, edgecolor='white', fill=False)
-                        ax.add_patch(left_goal)
-
-                        right_goal = patches.Rectangle((52.5, -3.66), 2, 7.32,
-                                                     linewidth=2, edgecolor='white', fill=False)
-                        ax.add_patch(right_goal)
-
-                        # Set axis properties
-                        ax.set_xlim(-56, 56)
-                        ax.set_ylim(-36, 36)
-                        ax.set_aspect('equal')
-                        ax.axis('off')
-
-                    def find_sequence_starts(events):
-                        """Find sequence starts based on sequenceStart: true and ball start zones"""
-                        sequence_starts = []
-                        
-                        # Define ball start zones
-                        GOAL_KICK_POSSESSION_TYPE = "GOAL_KICK"
-                        PASS_BASE_TYPE_ID = 1
-                        
-                        # Sort events by time
-                        sorted_events = sorted(events, key=lambda x: x.get('startTimeMs', 0))
-                        
-                        for event in sorted_events:
-                            # Check if this is a sequence start
-                            if not event.get('sequenceStart', False):
-                                continue
-                                
-                            event_time = event.get('startTimeMs', 0)
-                            possession_type = event.get('possessionType', '')
-                            possession_type_name = event.get('possessionTypeName', '')
-                            base_type_id = event.get('baseTypeId')
-                            team_name = event.get('teamName', '')
-                            
-                            # Determine zone based on possession type and startThird
-                            zone = None
-                            
-                            # Check for goal kick (Doeltrap) - only if possessionType is GOAL_KICK
-                            if possession_type == GOAL_KICK_POSSESSION_TYPE:
-                                zone = 'doeltrap'
-                            # For all other sequence starts, use startThird from descriptives
-                            elif 'descriptives' in event and 'startThird' in event['descriptives']:
-                                start_third = event['descriptives']['startThird']
-                                if start_third in [1, 2, 3]:
-                                    zone = f'zone_{start_third}'
-                            # Fallback: check startThird directly in event
-                            elif 'startThird' in event:
-                                start_third = event.get('startThird')
-                                if start_third in [1, 2, 3]:
-                                    zone = f'zone_{start_third}'
-                            
-                            # Only process if we have a valid zone
-                            if zone:
-                                # If not a pass, find first pass in sequence
-                                if base_type_id != PASS_BASE_TYPE_ID:
-                                    first_pass = None
-                                    # Look for first pass in the next 10 seconds
-                                    for next_event in sorted_events:
-                                        next_event_time = next_event.get('startTimeMs', 0)
-                                        if (next_event_time > event_time and 
-                                            next_event_time - event_time <= 10000 and
-                                            next_event.get('baseTypeId') == PASS_BASE_TYPE_ID and 
-                                            next_event.get('teamName') == team_name):
-                                            first_pass = next_event
-                                            break
-                                    
-                                    sequence_starts.append({
-                                        'event': first_pass if first_pass else event,
-                                        'zone': zone,
-                                        'team': team_name,
-                                        'time': event_time,
-                                        'possession_type': possession_type,
-                                        'possession_type_name': possession_type_name
-                                    })
-                                else:
-                                    sequence_starts.append({
-                                        'event': event,
-                                        'zone': zone,
-                                        'team': team_name,
-                                        'time': event_time,
-                                        'possession_type': possession_type,
-                                        'possession_type_name': possession_type_name
-                                    })
-                        
-                        return sequence_starts
-
-                    def get_player_positions_at_time(positions_data, target_time, tolerance_ms=2000):
-                        """Get player positions at a specific time with tolerance"""
-                        # Handle different positions data structures
-                        if isinstance(positions_data, dict):
-                            frames = positions_data.get('data', [])
-                        elif isinstance(positions_data, list):
-                            frames = positions_data
-                        else:
-                            return []
-                        
-                        # Find frame closest to target time
-                        closest_frame = None
-                        min_diff = float('inf')
-                        
-                        for frame in frames:
-                            # Handle different frame structures
-                            if isinstance(frame, dict):
-                                frame_time = frame.get('time', 0)
-                                players = frame.get('players', [])
-                            elif isinstance(frame, (list, tuple)) and len(frame) >= 2:
-                                # Handle tuple/list format: (time, players)
-                                frame_time = frame[0] if isinstance(frame[0], (int, float)) else 0
-                                players = frame[1] if isinstance(frame[1], list) else []
-                            else:
-                                continue
-                                
-                            diff = abs(frame_time - target_time)
-                            if diff < min_diff and diff <= tolerance_ms:
-                                min_diff = diff
-                                closest_frame = {'players': players}
-                        
-                        if closest_frame:
-                            return closest_frame.get('players', [])
-                        return []
-
-                    def calculate_zone_average_positions(sequence_starts, positions_data, zone, team):
-                        """Calculate average positions for a specific zone and team"""
-                        zone_sequences = [seq for seq in sequence_starts if seq['zone'] == zone and seq['team'] == team]
-                        
-                        if not zone_sequences:
-                            return {}
-                        
-                        player_positions = defaultdict(list)
-                        
-                        for sequence in zone_sequences:
-                            event_time = sequence['time']
-                            players = get_player_positions_at_time(positions_data, event_time)
-                            
-                            for player in players:
-                                # Handle different player data structures
-                                if isinstance(player, dict):
-                                    player_team = player.get('teamName', '')
-                                    player_id = player.get('playerId')
-                                    x = player.get('x', 0)
-                                    y = player.get('y', 0)
-                                elif isinstance(player, (list, tuple)) and len(player) >= 4:
-                                    # Handle tuple/list format: (playerId, teamName, x, y, ...)
-                                    player_id = player[0]
-                                    player_team = player[1]
-                                    x = player[2]
-                                    y = player[3]
-                                else:
-                                    continue
-                                
-                                if player_team == team and player_id and x is not None and y is not None:
-                                    player_positions[player_id].append((x, y))
-                        
-                        # Calculate averages
-                        avg_positions = {}
-                        for player_id, positions in player_positions.items():
-                            if positions:
-                                avg_x = np.mean([pos[0] for pos in positions])
-                                avg_y = np.mean([pos[1] for pos in positions])
-                                avg_positions[player_id] = (avg_x, avg_y)
-                        
-                        return avg_positions
-
-                    # Find sequence starts
-                    sequence_starts = find_sequence_starts(events)
-                    
-                    # Debug information
-                    # Check how many events have sequenceStart: true
-                    total_sequence_start_events = sum(1 for event in events if event.get('sequenceStart', False))
-                    st.write(f"Total events with sequenceStart: true: {total_sequence_start_events}")
-                    st.write(f"Found {len(sequence_starts)} sequence starts after zone filtering")
-                    
-                    # Show first few sequence starts for debugging
-                    if sequence_starts:
-                        st.write("First few sequence starts:")
-                        for i, seq in enumerate(sequence_starts[:5]):
-                            st.write(f"  {i+1}. Zone: {seq['zone']}, Team: {seq['team']}, Time: {seq['time']}ms, Type: {seq['possession_type_name']}")
-                    else:
-                        st.write("No sequence starts found. Checking first few events with sequenceStart: true...")
-                        sequence_start_events = [event for event in events if event.get('sequenceStart', False)][:5]
-                        for i, event in enumerate(sequence_start_events):
-                            st.write(f"  {i+1}. Team: {event.get('teamName')}, Time: {event.get('startTimeMs')}ms, PossessionType: {event.get('possessionTypeName')}, Descriptives: {event.get('descriptives', {})}")
-                    
-                    st.write(f"Positions data type: {type(positions_data)}")
-                    if isinstance(positions_data, dict):
-                        st.write(f"Positions data keys: {list(positions_data.keys())}")
-                    elif isinstance(positions_data, list):
-                        st.write(f"Positions data length: {len(positions_data)}")
-                        if positions_data:
-                            st.write(f"First frame type: {type(positions_data[0])}")
-                    
-                    # Define zones
-                    zones = ['doeltrap', 'zone_1', 'zone_2', 'zone_3']
-                    zone_names = ['Doeltrap', 'Zone 1', 'Zone 2', 'Zone 3']
-                    
-                    # Create 8 plots (4 zones x 2 teams) in 2 rows
-                    fig, axes = plt.subplots(2, 4, figsize=(20, 10))
-                    fig.suptitle(f'Gemiddelde Posities bij Sequence Starts: {home_team} vs {away_team}', fontsize=16, fontweight='bold')
+                    # Get match info
+                    home_team = events[0].get('homeTeamName', 'Home') if events else 'Home'
+                    away_team = events[0].get('awayTeamName', 'Away') if events else 'Away'
                     
                     # Define colors
-                    home_color = st.session_state.home_color
-                    away_color = st.session_state.away_color
-                    
-                    for i, (zone, zone_name) in enumerate(zip(zones, zone_names)):
-                        # Home team plot (top row)
-                        ax_home = axes[0, i]
-                        draw_pitch_positions(ax_home)
-                        
-                        home_positions = calculate_zone_average_positions(sequence_starts, positions_data, zone, home_team)
-                        away_positions = calculate_zone_average_positions(sequence_starts, positions_data, zone, away_team)
-                        
-                        # Debug: show position counts
-                        if i == 0:  # Only show for first zone to avoid spam
-                            st.write(f"Zone {zone}: Home positions: {len(home_positions)}, Away positions: {len(away_positions)}")
-                        
-                        # Plot home team (in possession)
-                        for player_id, (x, y) in home_positions.items():
-                            ax_home.scatter(x, y, c=home_color, s=100, alpha=0.8, edgecolors='white', linewidth=2)
-                        
-                        # Plot away team (out of possession)
-                        for player_id, (x, y) in away_positions.items():
-                            ax_home.scatter(x, y, c=away_color, s=100, alpha=0.6, edgecolors='white', linewidth=2)
-                        
-                        ax_home.set_title(f'{home_team} - {zone_name}', fontweight='bold')
-                        
-                        # Away team plot (bottom row)
-                        ax_away = axes[1, i]
-                        draw_pitch_positions(ax_away)
-                        
-                        # Plot away team (in possession)
-                        for player_id, (x, y) in away_positions.items():
-                            ax_away.scatter(x, y, c=away_color, s=100, alpha=0.8, edgecolors='white', linewidth=2)
-                        
-                        # Plot home team (out of possession)
-                        for player_id, (x, y) in home_positions.items():
-                            ax_away.scatter(x, y, c=home_color, s=100, alpha=0.6, edgecolors='white', linewidth=2)
-                        
-                        ax_away.set_title(f'{away_team} - {zone_name}', fontweight='bold')
-                    
-                    plt.tight_layout()
-                    st.pyplot(fig)
-                    
-                    # Main control plot from tab1
-                    st.subheader("📊 Match Control Plot")
-                    st.write("Control plot van de geselecteerde wedstrijd:")
-                    
-                    # Create the main control plot (same as tab1)
-                    control_data = calculate_game_control_and_domination(events_data, home_team, away_team)
-                    
-                    # Create control plot figure
-                    fig_control_main, ax_control_main = plt.subplots(figsize=(12, 6))
-                    
-                    # Calculate control percentages
-                    home_control_events = [e for e in control_data['control_events'] if e['team'] == home_team]
-                    away_control_events = [e for e in control_data['control_events'] if e['team'] == away_team]
-                    
-                    total_home_control = sum(e['value'] for e in home_control_events)
-                    total_away_control = sum(e['value'] for e in away_control_events)
-                    total_control = total_home_control + total_away_control
-                    
-                    if total_control > 0:
-                        home_control_pct = (total_home_control / total_control) * 100
-                        away_control_pct = (total_away_control / total_control) * 100
-                        
-                        # Create horizontal bar chart
-                        ax_control_main.barh([1], [home_control_pct], color=home_color, alpha=0.8, height=0.85)
-                        ax_control_main.barh([1], [away_control_pct], left=[home_control_pct], color=away_color, alpha=0.8, height=0.85)
-                        
-                        # Add percentage labels
-                        ax_control_main.text(home_control_pct/2, 1, f'{home_control_pct:.1f}%', 
-                                          ha='center', va='center', fontweight='bold', color='white')
-                        ax_control_main.text(home_control_pct + away_control_pct/2, 1, f'{away_control_pct:.1f}%', 
-                                          ha='center', va='center', fontweight='bold', color='white')
-                    
-                    ax_control_main.set_xlim(0, 100)
-                    ax_control_main.set_ylim(0.5, 1.5)
-                    ax_control_main.set_yticks([1])
-                    ax_control_main.set_yticklabels(['Match Control'])
-                    ax_control_main.set_xlabel('Control Percentage (%)')
-                    ax_control_main.spines['top'].set_visible(False)
-                    ax_control_main.spines['right'].set_visible(False)
-                    ax_control_main.spines['bottom'].set_visible(False)
-                    
-                    plt.tight_layout()
-                    st.pyplot(fig_control_main)
-                    
-                    # Control plot with time filtering
-                    st.subheader("📊 Control Plot met Tijdsfiltering")
+                    home_color = '#1f77b4'
+                    away_color = '#ff7f0e'
                     
                     # Time range slider
-                    time_range = st.slider(
-                        "Selecteer tijdsinterval voor gemiddelde posities (minuten)",
-                        min_value=0,
-                        max_value=120,
-                        value=(0, 90),
-                        step=1,
-                        help="Sleep de handvatten om het tijdsinterval aan te passen"
-                    )
-                    start_minute, end_minute = time_range
+                    max_time = max([event.get('startTimeMs', 0) for event in events]) / 60000
+                    start_minute = st.slider("Start Minute", 0, int(max_time), 0, key="start_minute")
+                    end_minute = st.slider("End Minute", start_minute, int(max_time), int(max_time), key="end_minute")
                     
-                    # Calculate control metrics for the selected time range
-                    control_data = calculate_game_control_and_domination(events_data, home_team, away_team)
+                    def load_data(events_data, positions_data):
+                        """Load both events and positions data"""
+                        return events_data, positions_data
+
+                    def get_halftime_info(events):
+                        """Get information about half-time from events data"""
+                        match_start_ms = 0 # Default
+                        first_half_end_ms = None
+                        second_half_start_ms = None
+                        match_end_ms = None # End of second half
+
+                        for event in events:
+                            # Look for Period Start of first half (match start)
+                            if (event.get('baseTypeId') == 14 and
+                                event.get('subTypeId') == 1400 and
+                                event.get('partId') == 1):
+                                match_start_ms = event.get('startTimeMs', match_start_ms)
+
+                            # Look for Period End of first half
+                            if (event.get('baseTypeId') == 14 and
+                                event.get('subTypeId') == 1401 and
+                                event.get('partId') == 1):
+                                first_half_end_ms = event.get('startTimeMs', first_half_end_ms)
+
+                            # Look for Period Start of second half
+                            if (event.get('baseTypeId') == 14 and
+                                event.get('subTypeId') == 1400 and
+                                event.get('partId') == 2):
+                                second_half_start_ms = event.get('startTimeMs', second_half_start_ms)
+
+                            # Look for Period End of second half (match end)
+                            if (event.get('baseTypeId') == 14 and
+                                event.get('subTypeId') == 1401 and
+                                event.get('partId') == 2):
+                                match_end_ms = event.get('startTimeMs', match_end_ms)
+
+                        return match_start_ms, first_half_end_ms, second_half_start_ms, match_end_ms
+
+                    def categorize_sequence_starts(events, start_minute=None, end_minute=None):
+                        """
+                        Categorize sequence start events into defined zones and find the first pass.
+                        Filters by time window.
+                        """
+                        sequence_starts = []
+                        # Sort events by time for easier sequence analysis
+                        events.sort(key=lambda x: x.get('startTimeMs', 0))
+
+                        # Convert minute filters to milliseconds
+                        start_ms = start_minute * 60 * 1000 if start_minute is not None else 0
+                        end_ms = end_minute * 60 * 1000 if end_minute is not None else float('inf')
+
+                        # Create a mapping of sequenceId to a list of events in that sequence
+                        sequence_events = defaultdict(list)
+                        for event in events:
+                            sequence_id = event.get('sequenceId')
+                            if sequence_id is not None and sequence_id != -1:
+                                sequence_events[sequence_id].append(event)
+
+                        # Process sequence start events within the time window
+                        for event in events:
+                            if event.get('sequenceStart') is True:
+                                event_time_ms = event.get('startTimeMs', 0)
+
+                                # Check if the event is within the specified time window
+                                if event_time_ms < start_ms or event_time_ms > end_ms:
+                                    continue
+
+                                sequence_id = event.get('sequenceId')
+                                team_name = event.get('teamName')
+                                possession_type_name = event.get('possessionTypeName')
+                                start_third = event.get('descriptives', {}).get('startThird') # 1:Def, 2:Mid, 3:Att
+
+                                zone = None
+                                # Determine the zone
+                                if possession_type_name == 'GOAL_KICK':
+                                    zone = 'Doeltrap'
+                                elif start_third == 1:
+                                    zone = 'Zone 1 (Defensive Third)'
+                                elif start_third == 2:
+                                    zone = 'Zone 2 (Middle Third)'
+                                elif start_third == 3:
+                                    zone = 'Zone 3 (Attacking Third)'
+
+                                if zone and sequence_id is not None:
+                                    # Find the first pass in the sequence (including the start event itself)
+                                    first_pass = None
+                                    if sequence_id in sequence_events:
+                                        for seq_event in sequence_events[sequence_id]:
+                                            if seq_event.get('baseTypeId') == 1: # BaseTypeId 1 is Pass
+                                                first_pass = seq_event
+                                                break # Found the first pass in the sequence
+
+                                    if first_pass:
+                                        sequence_starts.append({
+                                            'team': team_name,
+                                            'zone': zone,
+                                            'start_time_ms': event_time_ms, # Start time of the sequence
+                                            'first_pass_time_ms': first_pass.get('startTimeMs', event_time_ms), # Time of the first pass
+                                            'sequence_id': sequence_id
+                                        })
+
+                        return sequence_starts
+
+                    def calculate_average_positions_during_sequences(positions_data, events_data, sequence_starts,
+                                                                    time_window_duration_ms=2000): # Analyze positions for the first 2 seconds of the sequence
+                        """
+                        Calculate average positions for each player during the start of defined sequences.
+                        """
+                        frames = positions_data.get('data', [])
+                        # Sort frames by time for efficient processing
+                        frames.sort(key=lambda x: x.get('t', 0))
+
+                        _, _, second_half_start_ms, _ = get_halftime_info(events_data.get('data', []))
+
+                        # Initialize position accumulators per team and zone
+                        average_positions_by_zone = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: {'x': [], 'y': [], 'shirt': None}))) # {team: {zone: {player_id: {x:[], y:[], shirt:''}}}}
+
+                        # Iterate through each defined sequence start
+                        for seq_info in sequence_starts:
+                            team = seq_info['team']
+                            zone = seq_info['zone']
+                            sequence_start_time = seq_info['start_time_ms']
+                            sequence_end_time = sequence_start_time + time_window_duration_ms # Define the end of the analysis window for this sequence
+
+                            # Find frames within this sequence's time window
+                            relevant_frames = [
+                                frame for frame in frames
+                                if sequence_start_time <= frame.get('t', 0) < sequence_end_time
+                            ]
+
+                            if not relevant_frames:
+                                 continue # Skip if no position data for this sequence start window
+
+                            # Process frames within the window
+                            for frame in relevant_frames:
+                                frame_time = frame.get('t', 0)
+                                is_second_half = frame_time >= second_half_start_ms if second_half_start_ms is not None else False
+
+                                # Determine which players are on the field for this team at this time
+                                # This is complex without explicit lineup/sub data in position frames.
+                                # Simplification: Assume players listed in the frame for the team are on the field.
+                                team_players_in_frame = []
+                                if team == events_data.get('metaData', {}).get('homeTeamName', 'Home'):
+                                     team_players_in_frame = frame.get('h', [])
+                                elif team == events_data.get('metaData', {}).get('awayTeamName', 'Away'):
+                                     team_players_in_frame = frame.get('a', [])
+                                else:
+                                     # Try to match by group (Home/Away) if team names are not consistent
+                                     if team == events_data.get('metaData', {}).get('homeTeam', 'Home'):
+                                         team_players_in_frame = frame.get('h', [])
+                                     elif team == events_data.get('metaData', {}).get('awayTeam', 'Away'):
+                                         team_players_in_frame = frame.get('a', [])
+
+                                for player in team_players_in_frame:
+                                    player_id = player.get('p')
+                                    if player_id:
+                                        x = player.get('x', 0)
+                                        y = player.get('y', 0)
+                                        shirt = player.get('s', '')
+
+                                        # Flip coordinates for second half (teams switch sides)
+                                        if is_second_half:
+                                            x = -x
+                                            y = -y
+
+                                        average_positions_by_zone[team][zone][player_id]['x'].append(x)
+                                        average_positions_by_zone[team][zone][player_id]['y'].append(y)
+                                        average_positions_by_zone[team][zone][player_id]['shirt'] = shirt # Store latest shirt number
+
+                        # Calculate averages for each player in each zone
+                        final_average_positions = defaultdict(lambda: defaultdict(dict)) # {team: {zone: {player_id: {x, y, shirt, appearances}}}}
+
+                        for team, zones_data in average_positions_by_zone.items():
+                            for zone, players_data in zones_data.items():
+                                for player_id, coords in players_data.items():
+                                    if coords['x'] and coords['y']:
+                                        final_average_positions[team][zone][player_id] = {
+                                            'x': np.mean(coords['x']),
+                                            'y': np.mean(coords['y']),
+                                            'shirt': coords['shirt'],
+                                            'appearances': len(coords['x'])
+                                        }
+
+                        return final_average_positions
+
+                    def plot_average_positions_by_zone(events_data, positions_data, start_minute=None, end_minute=None):
+                        """
+                        Plots average player positions during the start of different ball start zones.
+                        """
+                        events = events_data.get('data', [])
+                        if not events:
+                            st.error("No event data found.")
+                            return
+
+                        metadata = events_data.get('metaData', {})
+                        home_team = metadata.get('homeTeamName', metadata.get('homeTeam', 'Home'))
+                        away_team = metadata.get('awayTeamName', metadata.get('awayTeam', 'Away'))
+
+                        # Identify players who were substituted in
+                        substituted_in_players = set()
+                        SUBSTITUTE_BASE_TYPE = 16
+                        SUBBED_IN_SUBTYPE = 1601
+
+                        for event in events:
+                            if event.get('baseTypeId') == SUBSTITUTE_BASE_TYPE and event.get('subTypeId') == SUBBED_IN_SUBTYPE:
+                                player_id = event.get('playerId')
+                                if player_id is not None and player_id != -1:
+                                    substituted_in_players.add(player_id)
+
+                        # Get and display half-time info
+                        match_start_ms, first_half_end_ms, second_half_start_ms, match_end_ms = get_halftime_info(events)
+                        st.write(f"Match Start: {int(match_start_ms / 60000)} minutes")
+                        st.write(f"First Half End: {int(first_half_end_ms / 60000)} minutes" if first_half_end_ms is not None else "First Half End: N/A")
+                        st.write(f"Second Half Start: {int(second_half_start_ms / 60000)} minutes" if second_half_start_ms is not None else "Second Half Start: N/A")
+                        st.write(f"Match End: {int(match_end_ms / 60000)} minutes" if match_end_ms is not None else "Match End: N/A")
+
+                        # Categorize sequence starts within the time window
+                        sequence_starts_categorized = categorize_sequence_starts(events, start_minute, end_minute)
+
+                        if not sequence_starts_categorized:
+                            st.warning(f"No relevant sequence starts found in the specified time window ({start_minute}-{end_minute} minutes).")
+                            return
+
+                        st.write(f"Found {len(sequence_starts_categorized)} relevant sequence starts.")
+
+                        # Calculate average positions during the start of these sequences
+                        average_positions_data = calculate_average_positions_during_sequences(positions_data, events_data, sequence_starts_categorized)
+
+                        if not average_positions_data:
+                            st.warning("No position data found for the calculated sequence starts.")
+                            return
+
+                        # Define the 4 zones for plotting order and titles
+                        zones_order = ['Doeltrap', 'Zone 1 (Defensive Third)', 'Zone 2 (Middle Third)', 'Zone 3 (Attacking Third)']
+                        zone_titles = {
+                            'Doeltrap': 'Doeltrap Start',
+                            'Zone 1 (Defensive Third)': 'Zone 1 Start',
+                            'Zone 2 (Middle Third)': 'Zone 2 Start',
+                            'Zone 3 (Attacking Third)': 'Zone 3 Start'
+                        }
+
+                        # Create figure with 2 rows and 4 columns (8 plots)
+                        fig, axes = plt.subplots(2, 4, figsize=(24, 12))
+                        axes = axes.flatten() # Flatten the 2D array of axes for easy iteration
+
+                        # Plot configurations: (ax, team, color, attacking_side)
+                        plot_configs = []
+                        for i, zone in enumerate(zones_order):
+                            plot_configs.append((axes[i], home_team, home_color, 'right', zone)) # Home team in top row, attacks right
+                            plot_configs.append((axes[i + 4], away_team, away_color, 'left', zone)) # Away team in bottom row, attacks left
+
+                        # Set a minimum number of appearances in position data to plot a player
+                        # This prevents plotting players who only appeared for a very brief moment in the window
+                        min_appearances_threshold = 5 # Adjust as needed
+
+                        # Plot average positions for each team in each zone using mplsoccer Pitch
+                        for ax, team, color, attacking_side, zone in plot_configs:
+                            positions = average_positions_data.get(team, {}).get(zone, {})
+                            title = f"{team} - {zone_titles.get(zone, zone)}"
+
+                            # Create mplsoccer Pitch for this subplot
+                            # Using default vertical orientation
+                            pitch = Pitch(pitch_color='grass', line_color='white', pitch_type='impect') # Use 'impect' pitch type, no ax here
+
+                            # Redraw pitch on the specific axis
+                            pitch.draw(ax=ax) # Pass ax to draw method
+                            ax.set_title(title, fontsize=12, fontweight='bold', pad=10, color=color)
+
+                            # Filter out players with very few appearances for this zone's sequences
+                            filtered_positions = {
+                                pid: pos for pid, pos in positions.items()
+                                if pos['appearances'] >= min_appearances_threshold
+                            }
+
+                            if filtered_positions:
+                                for player_id, pos in filtered_positions.items():
+                                    x = pos['x']
+                                    y = pos['y']
+                                    shirt_number = pos.get('shirt', '?')
+
+                                    # Determine marker shape: circle for starters, square for substitutes
+                                    marker = 's' if player_id in substituted_in_players else 'o'
+
+                                    # Map SciSports coordinates to mplsoccer default vertical pitch (x, y)
+                                    # SciSports x (-52.5 to 52.5) -> mplsoccer y (0 to 105)
+                                    # SciSports y (-34 to 34) -> mplsoccer x (0 to 68)
+                                    mpl_x = x # SciSports y maps to mplsoccer x
+                                    mpl_y = y  # SciSports x maps to mplsoccer y
+
+                                    # Flip coordinates if the plot is showing away team (attacking downwards in default vertical)
+                                    # We want home to attack upwards and away to attack downwards in the plots
+                                    # For home (attacking upwards), use mpl_x, mpl_y directly
+                                    # For away (attacking downwards), flip mpl_x and mpl_y
+                                    if team == away_team: # Assuming home attacks upwards (+y), away attacks downwards (-y)
+                                         mpl_x = -mpl_x # Flip x
+                                         mpl_y = -mpl_y # Flip y
+
+                                    # Plot player position using mplsoccer pitch scatter
+                                    pitch.scatter(mpl_x, mpl_y, ax=ax, s=300, color=color, alpha=0.7,
+                                              edgecolors='white', linewidth=1.5, zorder=5)
+
+                                    # Add shirt number
+                                    ax.text(mpl_x, mpl_y, str(shirt_number),
+                                           color='white', fontsize=9, fontweight='bold',
+                                           ha='center', va='center', zorder=6)
+
+                        # Add main title with time range
+                        if start_minute is not None and end_minute is not None:
+                            time_range = f' (Minuut {start_minute}-{end_minute})'
+                        elif start_minute is not None:
+                            time_range = f' (From minute {start_minute})'
+                        elif end_minute is not None:
+                            time_range = f' (Until minute {end_minute})'
+                        else:
+                            time_range = ' (Full Match)'
+
+                        fig.suptitle(f'Average Positions During Ball Start Zones{time_range}\n{home_team} vs {away_team}',
+                                    fontsize=16, fontweight='bold', y=1.02) # Adjust y for suptitle
+
+                        plt.tight_layout(rect=[0, 0, 1, 0.98]) # Adjust layout to make space for suptitle
+                        st.pyplot(fig)
+
+                    # Create events data structure
+                    events_data = {
+                        'data': events,
+                        'metaData': {
+                            'homeTeamName': home_team,
+                            'awayTeamName': away_team
+                        }
+                    }
                     
-                    # Filter control data by time range
-                    start_ms = start_minute * 60 * 1000
-                    end_ms = end_minute * 60 * 1000
-                    
-                    filtered_control_events = []
-                    for event in control_data['control_events']:
-                        event_time = event.get('startTimeMs', 0)
-                        if start_ms <= event_time <= end_ms:
-                            filtered_control_events.append(event)
-                    
-                    # Create control plot
-                    fig_control, ax_control = plt.subplots(figsize=(12, 6))
-                    
-                    # Calculate control percentages
-                    home_control_events = [e for e in filtered_control_events if e['team'] == home_team]
-                    away_control_events = [e for e in filtered_control_events if e['team'] == away_team]
-                    
-                    total_home_control = sum(e['value'] for e in home_control_events)
-                    total_away_control = sum(e['value'] for e in away_control_events)
-                    total_control = total_home_control + total_away_control
-                    
-                    if total_control > 0:
-                        home_control_pct = (total_home_control / total_control) * 100
-                        away_control_pct = (total_away_control / total_control) * 100
-                        
-                        # Create horizontal bar chart
-                        ax_control.barh([1], [home_control_pct], color=home_color, alpha=0.8, height=0.85)
-                        ax_control.barh([1], [away_control_pct], left=[home_control_pct], color=away_color, alpha=0.8, height=0.85)
-                        
-                        # Add percentage labels
-                        ax_control.text(home_control_pct/2, 1, f'{home_control_pct:.1f}%', 
-                                      ha='center', va='center', fontweight='bold', color='white')
-                        ax_control.text(home_control_pct + away_control_pct/2, 1, f'{away_control_pct:.1f}%', 
-                                      ha='center', va='center', fontweight='bold', color='white')
-                    
-                    ax_control.set_xlim(0, 100)
-                    ax_control.set_ylim(0.5, 1.5)
-                    ax_control.set_yticks([1])
-                    ax_control.set_yticklabels([f'Control ({start_minute}-{end_minute} min)'])
-                    ax_control.set_xlabel('Control Percentage (%)')
-                    ax_control.spines['top'].set_visible(False)
-                    ax_control.spines['right'].set_visible(False)
-                    ax_control.spines['bottom'].set_visible(False)
-                    
-                    plt.tight_layout()
-                    st.pyplot(fig_control)
-                    
-                    # Show sequence start statistics
-                    st.subheader("📈 Sequence Start Statistieken")
-                    
-                    # Count sequences per zone and team
-                    zone_stats = defaultdict(lambda: defaultdict(int))
-                    possession_type_stats = defaultdict(lambda: defaultdict(int))
-                    
-                    for seq in sequence_starts:
-                        zone_stats[seq['zone']][seq['team']] += 1
-                        possession_type = seq.get('possession_type_name', 'Unknown')
-                        possession_type_stats[possession_type][seq['team']] += 1
-                    
-                    # Create zone statistics table
-                    stats_data = []
-                    for zone, zone_name in zip(zones, zone_names):
-                        home_count = zone_stats[zone][home_team]
-                        away_count = zone_stats[zone][away_team]
-                        total_count = home_count + away_count
-                        
-                        stats_data.append({
-                            'Zone': zone_name,
-                            f'{home_team}': home_count,
-                            f'{away_team}': away_count,
-                            'Totaal': total_count
-                        })
-                    
-                    stats_df = pd.DataFrame(stats_data)
-                    st.dataframe(stats_df)
-                    
-                    # Show possession type breakdown
-                    st.subheader("📊 Possession Type Breakdown")
-                    possession_data = []
-                    for possession_type, team_counts in possession_type_stats.items():
-                        home_count = team_counts[home_team]
-                        away_count = team_counts[away_team]
-                        total_count = home_count + away_count
-                        
-                        possession_data.append({
-                            'Possession Type': possession_type,
-                            f'{home_team}': home_count,
-                            f'{away_team}': away_count,
-                            'Totaal': total_count
-                        })
-                    
-                    possession_df = pd.DataFrame(possession_data)
-                    if not possession_df.empty:
-                        st.dataframe(possession_df)
-                    
-                    # Show total sequence starts
-                    total_sequences = len(sequence_starts)
-                    st.metric("Totaal Sequence Starts", total_sequences)
-                    
+                    # Plot the average positions
+                    plot_average_positions_by_zone(events_data, positions_data, start_minute, end_minute)
+                            
                 except Exception as e:
-                    st.error(f"Fout bij het laden van het positions bestand: {str(e)}")
-                    st.write("Zorg ervoor dat het bestand een geldig positions.json bestand is.")
-            elif positions_file is None:
-                st.info("Upload een positions.json bestand om de gemiddelde posities te analyseren.")
+                    st.error(f"Fout bij het laden van het positions bestand: {e}")
             else:
-                st.info("Selecteer eerst een wedstrijd om de gemiddelde posities te analyseren.")
+                st.info("Upload een positions.json bestand om gemiddelde posities te bekijken.")
         with tab6:
             st.subheader("Samenvatting Statistieken")
             
