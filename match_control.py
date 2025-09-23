@@ -746,7 +746,7 @@ def calculate_game_control_and_domination(data, home_team_override=None, away_te
         x_padding = 1
         ax.set_xlim(minutes[0] - x_padding, minutes[-1] + x_padding)
         
-        step = 15 if (minutes[-1] - minutes[0]) >= 30 else max(1, int((minutes[-1] - minutes[0]) // 5))
+        step = 5 if (minutes[-1] - minutes[0]) >= 30 else max(1, int((minutes[-1] - minutes[0]) // 5))
         ticks = np.arange(minutes[0], minutes[-1] + 1, step)
         
         if half_name == 'Second Half' and len(minutes) > 0:
@@ -1639,8 +1639,8 @@ if events_data is not None:
                 # Draw at the actual first-half end minute (no offset correction)
                 ax_plot.axvline(x=first_half_end, color='gray', linestyle='--', linewidth=1, alpha=0.5)
 
-            tick_positions = [0, 15, 30, 45, 60, 75, 90]
-            tick_labels = ['0', '15', '30', '45', '60', '75', '90']
+            tick_positions = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90]
+            tick_labels = ['0', '5', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55', '60', '65', '70', '75', '80', '85', '90']
             ax_plot.set_xticks(tick_positions)
             ax_plot.set_xticklabels(tick_labels)
             ax_plot.set_facecolor('#F8F8F8')
@@ -1800,133 +1800,153 @@ if events_data is not None:
         # ---------- Average Positions Tab ----------
         with tab5:
             st.header("Gemiddelde Posities")
+            st.info("Deze tab is momenteel niet beschikbaar.")
+        with tab6:
+            st.subheader("Samenvatting Statistieken")
             
-            # File upload for positions
-            positions_file = st.file_uploader("Upload positions.json file", type=['json'], key="positions_upload")
-            
-            if positions_file is not None:
-                try:
-                    # Load positions data
-                    positions_data = json.load(positions_file)
+            if events_data is not None:
+                events = events_data.get('data', []) if isinstance(events_data, dict) else []
+                
+                # High Recoveries Analysis
+                st.subheader("🏃‍♂️ High Recoveries (x > -17.5)")
+                
+                # Define base type IDs for Interception and Ball Recovery
+                INTERCEPTION_BASE_TYPE_ID = 5
+                BALL_RECOVERY_BASE_TYPE_ID = 9
+                SUCCESSFUL_RESULT_ID = 1
+                RECOVERY_SUB_TYPE_ID_INTERCEPTION = 501
+                
+                # Filter for successful interceptions and recoveries in the middle and final third (x > -17.5)
+                filtered_recoveries_interceptions = []
+
+                            for event in events:
+                                base_type_id = event.get('baseTypeId')
+                    sub_type_id = event.get('subTypeId')
+                    result_id = event.get('resultId')
+                    event_x = event.get('startPosXM')
                     
-                    # Get match info
-                    home_team = events[0].get('homeTeamName', 'Home') if events else 'Home'
-                    away_team = events[0].get('awayTeamName', 'Away') if events else 'Away'
+                    # Check if it's a successful event
+                    if result_id == SUCCESSFUL_RESULT_ID:
+                        # Check if it's an Interception or a Ball Recovery
+                        is_interception = base_type_id == INTERCEPTION_BASE_TYPE_ID
+                        is_ball_recovery = base_type_id == BALL_RECOVERY_BASE_TYPE_ID
+                        is_interception_recovery = (base_type_id == INTERCEPTION_BASE_TYPE_ID and
+                                                    sub_type_id == RECOVERY_SUB_TYPE_ID_INTERCEPTION)
+                        
+                        # If it's one of the relevant types and the location is correct (x > -17.5)
+                        if (is_interception or is_ball_recovery or is_interception_recovery) and event_x is not None and event_x > -17.5:
+                            filtered_recoveries_interceptions.append(event)
+                
+                # Prepare data for a DataFrame
+                recovery_interception_data = []
+                for event in filtered_recoveries_interceptions:
+                    recovery_interception_data.append({
+                        'Minute': int(event.get('startTimeMs', 0) / 1000 / 60),
+                        'Team': event.get('teamName', 'Unknown Team'),
+                        'Player': event.get('playerName', 'Unknown Player'),
+                        'Base Type': event.get('baseTypeName', 'Unknown'),
+                        'Sub Type': event.get('subTypeName', 'Unknown'),
+                        'Start X': event.get('startPosXM'),
+                        'Start Y': event.get('startPosYM'),
+                        'Labels': event.get('labels', [])
+                    })
+                
+                # Create and display the DataFrame
+                recovery_interception_df = pd.DataFrame(recovery_interception_data)
+                
+                # Display team counts
+                team_counts = recovery_interception_df['Team'].value_counts().reset_index()
+                team_counts.columns = ['Team', 'Count of Recoveries/Interceptions (x > -17.5)']
+                
+                # Display the counts per team
+                st.dataframe(team_counts)
+                
+                # Display detailed events
+                st.subheader("📋 Gedetailleerde High Recoveries")
+                
+                # Show detailed events table
+                if not recovery_interception_df.empty:
+                    st.dataframe(recovery_interception_df)
+                else:
+                    st.info("Geen High Recoveries gevonden in deze wedstrijd.")
+                
+                # Final Third Entries Analysis
+                st.subheader("⚽ Final Third Entries")
+                
+                # Define labels for final third entries
+                DRIBBLE_CHANCE_CREATION_LABEL = 127
+                FINAL_3RD_PASS_SUCCESS_LABEL = 69
+                
+                # Count final third entries per team
+                final_third_entries = defaultdict(int)
+
+                            for event in events:
+                                base_type_id = event.get('baseTypeId')
+                    result_id = event.get('resultId')
+                    labels = event.get('labels', [])
+                    team_name = event.get('teamName')
                     
-                    # Define colors
-                    home_color = '#1f77b4'
-                    away_color = '#ff7f0e'
+                    # Check for successful dribbles (baseTypeId 2, resultId 1, label 127)
+                    if (base_type_id == 2 and result_id == 1 and DRIBBLE_CHANCE_CREATION_LABEL in labels):
+                        final_third_entries[f"{team_name}_dribbles"] += 1
                     
-                    # Time range slider
-                    max_time = max([event.get('startTimeMs', 0) for event in events]) / 60000
-                    start_minute = st.slider("Start Minute", 0, int(max_time), 0, key="start_minute")
-                    end_minute = st.slider("End Minute", start_minute, int(max_time), int(max_time), key="end_minute")
-                    
-                    def get_halftime_info(events):
-                        """Get information about half-time from events data"""
-                        match_start_ms = 0 # Default
-                        first_half_end_ms = None
-                        second_half_start_ms = None
-                        match_end_ms = None # End of second half
-
-                        for event in events:
-                            # Look for Period Start of first half (match start)
-                            if (event.get('baseTypeId') == 14 and
-                                event.get('subTypeId') == 1400 and
-                                event.get('partId') == 1):
-                                match_start_ms = event.get('startTimeMs', match_start_ms)
-
-                            # Look for Period End of first half
-                            if (event.get('baseTypeId') == 14 and
-                                event.get('subTypeId') == 1401 and
-                                event.get('partId') == 1):
-                                first_half_end_ms = event.get('startTimeMs', first_half_end_ms)
-
-                            # Look for Period Start of second half
-                            if (event.get('baseTypeId') == 14 and
-                                event.get('subTypeId') == 1400 and
-                                event.get('partId') == 2):
-                                second_half_start_ms = event.get('startTimeMs', second_half_start_ms)
-
-                            # Look for Period End of second half (match end)
-                            if (event.get('baseTypeId') == 14 and
-                                event.get('subTypeId') == 1401 and
-                                event.get('partId') == 2):
-                                match_end_ms = event.get('startTimeMs', match_end_ms)
-
-                        return match_start_ms, first_half_end_ms, second_half_start_ms, match_end_ms
-
-                    def categorize_sequence_starts(events, start_minute=None, end_minute=None):
-                        """
-                        Categorize sequence start events into defined zones and find the first pass.
-                        Filters by time window.
-                        """
-                        sequence_starts = []
-                        # Sort events by time for easier sequence analysis
-                        events.sort(key=lambda x: x.get('startTimeMs', 0))
-
-                        # Convert minute filters to milliseconds
-                        start_ms = start_minute * 60 * 1000 if start_minute is not None else 0
-                        end_ms = end_minute * 60 * 1000 if end_minute is not None else float('inf')
-
-                        # Create a mapping of sequenceId to a list of events in that sequence
-                        sequence_events = defaultdict(list)
-                        for event in events:
-                            sequence_id = event.get('sequenceId')
-                            if sequence_id is not None and sequence_id != -1:
-                                sequence_events[sequence_id].append(event)
-
-                        # Process sequence start events within the time window
-                        for event in events:
-                            if event.get('sequenceStart') is True:
-                                event_time_ms = event.get('startTimeMs', 0)
-
-                                # Check if the event is within the specified time window
-                                if event_time_ms < start_ms or event_time_ms > end_ms:
-                                    continue
-
-                                sequence_id = event.get('sequenceId')
-                                team_name = event.get('teamName')
-                                possession_type_name = event.get('possessionTypeName')
-                                start_third = event.get('descriptives', {}).get('startThird') # 1:Def, 2:Mid, 3:Att
-
-                                zone = None
-                                # Determine the zone
-                                if possession_type_name == 'GOAL_KICK':
-                                    zone = 'Doeltrap'
-                                elif start_third == 1:
-                                    zone = 'Zone 1 (Defensive Third)'
-                                elif start_third == 2:
-                                    zone = 'Zone 2 (Middle Third)'
-                                elif start_third == 3:
-                                    zone = 'Zone 3 (Attacking Third)'
-
-                                if zone and sequence_id is not None:
-                                    # Find the first pass in the sequence (including the start event itself)
-                                    first_pass = None
-                                    if sequence_id in sequence_events:
-                                        for seq_event in sequence_events[sequence_id]:
-                                            if seq_event.get('baseTypeId') == 1: # BaseTypeId 1 is Pass
-                                                first_pass = seq_event
-                                                break # Found the first pass in the sequence
-
-                                    if first_pass:
-                                        sequence_starts.append({
-                                            'team': team_name,
-                                            'zone': zone,
-                                            'start_time_ms': event_time_ms, # Start time of the sequence
-                                            'first_pass_time_ms': first_pass.get('startTimeMs', event_time_ms), # Time of the first pass
-                                            'sequence_id': sequence_id
-                                        })
-
-                        return sequence_starts
+                    # Check for successful final third passes (baseTypeId 1, resultId 1, label 69)
+                    if (base_type_id == 1 and result_id == 1 and FINAL_3RD_PASS_SUCCESS_LABEL in labels):
+                        final_third_entries[f"{team_name}_passes"] += 1
+                
+                # Create summary DataFrame
+                final_third_df = pd.DataFrame([
+                    {'Team': team, 'Chance Creation Dribbles': final_third_entries.get(f"{team}_dribbles", 0), 
+                     'Final 3rd Passes': final_third_entries.get(f"{team}_passes", 0)}
+                    for team in set([event.get('teamName', 'Unknown') for event in events])
+                ])
+                
+                # Add total column
+                final_third_df['Total Final Third Entries'] = final_third_df['Chance Creation Dribbles'] + final_third_df['Final 3rd Passes']
+                
+                # Display the DataFrame
+                st.dataframe(final_third_df)
+                
+                # Match Summary Statistics
+                st.subheader("📊 Wedstrijd Samenvatting")
+                
+                # Calculate summary metrics
+                total_events = len(events)
+                total_high_recoveries = len(filtered_recoveries_interceptions)
+                total_final_third_entries = final_third_df['Total Final Third Entries'].sum()
+                
+                # Display metrics
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    st.metric("Totaal Events", total_events)
+                
+                with col2:
+                    st.metric("High Recoveries", total_high_recoveries)
+                
+                with col3:
+                    st.metric("Final Third Entries", total_final_third_entries)
+                
+                # Additional metrics
+                col4, col5, col6 = st.columns(3)
+                
+                with col4:
+                    st.metric("Chance Creation Dribbles", final_third_df['Chance Creation Dribbles'].sum())
+                
+                with col5:
+                    st.metric("Final 3rd Passes", final_third_df['Final 3rd Passes'].sum())
+                
+                with col6:
+                    st.metric("Gem. Recovery X Positie", f"{filtered_recoveries_interceptions[0]['startPosXM']:.1f}" if filtered_recoveries_interceptions else "N/A")
+            else:
+                st.warning("Geen wedstrijddata gevonden voor de samenvatting.")
 
                     def calculate_average_positions_during_sequences(positions_data, events_data, sequence_starts,
                                                                     time_window_duration_ms=2000): # Analyze positions for the first 2 seconds of the sequence
                         """
                         Calculate average positions for each player during the start of defined sequences.
                         """
-                        frames = positions_data.get('data', [])
+                            frames = positions_data.get('data', [])
                         # Sort frames by time for efficient processing
                         frames.sort(key=lambda x: x.get('t', 0))
 
@@ -1976,12 +1996,12 @@ if events_data is not None:
                                     if player_id:
                                         x = player.get('x', 0)
                                         y = player.get('y', 0)
-                                        shirt = player.get('s', '')
+                                shirt = player.get('s', '')
 
                                         # Flip coordinates for second half (teams switch sides)
                                         if is_second_half:
-                                            x = -x
-                                            y = -y
+                                                x = -x
+                                                y = -y
 
                                         average_positions_by_zone[team][zone][player_id]['x'].append(x)
                                         average_positions_by_zone[team][zone][player_id]['y'].append(y)
@@ -2007,7 +2027,7 @@ if events_data is not None:
                         """
                         Plots average player positions during the start of different ball start zones.
                         """
-                        events = events_data.get('data', [])
+                            events = events_data.get('data', [])
                         if not events:
                             st.error("No event data found.")
                             return
@@ -2268,13 +2288,13 @@ if events_data is not None:
                 # Summary Statistics
                 st.subheader("📊 Wedstrijd Samenvatting")
                 
-                col1, col2, col3 = st.columns(3)
+                        col1, col2, col3 = st.columns(3)
                 
-                with col1:
+                        with col1:
                     st.metric("Totaal Events", len(events))
                     st.metric("High Recoveries", len(filtered_recoveries_interceptions))
                 
-                with col2:
+                        with col2:
                     total_final_third = sum(stats['successful_dribbles_chance_creation'] + stats['successful_final_3rd_passes'] for stats in team_stats.values())
                     st.metric("Final Third Entries", total_final_third)
                     st.metric("Chance Creation Dribbles", sum(stats['successful_dribbles_chance_creation'] for stats in team_stats.values()))
