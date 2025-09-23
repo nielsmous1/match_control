@@ -2023,290 +2023,290 @@ if events_data is not None:
 
             return final_average_positions
 
-                    def plot_average_positions_by_zone(events_data, positions_data, start_minute=None, end_minute=None):
-                        """
-                        Plots average player positions during the start of different ball start zones.
-                        """
-                            events = events_data.get('data', [])
-                        if not events:
-                            st.error("No event data found.")
-                            return
+        def plot_average_positions_by_zone(events_data, positions_data, start_minute=None, end_minute=None):
+            """
+            Plots average player positions during the start of different ball start zones.
+            """
+            events = events_data.get('data', [])
+            if not events:
+                st.error("No event data found.")
+                return
 
-                        metadata = events_data.get('metaData', {})
-                        home_team = metadata.get('homeTeamName', metadata.get('homeTeam', 'Home'))
-                        away_team = metadata.get('awayTeamName', metadata.get('awayTeam', 'Away'))
+            metadata = events_data.get('metaData', {})
+            home_team = metadata.get('homeTeamName', metadata.get('homeTeam', 'Home'))
+            away_team = metadata.get('awayTeamName', metadata.get('awayTeam', 'Away'))
 
-                        # Identify players who were substituted in
-                        substituted_in_players = set()
-                        SUBSTITUTE_BASE_TYPE = 16
-                        SUBBED_IN_SUBTYPE = 1601
+            # Identify players who were substituted in
+            substituted_in_players = set()
+            SUBSTITUTE_BASE_TYPE = 16
+            SUBBED_IN_SUBTYPE = 1601
 
-                        for event in events:
-                            if event.get('baseTypeId') == SUBSTITUTE_BASE_TYPE and event.get('subTypeId') == SUBBED_IN_SUBTYPE:
-                                player_id = event.get('playerId')
-                                if player_id is not None and player_id != -1:
-                                    substituted_in_players.add(player_id)
+            for event in events:
+                if event.get('baseTypeId') == SUBSTITUTE_BASE_TYPE and event.get('subTypeId') == SUBBED_IN_SUBTYPE:
+                    player_id = event.get('playerId')
+                    if player_id is not None and player_id != -1:
+                        substituted_in_players.add(player_id)
 
-                        # Get and display half-time info
-                        match_start_ms, first_half_end_ms, second_half_start_ms, match_end_ms = get_halftime_info(events)
-                        st.write(f"Match Start: {int(match_start_ms / 60000)} minutes")
-                        st.write(f"First Half End: {int(first_half_end_ms / 60000)} minutes" if first_half_end_ms is not None else "First Half End: N/A")
-                        st.write(f"Second Half Start: {int(second_half_start_ms / 60000)} minutes" if second_half_start_ms is not None else "Second Half Start: N/A")
-                        st.write(f"Match End: {int(match_end_ms / 60000)} minutes" if match_end_ms is not None else "Match End: N/A")
+            # Get and display half-time info
+            match_start_ms, first_half_end_ms, second_half_start_ms, match_end_ms = get_halftime_info(events)
+            st.write(f"Match Start: {int(match_start_ms / 60000)} minutes")
+            st.write(f"First Half End: {int(first_half_end_ms / 60000)} minutes" if first_half_end_ms is not None else "First Half End: N/A")
+            st.write(f"Second Half Start: {int(second_half_start_ms / 60000)} minutes" if second_half_start_ms is not None else "Second Half Start: N/A")
+            st.write(f"Match End: {int(match_end_ms / 60000)} minutes" if match_end_ms is not None else "Match End: N/A")
 
-                        # Categorize sequence starts within the time window
-                        sequence_starts_categorized = categorize_sequence_starts(events, start_minute, end_minute)
+            # Categorize sequence starts within the time window
+            sequence_starts_categorized = categorize_sequence_starts(events, start_minute, end_minute)
 
-                        if not sequence_starts_categorized:
-                            st.warning(f"No relevant sequence starts found in the specified time window ({start_minute}-{end_minute} minutes).")
-                            return
+            if not sequence_starts_categorized:
+                st.warning(f"No relevant sequence starts found in the specified time window ({start_minute}-{end_minute} minutes).")
+                return
 
-                        st.write(f"Found {len(sequence_starts_categorized)} relevant sequence starts.")
+            st.write(f"Found {len(sequence_starts_categorized)} relevant sequence starts.")
 
-                        # Calculate average positions during the start of these sequences
-                        average_positions_data = calculate_average_positions_during_sequences(positions_data, events_data, sequence_starts_categorized)
+            # Calculate average positions during the start of these sequences
+            average_positions_data = calculate_average_positions_during_sequences(positions_data, events_data, sequence_starts_categorized)
 
-                        if not average_positions_data:
-                            st.warning("No position data found for the calculated sequence starts.")
-                            return
+            if not average_positions_data:
+                st.warning("No position data found for the calculated sequence starts.")
+                return
 
-                        # Define the 4 zones for plotting order and titles
-                        zones_order = ['Doeltrap', 'Zone 1 (Defensive Third)', 'Zone 2 (Middle Third)', 'Zone 3 (Attacking Third)']
-                        zone_titles = {
-                            'Doeltrap': 'Doeltrap Start',
-                            'Zone 1 (Defensive Third)': 'Zone 1 Start',
-                            'Zone 2 (Middle Third)': 'Zone 2 Start',
-                            'Zone 3 (Attacking Third)': 'Zone 3 Start'
-                        }
+            # Define the 4 zones for plotting order and titles
+            zones_order = ['Doeltrap', 'Zone 1 (Defensive Third)', 'Zone 2 (Middle Third)', 'Zone 3 (Attacking Third)']
+            zone_titles = {
+                'Doeltrap': 'Doeltrap Start',
+                'Zone 1 (Defensive Third)': 'Zone 1 Start',
+                'Zone 2 (Middle Third)': 'Zone 2 Start',
+                'Zone 3 (Attacking Third)': 'Zone 3 Start'
+            }
 
-                        # Create figure with 2 rows and 4 columns (8 plots)
-                        fig, axes = plt.subplots(2, 4, figsize=(24, 12))
-                        axes = axes.flatten() # Flatten the 2D array of axes for easy iteration
+            # Create figure with 2 rows and 4 columns (8 plots)
+            fig, axes = plt.subplots(2, 4, figsize=(24, 12))
+            axes = axes.flatten() # Flatten the 2D array of axes for easy iteration
 
-                        # Plot configurations: (ax, team, color, attacking_side)
-                        plot_configs = []
-                        for i, zone in enumerate(zones_order):
-                            plot_configs.append((axes[i], home_team, home_color, 'right', zone)) # Home team in top row, attacks right
-                            plot_configs.append((axes[i + 4], away_team, away_color, 'left', zone)) # Away team in bottom row, attacks left
+            # Plot configurations: (ax, team, color, attacking_side)
+            plot_configs = []
+            for i, zone in enumerate(zones_order):
+                plot_configs.append((axes[i], home_team, home_color, 'right', zone)) # Home team in top row, attacks right
+                plot_configs.append((axes[i + 4], away_team, away_color, 'left', zone)) # Away team in bottom row, attacks left
 
-                        # Set a minimum number of appearances in position data to plot a player
-                        # This prevents plotting players who only appeared for a very brief moment in the window
-                        min_appearances_threshold = 5 # Adjust as needed
+            # Set a minimum number of appearances in position data to plot a player
+            # This prevents plotting players who only appeared for a very brief moment in the window
+            min_appearances_threshold = 5 # Adjust as needed
 
-                        # Plot average positions for each team in each zone using mplsoccer Pitch
-                        for ax, team, color, attacking_side, zone in plot_configs:
-                            positions = average_positions_data.get(team, {}).get(zone, {})
-                            title = f"{team} - {zone_titles.get(zone, zone)}"
+            # Plot average positions for each team in each zone using mplsoccer Pitch
+            for ax, team, color, attacking_side, zone in plot_configs:
+                positions = average_positions_data.get(team, {}).get(zone, {})
+                title = f"{team} - {zone_titles.get(zone, zone)}"
 
-                            # Create mplsoccer Pitch for this subplot
-                            # Using default vertical orientation
-                            pitch = Pitch(pitch_color='grass', line_color='white', pitch_type='impect') # Use 'impect' pitch type, no ax here
+                # Create mplsoccer Pitch for this subplot
+                # Using default vertical orientation
+                pitch = Pitch(pitch_color='grass', line_color='white', pitch_type='impect') # Use 'impect' pitch type, no ax here
 
-                            # Redraw pitch on the specific axis
-                            pitch.draw(ax=ax) # Pass ax to draw method
-                            ax.set_title(title, fontsize=12, fontweight='bold', pad=10, color=color)
+                # Redraw pitch on the specific axis
+                pitch.draw(ax=ax) # Pass ax to draw method
+                ax.set_title(title, fontsize=12, fontweight='bold', pad=10, color=color)
 
-                            # Filter out players with very few appearances for this zone's sequences
-                            filtered_positions = {
-                                pid: pos for pid, pos in positions.items()
-                                if pos['appearances'] >= min_appearances_threshold
-                            }
+                # Filter out players with very few appearances for this zone's sequences
+                filtered_positions = {
+                    pid: pos for pid, pos in positions.items()
+                    if pos['appearances'] >= min_appearances_threshold
+                }
 
-                            if filtered_positions:
-                                for player_id, pos in filtered_positions.items():
-                                    x = pos['x']
-                                    y = pos['y']
-                                    shirt_number = pos.get('shirt', '?')
+                if filtered_positions:
+                    for player_id, pos in filtered_positions.items():
+                        x = pos['x']
+                        y = pos['y']
+                        shirt_number = pos.get('shirt', '?')
 
-                                    # Determine marker shape: circle for starters, square for substitutes
-                                    marker = 's' if player_id in substituted_in_players else 'o'
+                        # Determine marker shape: circle for starters, square for substitutes
+                        marker = 's' if player_id in substituted_in_players else 'o'
 
-                                    # Map SciSports coordinates to mplsoccer default vertical pitch (x, y)
-                                    # SciSports x (-52.5 to 52.5) -> mplsoccer y (0 to 105)
-                                    # SciSports y (-34 to 34) -> mplsoccer x (0 to 68)
-                                    mpl_x = x # SciSports y maps to mplsoccer x
-                                    mpl_y = y  # SciSports x maps to mplsoccer y
+                        # Map SciSports coordinates to mplsoccer default vertical pitch (x, y)
+                        # SciSports x (-52.5 to 52.5) -> mplsoccer y (0 to 105)
+                        # SciSports y (-34 to 34) -> mplsoccer x (0 to 68)
+                        mpl_x = x # SciSports y maps to mplsoccer x
+                        mpl_y = y  # SciSports x maps to mplsoccer y
 
-                                    # Flip coordinates if the plot is showing away team (attacking downwards in default vertical)
-                                    # We want home to attack upwards and away to attack downwards in the plots
-                                    # For home (attacking upwards), use mpl_x, mpl_y directly
-                                    # For away (attacking downwards), flip mpl_x and mpl_y
-                                    if team == away_team: # Assuming home attacks upwards (+y), away attacks downwards (-y)
-                                         mpl_x = -mpl_x # Flip x
-                                         mpl_y = -mpl_y # Flip y
+                        # Flip coordinates if the plot is showing away team (attacking downwards in default vertical)
+                        # We want home to attack upwards and away to attack downwards in the plots
+                        # For home (attacking upwards), use mpl_x, mpl_y directly
+                        # For away (attacking downwards), flip mpl_x and mpl_y
+                        if team == away_team: # Assuming home attacks upwards (+y), away attacks downwards (-y)
+                            mpl_x = -mpl_x # Flip x
+                            mpl_y = -mpl_y # Flip y
 
-                                    # Plot player position using mplsoccer pitch scatter
-                                    pitch.scatter(mpl_x, mpl_y, ax=ax, s=300, color=color, alpha=0.7,
-                                              edgecolors='white', linewidth=1.5, zorder=5)
+                        # Plot player position using mplsoccer pitch scatter
+                        pitch.scatter(mpl_x, mpl_y, ax=ax, s=300, color=color, alpha=0.7,
+                                      edgecolors='white', linewidth=1.5, zorder=5)
 
-                                    # Add shirt number
-                                    ax.text(mpl_x, mpl_y, str(shirt_number),
-                                           color='white', fontsize=9, fontweight='bold',
-                                           ha='center', va='center', zorder=6)
+                        # Add shirt number
+                        ax.text(mpl_x, mpl_y, str(shirt_number),
+                               color='white', fontsize=9, fontweight='bold',
+                               ha='center', va='center', zorder=6)
 
-                        # Add main title with time range
-                        if start_minute is not None and end_minute is not None:
-                            time_range = f' (Minuut {start_minute}-{end_minute})'
-                        elif start_minute is not None:
-                            time_range = f' (From minute {start_minute})'
-                        elif end_minute is not None:
-                            time_range = f' (Until minute {end_minute})'
-                        else:
-                            time_range = ' (Full Match)'
+            # Add main title with time range
+            if start_minute is not None and end_minute is not None:
+                time_range = f' (Minuut {start_minute}-{end_minute})'
+            elif start_minute is not None:
+                time_range = f' (From minute {start_minute})'
+            elif end_minute is not None:
+                time_range = f' (Until minute {end_minute})'
+            else:
+                time_range = ' (Full Match)'
 
-                        fig.suptitle(f'Average Positions During Ball Start Zones{time_range}\n{home_team} vs {away_team}',
-                                    fontsize=16, fontweight='bold', y=1.02) # Adjust y for suptitle
+            fig.suptitle(f'Average Positions During Ball Start Zones{time_range}\n{home_team} vs {away_team}',
+                        fontsize=16, fontweight='bold', y=1.02) # Adjust y for suptitle
 
-                        plt.tight_layout(rect=[0, 0, 1, 0.98]) # Adjust layout to make space for suptitle
-                        st.pyplot(fig)
+            plt.tight_layout(rect=[0, 0, 1, 0.98]) # Adjust layout to make space for suptitle
+            st.pyplot(fig)
 
-                    # Create events data structure
-                    events_data = {
-                        'data': events,
-                        'metaData': {
-                            'homeTeamName': home_team,
-                            'awayTeamName': away_team
-                        }
-                    }
-                    
-                    # Plot the average positions
-                    plot_average_positions_by_zone(events_data, positions_data, start_minute, end_minute)
+        # Create events data structure
+        events_data = {
+            'data': events,
+            'metaData': {
+                'homeTeamName': home_team,
+                'awayTeamName': away_team
+            }
+        }
+        
+        # Plot the average positions
+        plot_average_positions_by_zone(events_data, positions_data, start_minute, end_minute)
                             
-                except Exception as e:
-                    st.error(f"Fout bij het laden van het positions bestand: {e}")
-            else:
-                st.info("Upload een positions.json bestand om gemiddelde posities te bekijken.")
-        with tab6:
-            st.subheader("Samenvatting Statistieken")
+    except Exception as e:
+        st.error(f"Fout bij het laden van het positions bestand: {e}")
+else:
+    st.info("Upload een positions.json bestand om gemiddelde posities te bekijken.")
+with tab6:
+    st.subheader("Samenvatting Statistieken")
+    
+    if events_data is not None:
+        events = events_data.get('data', []) if isinstance(events_data, dict) else []
+        
+        # High Recoveries Analysis
+        st.subheader("🏃‍♂️ High Recoveries (x > -17.5)")
+        
+        # Define base type IDs for Interception and Ball Recovery
+        INTERCEPTION_BASE_TYPE_ID = 5
+        BALL_RECOVERY_BASE_TYPE_ID = 9
+        SUCCESSFUL_RESULT_ID = 1
+        RECOVERY_SUB_TYPE_ID_INTERCEPTION = 501
+        
+        # Filter for successful interceptions and recoveries in the middle and final third (x > -17.5)
+        filtered_recoveries_interceptions = []
+        
+        for event in events:
+            base_type_id = event.get('baseTypeId')
+            sub_type_id = event.get('subTypeId')
+            result_id = event.get('resultId')
+            event_x = event.get('startPosXM')
             
-            if events_data is not None:
-                events = events_data.get('data', []) if isinstance(events_data, dict) else []
+            # Check if it's a successful event
+            if result_id == SUCCESSFUL_RESULT_ID:
+                # Check if it's an Interception or a Ball Recovery
+                is_interception = base_type_id == INTERCEPTION_BASE_TYPE_ID
+                is_ball_recovery = base_type_id == BALL_RECOVERY_BASE_TYPE_ID
+                is_interception_recovery = (base_type_id == INTERCEPTION_BASE_TYPE_ID and
+                                            sub_type_id == RECOVERY_SUB_TYPE_ID_INTERCEPTION)
                 
-                # High Recoveries Analysis
-                st.subheader("🏃‍♂️ High Recoveries (x > -17.5)")
-                
-                # Define base type IDs for Interception and Ball Recovery
-                INTERCEPTION_BASE_TYPE_ID = 5
-                BALL_RECOVERY_BASE_TYPE_ID = 9
-                SUCCESSFUL_RESULT_ID = 1
-                RECOVERY_SUB_TYPE_ID_INTERCEPTION = 501
-                
-                # Filter for successful interceptions and recoveries in the middle and final third (x > -17.5)
-                filtered_recoveries_interceptions = []
-                
-                for event in events:
-                    base_type_id = event.get('baseTypeId')
-                    sub_type_id = event.get('subTypeId')
-                    result_id = event.get('resultId')
-                    event_x = event.get('startPosXM')
-                    
-                    # Check if it's a successful event
-                    if result_id == SUCCESSFUL_RESULT_ID:
-                        # Check if it's an Interception or a Ball Recovery
-                        is_interception = base_type_id == INTERCEPTION_BASE_TYPE_ID
-                        is_ball_recovery = base_type_id == BALL_RECOVERY_BASE_TYPE_ID
-                        is_interception_recovery = (base_type_id == INTERCEPTION_BASE_TYPE_ID and
-                                                    sub_type_id == RECOVERY_SUB_TYPE_ID_INTERCEPTION)
-                        
-                        # If it's one of the relevant types and the location is correct (x > -17.5)
-                        if (is_interception or is_ball_recovery or is_interception_recovery) and event_x is not None and event_x > -17.5:
-                            filtered_recoveries_interceptions.append(event)
-                
-                # Prepare data for a DataFrame
-                recovery_interception_data = []
-                for event in filtered_recoveries_interceptions:
-                    recovery_interception_data.append({
-                        'Minute': int(event.get('startTimeMs', 0) / 1000 / 60),
-                        'Team': event.get('teamName', 'Unknown Team'),
-                        'Player': event.get('playerName', 'Unknown Player'),
-                        'Base Type': event.get('baseTypeName', 'Unknown'),
-                        'Sub Type': event.get('subTypeName', 'Unknown'),
-                        'Start X': event.get('startPosXM'),
-                        'Start Y': event.get('startPosYM'),
-                        'Labels': event.get('labels', [])
-                    })
-                
-                # Create and display the DataFrame
-                recovery_interception_df = pd.DataFrame(recovery_interception_data)
-                
-                # Count events per team
-                team_counts = recovery_interception_df['Team'].value_counts().reset_index()
-                team_counts.columns = ['Team', 'Count of Recoveries/Interceptions (x > -17.5)']
-                
-                # Display the counts per team
-                st.dataframe(team_counts)
-                
-                # Show detailed events table
-                if not recovery_interception_df.empty:
-                    st.subheader("📋 Gedetailleerde High Recoveries")
-                    st.dataframe(recovery_interception_df)
-                else:
-                    st.info("Geen High Recoveries gevonden in deze wedstrijd.")
-                
-                # Final Third Entries Analysis
-                st.subheader("⚽ Final Third Entries")
-                
-                # Define relevant labels
-                DRIBBLE_CHANCE_CREATION_LABEL = 127
-                FINAL_3RD_PASS_SUCCESS_LABEL = 69
-                
-                # Initialize counters
-                team_stats = defaultdict(lambda: {'successful_dribbles_chance_creation': 0, 'successful_final_3rd_passes': 0})
-                
-                # Process events
-                for event in events:
-                    team_name = event.get('teamName', 'Unknown Team')
-                    event_labels = event.get('labels', [])
-                    base_type_id = event.get('baseTypeId')
-                    result_id = event.get('resultId')
-                    
-                    # Check for successful dribbles with label 127 (chance creation dribbles)
-                    if base_type_id == 2 and result_id == 1 and DRIBBLE_CHANCE_CREATION_LABEL in event_labels:
-                        team_stats[team_name]['successful_dribbles_chance_creation'] += 1
-                    
-                    # Check for successful passes to final third with label 69
-                    if base_type_id == 1 and result_id == 1 and FINAL_3RD_PASS_SUCCESS_LABEL in event_labels:
-                        team_stats[team_name]['successful_final_3rd_passes'] += 1
-                
-                # Create summary DataFrame
-                final_third_data = []
-                for team, stats in team_stats.items():
-                    final_third_data.append({
-                        'Team': team,
-                        'Chance Creation Dribbles': stats['successful_dribbles_chance_creation'],
-                        'Final 3rd Passes': stats['successful_final_3rd_passes'],
-                        'Total Final Third Entries': stats['successful_dribbles_chance_creation'] + stats['successful_final_3rd_passes']
-                    })
-                
-                final_third_df = pd.DataFrame(final_third_data)
-                
-                if not final_third_df.empty:
-                    st.dataframe(final_third_df)
-                else:
-                    st.info("Geen Final Third Entries gevonden in deze wedstrijd.")
-                
-                # Summary Statistics
-                st.subheader("📊 Wedstrijd Samenvatting")
-                
-                        col1, col2, col3 = st.columns(3)
-                
-                        with col1:
-                    st.metric("Totaal Events", len(events))
-                    st.metric("High Recoveries", len(filtered_recoveries_interceptions))
-                
-                        with col2:
-                    total_final_third = sum(stats['successful_dribbles_chance_creation'] + stats['successful_final_3rd_passes'] for stats in team_stats.values())
-                    st.metric("Final Third Entries", total_final_third)
-                    st.metric("Chance Creation Dribbles", sum(stats['successful_dribbles_chance_creation'] for stats in team_stats.values()))
-                
-                with col3:
-                    st.metric("Final 3rd Passes", sum(stats['successful_final_3rd_passes'] for stats in team_stats.values()))
-                    if len(filtered_recoveries_interceptions) > 0:
-                        avg_recovery_x = sum(event.get('startPosXM', 0) for event in filtered_recoveries_interceptions) / len(filtered_recoveries_interceptions)
-                        st.metric("Gem. Recovery X Positie", f"{avg_recovery_x:.1f}")
-                
-            else:
-                st.info("Selecteer eerst een wedstrijd om de samenvatting te bekijken.")
+                # If it's one of the relevant types and the location is correct (x > -17.5)
+                if (is_interception or is_ball_recovery or is_interception_recovery) and event_x is not None and event_x > -17.5:
+                    filtered_recoveries_interceptions.append(event)
+        
+        # Prepare data for a DataFrame
+        recovery_interception_data = []
+        for event in filtered_recoveries_interceptions:
+            recovery_interception_data.append({
+                'Minute': int(event.get('startTimeMs', 0) / 1000 / 60),
+                'Team': event.get('teamName', 'Unknown Team'),
+                'Player': event.get('playerName', 'Unknown Player'),
+                'Base Type': event.get('baseTypeName', 'Unknown'),
+                'Sub Type': event.get('subTypeName', 'Unknown'),
+                'Start X': event.get('startPosXM'),
+                'Start Y': event.get('startPosYM'),
+                'Labels': event.get('labels', [])
+            })
+        
+        # Create and display the DataFrame
+        recovery_interception_df = pd.DataFrame(recovery_interception_data)
+        
+        # Count events per team
+        team_counts = recovery_interception_df['Team'].value_counts().reset_index()
+        team_counts.columns = ['Team', 'Count of Recoveries/Interceptions (x > -17.5)']
+        
+        # Display the counts per team
+        st.dataframe(team_counts)
+        
+        # Show detailed events table
+        if not recovery_interception_df.empty:
+            st.subheader("📋 Gedetailleerde High Recoveries")
+            st.dataframe(recovery_interception_df)
+        else:
+            st.info("Geen High Recoveries gevonden in deze wedstrijd.")
+        
+        # Final Third Entries Analysis
+        st.subheader("⚽ Final Third Entries")
+        
+        # Define relevant labels
+        DRIBBLE_CHANCE_CREATION_LABEL = 127
+        FINAL_3RD_PASS_SUCCESS_LABEL = 69
+        
+        # Initialize counters
+        team_stats = defaultdict(lambda: {'successful_dribbles_chance_creation': 0, 'successful_final_3rd_passes': 0})
+        
+        # Process events
+        for event in events:
+            team_name = event.get('teamName', 'Unknown Team')
+            event_labels = event.get('labels', [])
+            base_type_id = event.get('baseTypeId')
+            result_id = event.get('resultId')
+            
+            # Check for successful dribbles with label 127 (chance creation dribbles)
+            if base_type_id == 2 and result_id == 1 and DRIBBLE_CHANCE_CREATION_LABEL in event_labels:
+                team_stats[team_name]['successful_dribbles_chance_creation'] += 1
+            
+            # Check for successful passes to final third with label 69
+            if base_type_id == 1 and result_id == 1 and FINAL_3RD_PASS_SUCCESS_LABEL in event_labels:
+                team_stats[team_name]['successful_final_3rd_passes'] += 1
+        
+        # Create summary DataFrame
+        final_third_data = []
+        for team, stats in team_stats.items():
+            final_third_data.append({
+                'Team': team,
+                'Chance Creation Dribbles': stats['successful_dribbles_chance_creation'],
+                'Final 3rd Passes': stats['successful_final_3rd_passes'],
+                'Total Final Third Entries': stats['successful_dribbles_chance_creation'] + stats['successful_final_3rd_passes']
+            })
+        
+        final_third_df = pd.DataFrame(final_third_data)
+        
+        if not final_third_df.empty:
+            st.dataframe(final_third_df)
+        else:
+            st.info("Geen Final Third Entries gevonden in deze wedstrijd.")
+        
+        # Summary Statistics
+        st.subheader("📊 Wedstrijd Samenvatting")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.metric("Totaal Events", len(events))
+            st.metric("High Recoveries", len(filtered_recoveries_interceptions))
+        
+        with col2:
+            total_final_third = sum(stats['successful_dribbles_chance_creation'] + stats['successful_final_3rd_passes'] for stats in team_stats.values())
+            st.metric("Final Third Entries", total_final_third)
+            st.metric("Chance Creation Dribbles", sum(stats['successful_dribbles_chance_creation'] for stats in team_stats.values()))
+        
+        with col3:
+            st.metric("Final 3rd Passes", sum(stats['successful_final_3rd_passes'] for stats in team_stats.values()))
+            if len(filtered_recoveries_interceptions) > 0:
+                avg_recovery_x = sum(event.get('startPosXM', 0) for event in filtered_recoveries_interceptions) / len(filtered_recoveries_interceptions)
+                st.metric("Gem. Recovery X Positie", f"{avg_recovery_x:.1f}")
+        
+    else:
+        st.info("Selecteer eerst een wedstrijd om de samenvatting te bekijken.")
 
 else:
     st.info("Please select a team and match on the main screen to begin analysis.")
