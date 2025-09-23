@@ -1819,8 +1819,8 @@ if events_data is not None:
                 # Filter for successful interceptions and recoveries in the middle and final third (x > -17.5)
                 filtered_recoveries_interceptions = []
 
-                            for event in events:
-                                base_type_id = event.get('baseTypeId')
+                for event in events:
+                    base_type_id = event.get('baseTypeId')
                     sub_type_id = event.get('subTypeId')
                     result_id = event.get('resultId')
                     event_x = event.get('startPosXM')
