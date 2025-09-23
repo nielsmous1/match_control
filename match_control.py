@@ -1880,8 +1880,8 @@ if events_data is not None:
                 # Count final third entries per team
                 final_third_entries = defaultdict(int)
 
-                            for event in events:
-                                base_type_id = event.get('baseTypeId')
+                for event in events:
+                    base_type_id = event.get('baseTypeId')
                     result_id = event.get('resultId')
                     labels = event.get('labels', [])
                     team_name = event.get('teamName')
