@@ -2160,22 +2160,17 @@ if events_data is not None:
             plt.tight_layout(rect=[0, 0, 1, 0.98]) # Adjust layout to make space for suptitle
             st.pyplot(fig)
 
-        # Create events data structure
-        events_data = {
-            'data': events,
-            'metaData': {
-                'homeTeamName': home_team,
-                'awayTeamName': away_team
-            }
+    # Create events data structure
+    events_data = {
+        'data': events,
+        'metaData': {
+            'homeTeamName': home_team,
+            'awayTeamName': away_team
         }
-        
-        # Plot the average positions
-        plot_average_positions_by_zone(events_data, positions_data, start_minute, end_minute)
-                            
-    except Exception as e:
-        st.error(f"Fout bij het laden van het positions bestand: {e}")
-else:
-    st.info("Upload een positions.json bestand om gemiddelde posities te bekijken.")
+    }
+    
+    # Plot the average positions
+    plot_average_positions_by_zone(events_data, positions_data, start_minute, end_minute)
 with tab6:
     st.subheader("Samenvatting Statistieken")
     
