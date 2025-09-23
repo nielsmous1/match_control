@@ -2304,31 +2304,31 @@ with tab6:
         st.info("Selecteer eerst een wedstrijd om de samenvatting te bekijken.")
 
 st.info("Please select a team and match on the main screen to begin analysis.")
-    
-    # Sample data structure explanation
-    with st.expander("Expected JSON Structure"):
-        st.code("""
-        {
-            "metaData": {
-                "homeTeamName": "Team A",
-                "awayTeamName": "Team B"
-            },
-            "data": [
-                {
-                    "baseTypeId": 1,
-                    "subTypeId": 101,
-                    "resultId": 1,
-                    "teamName": "Team A",
-                    "playerName": "Player Name",
-                    "startTimeMs": 120000,
-                    "startPosXM": 25.5,
-                    "startPosYM": 10.2,
-                    "endPosXM": 35.5,
-                    "endPosYM": 5.2,
-                    "partId": 1,
-                    ...
-                },
+
+# Sample data structure explanation
+with st.expander("Expected JSON Structure"):
+    st.code("""
+    {
+        "metaData": {
+            "homeTeamName": "Team A",
+            "awayTeamName": "Team B"
+        },
+        "data": [
+            {
+                "baseTypeId": 1,
+                "subTypeId": 101,
+                "resultId": 1,
+                "teamName": "Team A",
+                "playerName": "Player Name",
+                "startTimeMs": 120000,
+                "startPosXM": 25.5,
+                "startPosYM": 10.2,
+                "endPosXM": 35.5,
+                "endPosYM": 5.2,
+                "partId": 1,
                 ...
-            ]
-        }
-        """, language="json")
+            },
+            ...
+        ]
+    }
+    """, language="json")
