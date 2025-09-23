@@ -2303,8 +2303,7 @@ with tab6:
     else:
         st.info("Selecteer eerst een wedstrijd om de samenvatting te bekijken.")
 
-else:
-    st.info("Please select a team and match on the main screen to begin analysis.")
+st.info("Please select a team and match on the main screen to begin analysis.")
     
     # Sample data structure explanation
     with st.expander("Expected JSON Structure"):
