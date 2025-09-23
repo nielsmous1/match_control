@@ -746,7 +746,7 @@ def calculate_game_control_and_domination(data, home_team_override=None, away_te
         x_padding = 1
         ax.set_xlim(minutes[0] - x_padding, minutes[-1] + x_padding)
         
-        step = 15 if (minutes[-1] - minutes[0]) >= 30 else max(1, int((minutes[-1] - minutes[0]) // 5))
+        step = 5 if (minutes[-1] - minutes[0]) >= 30 else max(1, int((minutes[-1] - minutes[0]) // 5))
         ticks = np.arange(minutes[0], minutes[-1] + 1, step)
         
         if half_name == 'Second Half' and len(minutes) > 0:
