@@ -1941,87 +1941,87 @@ if events_data is not None:
             else:
                 st.warning("Geen wedstrijddata gevonden voor de samenvatting.")
 
-                    def calculate_average_positions_during_sequences(positions_data, events_data, sequence_starts,
-                                                                    time_window_duration_ms=2000): # Analyze positions for the first 2 seconds of the sequence
-                        """
-                        Calculate average positions for each player during the start of defined sequences.
-                        """
-                            frames = positions_data.get('data', [])
-                        # Sort frames by time for efficient processing
-                        frames.sort(key=lambda x: x.get('t', 0))
+        def calculate_average_positions_during_sequences(positions_data, events_data, sequence_starts,
+                                                        time_window_duration_ms=2000): # Analyze positions for the first 2 seconds of the sequence
+            """
+            Calculate average positions for each player during the start of defined sequences.
+            """
+            frames = positions_data.get('data', [])
+            # Sort frames by time for efficient processing
+            frames.sort(key=lambda x: x.get('t', 0))
 
-                        _, _, second_half_start_ms, _ = get_halftime_info(events_data.get('data', []))
+            _, _, second_half_start_ms, _ = get_halftime_info(events_data.get('data', []))
 
-                        # Initialize position accumulators per team and zone
-                        average_positions_by_zone = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: {'x': [], 'y': [], 'shirt': None}))) # {team: {zone: {player_id: {x:[], y:[], shirt:''}}}}
+            # Initialize position accumulators per team and zone
+            average_positions_by_zone = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: {'x': [], 'y': [], 'shirt': None}))) # {team: {zone: {player_id: {x:[], y:[], shirt:''}}}}
 
-                        # Iterate through each defined sequence start
-                        for seq_info in sequence_starts:
-                            team = seq_info['team']
-                            zone = seq_info['zone']
-                            sequence_start_time = seq_info['start_time_ms']
-                            sequence_end_time = sequence_start_time + time_window_duration_ms # Define the end of the analysis window for this sequence
+            # Iterate through each defined sequence start
+            for seq_info in sequence_starts:
+                team = seq_info['team']
+                zone = seq_info['zone']
+                sequence_start_time = seq_info['start_time_ms']
+                sequence_end_time = sequence_start_time + time_window_duration_ms # Define the end of the analysis window for this sequence
 
-                            # Find frames within this sequence's time window
-                            relevant_frames = [
-                                frame for frame in frames
-                                if sequence_start_time <= frame.get('t', 0) < sequence_end_time
-                            ]
+                # Find frames within this sequence's time window
+                relevant_frames = [
+                    frame for frame in frames
+                    if sequence_start_time <= frame.get('t', 0) < sequence_end_time
+                ]
 
-                            if not relevant_frames:
-                                 continue # Skip if no position data for this sequence start window
+                if not relevant_frames:
+                    continue # Skip if no position data for this sequence start window
 
-                            # Process frames within the window
-                            for frame in relevant_frames:
-                                frame_time = frame.get('t', 0)
-                                is_second_half = frame_time >= second_half_start_ms if second_half_start_ms is not None else False
+                # Process frames within the window
+                for frame in relevant_frames:
+                    frame_time = frame.get('t', 0)
+                    is_second_half = frame_time >= second_half_start_ms if second_half_start_ms is not None else False
 
-                                # Determine which players are on the field for this team at this time
-                                # This is complex without explicit lineup/sub data in position frames.
-                                # Simplification: Assume players listed in the frame for the team are on the field.
-                                team_players_in_frame = []
-                                if team == events_data.get('metaData', {}).get('homeTeamName', 'Home'):
-                                     team_players_in_frame = frame.get('h', [])
-                                elif team == events_data.get('metaData', {}).get('awayTeamName', 'Away'):
-                                     team_players_in_frame = frame.get('a', [])
-                                else:
-                                     # Try to match by group (Home/Away) if team names are not consistent
-                                     if team == events_data.get('metaData', {}).get('homeTeam', 'Home'):
-                                         team_players_in_frame = frame.get('h', [])
-                                     elif team == events_data.get('metaData', {}).get('awayTeam', 'Away'):
-                                         team_players_in_frame = frame.get('a', [])
+                    # Determine which players are on the field for this team at this time
+                    # This is complex without explicit lineup/sub data in position frames.
+                    # Simplification: Assume players listed in the frame for the team are on the field.
+                    team_players_in_frame = []
+                    if team == events_data.get('metaData', {}).get('homeTeamName', 'Home'):
+                        team_players_in_frame = frame.get('h', [])
+                    elif team == events_data.get('metaData', {}).get('awayTeamName', 'Away'):
+                        team_players_in_frame = frame.get('a', [])
+                    else:
+                        # Try to match by group (Home/Away) if team names are not consistent
+                        if team == events_data.get('metaData', {}).get('homeTeam', 'Home'):
+                            team_players_in_frame = frame.get('h', [])
+                        elif team == events_data.get('metaData', {}).get('awayTeam', 'Away'):
+                            team_players_in_frame = frame.get('a', [])
 
-                                for player in team_players_in_frame:
-                                    player_id = player.get('p')
-                                    if player_id:
-                                        x = player.get('x', 0)
-                                        y = player.get('y', 0)
-                                shirt = player.get('s', '')
+                    for player in team_players_in_frame:
+                        player_id = player.get('p')
+                        if player_id:
+                            x = player.get('x', 0)
+                            y = player.get('y', 0)
+                            shirt = player.get('s', '')
 
-                                        # Flip coordinates for second half (teams switch sides)
-                                        if is_second_half:
-                                                x = -x
-                                                y = -y
+                            # Flip coordinates for second half (teams switch sides)
+                            if is_second_half:
+                                x = -x
+                                y = -y
 
-                                        average_positions_by_zone[team][zone][player_id]['x'].append(x)
-                                        average_positions_by_zone[team][zone][player_id]['y'].append(y)
-                                        average_positions_by_zone[team][zone][player_id]['shirt'] = shirt # Store latest shirt number
+                            average_positions_by_zone[team][zone][player_id]['x'].append(x)
+                            average_positions_by_zone[team][zone][player_id]['y'].append(y)
+                            average_positions_by_zone[team][zone][player_id]['shirt'] = shirt # Store latest shirt number
 
-                        # Calculate averages for each player in each zone
-                        final_average_positions = defaultdict(lambda: defaultdict(dict)) # {team: {zone: {player_id: {x, y, shirt, appearances}}}}
+            # Calculate averages for each player in each zone
+            final_average_positions = defaultdict(lambda: defaultdict(dict)) # {team: {zone: {player_id: {x, y, shirt, appearances}}}}
 
-                        for team, zones_data in average_positions_by_zone.items():
-                            for zone, players_data in zones_data.items():
-                                for player_id, coords in players_data.items():
-                                    if coords['x'] and coords['y']:
-                                        final_average_positions[team][zone][player_id] = {
-                                            'x': np.mean(coords['x']),
-                                            'y': np.mean(coords['y']),
-                                            'shirt': coords['shirt'],
-                                            'appearances': len(coords['x'])
-                                        }
+            for team, zones_data in average_positions_by_zone.items():
+                for zone, players_data in zones_data.items():
+                    for player_id, coords in players_data.items():
+                        if coords['x'] and coords['y']:
+                            final_average_positions[team][zone][player_id] = {
+                                'x': np.mean(coords['x']),
+                                'y': np.mean(coords['y']),
+                                'shirt': coords['shirt'],
+                                'appearances': len(coords['x'])
+                            }
 
-                        return final_average_positions
+            return final_average_positions
 
                     def plot_average_positions_by_zone(events_data, positions_data, start_minute=None, end_minute=None):
                         """
