@@ -397,7 +397,10 @@ def calculate_game_control_and_domination(data, home_team_override=None, away_te
                 'minute': minute,
                 'player': event.get('playerName', 'Unknown')
             })
-            domination_value = DOMINATION_WEIGHTS['GOAL'] + (event.get('metrics', {}).get('xG', 0.0) * DOMINATION_WEIGHTS['XG_MULTIPLIER'])
+            # Check if it's a penalty shot and use xG of 0.76
+            is_penalty = (base_type_id == 6 and sub_type_id == 602)
+            xg_value = 0.76 if is_penalty else event.get('metrics', {}).get('xG', 0.0)
+            domination_value = DOMINATION_WEIGHTS['GOAL'] + (xg_value * DOMINATION_WEIGHTS['XG_MULTIPLIER'])
             domination_type = 'GOAL'
         
         # Check for own goals
@@ -418,7 +421,9 @@ def calculate_game_control_and_domination(data, home_team_override=None, away_te
         
         # Other shot types
         elif base_type_id == BASE_TYPE['SHOT']:
-            xg_value = event.get('metrics', {}).get('xG', 0.0) * DOMINATION_WEIGHTS['XG_MULTIPLIER']
+            # Check if it's a penalty shot and use xG of 0.76
+            is_penalty = (base_type_id == 6 and sub_type_id == 602)
+            xg_value = (0.76 if is_penalty else event.get('metrics', {}).get('xG', 0.0)) * DOMINATION_WEIGHTS['XG_MULTIPLIER']
             if shot_type_id == SHOT_TYPE['ON_TARGET']:
                 domination_value = DOMINATION_WEIGHTS['SHOT_ON_TARGET'] + xg_value
                 domination_type = 'SHOT_ON_TARGET'
@@ -1090,12 +1095,16 @@ if events_data is not None:
                 if is_shot or has_shot_label:
                     if team_name is None or event.get('teamName') == team_name:
                         is_goal = any(label in event_labels for label in GOAL_LABELS)
+                        # Check if it's a penalty shot and use xG of 0.76
+                        is_penalty = (event.get('baseTypeId') == 6 and event.get('subTypeId') == 602)
+                        xg_value = 0.76 if is_penalty else event.get('metrics', {}).get('xG', 0.0)
+                        
                         shot_info = {
                             'team': event.get('teamName', 'Unknown'),
                             'player': event.get('playerName', 'Unknown'),
                             'x': event.get('startPosXM', 0.0),
                             'y': event.get('startPosYM', 0.0),
-                            'xG': event.get('metrics', {}).get('xG', 0.0),
+                            'xG': xg_value,
                             'PSxG': event.get('metrics', {}).get('PSxG', None),
                             'is_goal': is_goal,
                             'result': event.get('resultName', 'Unknown'),
@@ -1340,10 +1349,14 @@ if events_data is not None:
                             adjusted_time = event_time - halftime_offset
                         else:
                             adjusted_time = event_time
+                        # Check if it's a penalty shot and use xG of 0.76
+                        is_penalty = (event.get('baseTypeId') == 6 and event.get('subTypeId') == 602)
+                        xg_value = 0.76 if is_penalty else event.get('metrics', {}).get('xG', 0.0)
+                        
                         shot_info = {
                             'team': event.get('teamName', 'Unknown'),
                             'player': event.get('playerName', 'Unknown'),
-                            'xG': event.get('metrics', {}).get('xG', 0.0),
+                            'xG': xg_value,
                             'is_goal': is_goal,
                             'time': adjusted_time,
                             'partId': part_id
@@ -2321,8 +2334,8 @@ if events_data is not None:
                             team_name = event.get('teamName', 'Unknown')
                             is_home_team = team_name == home_team
                             
-                            # Get xG value
-                            xg = event.get('metrics', {}).get('xG', 0.0)
+                            # Get xG value - use 0.76 for all penalties
+                            xg = 0.76
                             
                             # Check if it was a goal
                             is_goal = event.get('resultId') == 1  # SUCCESSFUL
