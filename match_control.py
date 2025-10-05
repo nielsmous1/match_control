@@ -1034,7 +1034,7 @@ if events_data is not None:
             None
         )
 
-        tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["Controle & Gevaar", "Schoten", "xG Verloop", "Eredivisie Tabel", "Gemiddelde Posities", "Samenvatting"])
+        tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["Controle & Gevaar", "Schoten", "xG Verloop", "Eredivisie Tabel", "Gemiddelde Posities", "Samenvatting", "Penalty Schoten"])
 
         with tab1:
             st.pyplot(fig)
@@ -2321,3 +2321,147 @@ with st.expander("Expected JSON Structure"):
         ]
     }
     """, language="json")
+
+        # ---------- Penalty Schoten Tab ----------
+        with tab7:
+            st.subheader("⚽ Penalty Schoten")
+            
+            # Get all penalty shots from all matches
+            all_penalties = []
+            
+            for file_info in files_info:
+                try:
+                    with open(file_info['path'], 'r', encoding='utf-8') as f:
+                        match_data = json.load(f)
+                    
+                    events = match_data.get('data', [])
+                    metadata = match_data.get('metaData', {})
+                    home_team = metadata.get('homeTeamName', 'Home')
+                    away_team = metadata.get('awayTeamName', 'Away')
+                    match_name = metadata.get('name', 'Unknown Match')
+                    
+                    for event in events:
+                        # Check for penalty shots: baseTypeId = 6 (SHOT) and subTypeId = 602 (SHOT_PENALTY)
+                        if (event.get('baseTypeId') == 6 and 
+                            event.get('subTypeId') == 602):
+                            
+                            # Determine which team took the penalty
+                            team_name = event.get('teamName', 'Unknown')
+                            is_home_team = team_name == home_team
+                            
+                            # Get xG value
+                            xg = event.get('metrics', {}).get('xG', 0.0)
+                            
+                            # Check if it was a goal
+                            is_goal = event.get('resultId') == 1  # SUCCESSFUL
+                            
+                            # Get time information
+                            time_ms = event.get('startTimeMs', 0)
+                            minute = int(time_ms / 1000 / 60)
+                            part_id = event.get('partId', 1)
+                            
+                            # Adjust time for second half
+                            if part_id == 2:
+                                minute += 45
+                            
+                            penalty_info = {
+                                'match': match_name,
+                                'home_team': home_team,
+                                'away_team': away_team,
+                                'team': team_name,
+                                'player': event.get('playerName', 'Unknown'),
+                                'minute': minute,
+                                'part': '1e helft' if part_id == 1 else '2e helft',
+                                'xg': xg,
+                                'is_goal': is_goal,
+                                'result': 'Goal' if is_goal else 'Gemist',
+                                'shot_type': event.get('shotTypeName', 'Unknown'),
+                                'body_part': event.get('bodyPartName', 'Unknown')
+                            }
+                            
+                            all_penalties.append(penalty_info)
+                            
+                except Exception as e:
+                    st.error(f"Error reading {file_info['name']}: {str(e)}")
+                    continue
+            
+            if all_penalties:
+                # Sort by match date and minute
+                all_penalties.sort(key=lambda x: (x['match'], x['minute']))
+                
+                # Create summary statistics
+                total_penalties = len(all_penalties)
+                goals = sum(1 for p in all_penalties if p['is_goal'])
+                missed = total_penalties - goals
+                conversion_rate = (goals / total_penalties * 100) if total_penalties > 0 else 0
+                total_xg = sum(p['xg'] for p in all_penalties)
+                avg_xg = total_xg / total_penalties if total_penalties > 0 else 0
+                
+                # Display summary metrics
+                col1, col2, col3, col4, col5 = st.columns(5)
+                with col1:
+                    st.metric("Totaal Penalties", total_penalties)
+                with col2:
+                    st.metric("Doelpunten", goals)
+                with col3:
+                    st.metric("Gemist", missed)
+                with col4:
+                    st.metric("Conversie %", f"{conversion_rate:.1f}%")
+                with col5:
+                    st.metric("Gem. xG", f"{avg_xg:.3f}")
+                
+                # Create DataFrame for display
+                import pandas as pd
+                
+                penalty_df = pd.DataFrame(all_penalties)
+                
+                # Format the display
+                display_df = penalty_df.copy()
+                display_df['xg'] = display_df['xg'].round(3)
+                display_df['minute'] = display_df['minute'].astype(str) + "'"
+                
+                # Color code goals vs misses
+                def highlight_result(row):
+                    if row['is_goal']:
+                        return ['background-color: #d4edda'] * len(row)  # Light green for goals
+                    else:
+                        return ['background-color: #f8d7da'] * len(row)  # Light red for misses
+                
+                # Display the table
+                st.subheader("📋 Alle Penalty Schoten")
+                styled_df = display_df[['match', 'team', 'player', 'minute', 'part', 'xg', 'result', 'shot_type', 'body_part']].style.apply(highlight_result, axis=1)
+                st.dataframe(styled_df, use_container_width=True)
+                
+                # Team statistics
+                st.subheader("📊 Team Statistieken")
+                team_stats = {}
+                for penalty in all_penalties:
+                    team = penalty['team']
+                    if team not in team_stats:
+                        team_stats[team] = {'total': 0, 'goals': 0, 'xg': 0.0}
+                    team_stats[team]['total'] += 1
+                    if penalty['is_goal']:
+                        team_stats[team]['goals'] += 1
+                    team_stats[team]['xg'] += penalty['xg']
+                
+                # Create team stats DataFrame
+                team_stats_list = []
+                for team, stats in team_stats.items():
+                    conversion = (stats['goals'] / stats['total'] * 100) if stats['total'] > 0 else 0
+                    avg_xg = stats['xg'] / stats['total'] if stats['total'] > 0 else 0
+                    team_stats_list.append({
+                        'Team': team,
+                        'Penalties': stats['total'],
+                        'Doelpunten': stats['goals'],
+                        'Gemist': stats['total'] - stats['goals'],
+                        'Conversie %': f"{conversion:.1f}%",
+                        'Totaal xG': round(stats['xg'], 3),
+                        'Gem. xG': round(avg_xg, 3)
+                    })
+                
+                team_stats_df = pd.DataFrame(team_stats_list)
+                team_stats_df = team_stats_df.sort_values('Penalties', ascending=False)
+                st.dataframe(team_stats_df, use_container_width=True)
+                
+            else:
+                st.info("Geen penalty schoten gevonden in de beschikbare wedstrijden.")
