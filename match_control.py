@@ -2394,14 +2394,15 @@ if events_data is not None:
                 
                 # Color code goals vs misses
                 def highlight_result(row):
-                    if row['is_goal']:
+                    if row['result'] == 'Goal':
                         return ['background-color: #d4edda'] * len(row)  # Light green for goals
                     else:
                         return ['background-color: #f8d7da'] * len(row)  # Light red for misses
                 
                 # Display the table
                 st.subheader("📋 Alle Penalty Schoten")
-                styled_df = display_df[['match', 'team', 'player', 'minute', 'part', 'xg', 'result', 'shot_type', 'body_part']].style.apply(highlight_result, axis=1)
+                display_columns = ['match', 'team', 'player', 'minute', 'part', 'xg', 'result', 'shot_type', 'body_part']
+                styled_df = display_df[display_columns].style.apply(highlight_result, axis=1)
                 st.dataframe(styled_df, use_container_width=True)
                 
                 # Team statistics
