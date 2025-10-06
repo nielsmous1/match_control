@@ -1312,8 +1312,8 @@ if events_data is not None:
 
             # Build figure layout identical to Schoten tab, but draw pitch with mplsoccer
             fig_shots_imp = plt.figure(figsize=(22, 12))
-            # Increase pitch width while keeping some spacing from side bars
-            gs_imp = gridspec.GridSpec(1, 3, width_ratios=[0.6, 3.4, 0.6], wspace=0.2)
+            # Increase pitch size and slightly reduce spacing from bars
+            gs_imp = gridspec.GridSpec(1, 3, width_ratios=[0.55, 3.6, 0.55], wspace=0.12)
             ax_home_bars_imp = fig_shots_imp.add_subplot(gs_imp[0])
             ax_pitch_imp = fig_shots_imp.add_subplot(gs_imp[1])
             ax_away_bars_imp = fig_shots_imp.add_subplot(gs_imp[2])
@@ -1451,10 +1451,10 @@ if events_data is not None:
             x_center = (xmin + xmax) / 2
             width = xmax - xmin
             height = ymax_data - ymin_data
-            # Move title/dots/text further down to avoid overlapping the pitch
-            title_y = ymin_data + height * 0.030
-            dots_y = ymin_data + height * 0.015
-            labels_y = ymin_data + height * 0.006
+            # Move title/dots/text a lot further down (below pitch) and increase spacing
+            title_y = ymin_data - height * 0.020
+            dots_y = ymin_data - height * 0.040
+            labels_y = ymin_data - height * 0.060
             ax_pitch_imp.text(x_center, title_y, "xG waarde", fontsize=10, fontweight='bold', ha='center', va='center')
             scale_xg_values = [0.1, 0.3, 0.5, 0.7, 0.9]
             # place dots centered under title
