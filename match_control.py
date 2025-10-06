@@ -1110,6 +1110,7 @@ if events_data is not None:
                             'is_goal': is_goal,
                             'result': event.get('resultName', 'Unknown'),
                             'type': event.get('subTypeName', 'Unknown'),
+                            'is_penalty': is_penalty,
                             'time': int((event.get('startTimeMs', 0) or 0) / 1000 / 60),
                             'partId': event.get('partId', 1)
                         }
@@ -1178,8 +1179,8 @@ if events_data is not None:
             draw_pitch(ax_pitch)
 
             stats = {
-                home_team: {'shots': 0, 'goals': 0, 'xG': 0.0, 'PSxG': 0.0, 'shots_on_target': 0},
-                away_team: {'shots': 0, 'goals': 0, 'xG': 0.0, 'PSxG': 0.0, 'shots_on_target': 0}
+                home_team: {'shots': 0, 'goals': 0, 'xG': 0.0, 'PSxG': 0.0, 'shots_on_target': 0, 'penalties': 0, 'pen_xG': 0.0, 'pen_PSxG': 0.0},
+                away_team: {'shots': 0, 'goals': 0, 'xG': 0.0, 'PSxG': 0.0, 'shots_on_target': 0, 'penalties': 0, 'pen_xG': 0.0, 'pen_PSxG': 0.0}
             }
 
             for shot in home_shots:
@@ -1195,10 +1196,17 @@ if events_data is not None:
                 ax_pitch.scatter(x, y, s=marker_size, c=face_color, alpha=1.0,
                                  edgecolors=edge_color, linewidths=edge_width, zorder=5)
                 stats[home_team]['shots'] += 1
-                stats[home_team]['xG'] += shot['xG']
-                if shot['PSxG']:
-                    stats[home_team]['PSxG'] += shot['PSxG']
-                    stats[home_team]['shots_on_target'] += 1
+                if shot.get('is_penalty'):
+                    stats[home_team]['penalties'] += 1
+                    stats[home_team]['pen_xG'] += shot['xG']
+                    if shot['PSxG']:
+                        stats[home_team]['pen_PSxG'] += shot['PSxG']
+                        stats[home_team]['shots_on_target'] += 1
+                else:
+                    stats[home_team]['xG'] += shot['xG']
+                    if shot['PSxG']:
+                        stats[home_team]['PSxG'] += shot['PSxG']
+                        stats[home_team]['shots_on_target'] += 1
 
             for shot in away_shots:
                 if shot['x'] < 0:
@@ -1213,28 +1221,41 @@ if events_data is not None:
                 ax_pitch.scatter(x, y, s=marker_size, c=face_color, alpha=1.0,
                                  edgecolors=edge_color, linewidths=edge_width, zorder=5)
                 stats[away_team]['shots'] += 1
-                stats[away_team]['xG'] += shot['xG']
-                if shot['PSxG']:
-                    stats[away_team]['PSxG'] += shot['PSxG']
-                    stats[away_team]['shots_on_target'] += 1
+                if shot.get('is_penalty'):
+                    stats[away_team]['penalties'] += 1
+                    stats[away_team]['pen_xG'] += shot['xG']
+                    if shot['PSxG']:
+                        stats[away_team]['pen_PSxG'] += shot['PSxG']
+                        stats[away_team]['shots_on_target'] += 1
+                else:
+                    stats[away_team]['xG'] += shot['xG']
+                    if shot['PSxG']:
+                        stats[away_team]['PSxG'] += shot['PSxG']
+                        stats[away_team]['shots_on_target'] += 1
 
             home_total_goals = stats[home_team]['goals'] + away_own_goals
             away_total_goals = stats[away_team]['goals'] + home_own_goals
 
-            stats_labels = ['Doelpunten', 'Schoten', 'Schoten op doel', 'xG', 'xGOT']
+            # Label adjustments if penalties exist
+            has_penalties = (stats[home_team]['penalties'] > 0) or (stats[away_team]['penalties'] > 0)
+            xg_label = "xG (zonder penalty's)" if has_penalties else 'xG'
+            xgot_label = "xGOT (zonder penalty's)" if has_penalties else 'xGOT'
+            stats_labels = ['Doelpunten', 'Schoten', 'Schoten op doel', xg_label, xgot_label, 'Penalties']
             home_values = [
                 f"{home_total_goals}",
                 f"{stats[home_team]['shots']}",
                 f"{stats[home_team]['shots_on_target']}",
                 f"{stats[home_team]['xG']:.2f}",
                 f"{stats[home_team]['PSxG']:.2f}",
+                f"{stats[home_team]['penalties']}",
             ]
             away_values = [
                 f"{away_total_goals}",
                 f"{stats[away_team]['shots']}",
                 f"{stats[away_team]['shots_on_target']}",
                 f"{stats[away_team]['xG']:.2f}",
-                f"{stats[away_team]['PSxG']:.2f}"
+                f"{stats[away_team]['PSxG']:.2f}",
+                f"{stats[away_team]['penalties']}"
             ]
 
             ax_pitch.text(-20, 56, home_team, fontsize=14, fontweight='bold', color=home_color, ha='center', va='center')
