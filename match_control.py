@@ -2431,12 +2431,12 @@ if events_data is not None:
                     rect = patches.Rectangle((coords['y_min'], coords['x_min']),
                                              coords['y_max'] - coords['y_min'],
                                              coords['x_max'] - coords['x_min'],
-                                             linewidth=1.5, edgecolor='black', facecolor=facecolor, alpha=0.5, zorder=1)
+                                             linewidth=1.5, edgecolor='black', facecolor=facecolor, alpha=0.85, zorder=1)
                     ax.add_patch(rect)
 
-                    # Upper-left position in SciSports coords for zone name (slightly above)
+                    # Upper-left position in SciSports coords for zone name (move further inside)
                     ul_x = coords['x_min'] + 0.5
-                    ul_y = coords['y_max'] - 0.2
+                    ul_y = coords['y_max'] - 1.0
                     zone_title = zone_name.split('(')[0].strip()
                     pitch.annotate(zone_title, (ul_x, ul_y), ax=ax,
                                    ha='left', va='top', fontsize=6, color='black',
