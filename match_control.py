@@ -1240,14 +1240,13 @@ if events_data is not None:
             has_penalties = (stats[home_team]['penalties'] > 0) or (stats[away_team]['penalties'] > 0)
             xg_label = "xG (zonder penalty's)" if has_penalties else 'xG'
             xgot_label = "xGOT (zonder penalty's)" if has_penalties else 'xGOT'
-            stats_labels = ['Doelpunten', 'Schoten', 'Schoten op doel', xg_label, xgot_label, 'Penalties']
+            stats_labels = ['Doelpunten', 'Schoten', 'Schoten op doel', xg_label, xgot_label]
             home_values = [
                 f"{home_total_goals}",
                 f"{stats[home_team]['shots']}",
                 f"{stats[home_team]['shots_on_target']}",
                 f"{stats[home_team]['xG']:.2f}",
                 f"{stats[home_team]['PSxG']:.2f}",
-                f"{stats[home_team]['penalties']}",
             ]
             away_values = [
                 f"{away_total_goals}",
@@ -1255,8 +1254,13 @@ if events_data is not None:
                 f"{stats[away_team]['shots_on_target']}",
                 f"{stats[away_team]['xG']:.2f}",
                 f"{stats[away_team]['PSxG']:.2f}",
-                f"{stats[away_team]['penalties']}"
             ]
+
+            # Append penalties xG row only if present
+            if has_penalties:
+                stats_labels.append('xG from penalties')
+                home_values.append(f"{stats[home_team]['pen_xG']:.2f}")
+                away_values.append(f"{stats[away_team]['pen_xG']:.2f}")
 
             ax_pitch.text(-20, 56, home_team, fontsize=14, fontweight='bold', color=home_color, ha='center', va='center')
             ax_pitch.text(20, 56, away_team, fontsize=14, fontweight='bold', color=away_color, ha='center', va='center')
@@ -2430,9 +2434,9 @@ if events_data is not None:
                                              linewidth=1.5, edgecolor='black', facecolor=facecolor, alpha=0.5, zorder=1)
                     ax.add_patch(rect)
 
-                    # Upper-left position in SciSports coords for zone name (closer to opponent goal, left side)
-                    ul_x = coords['x_max'] - 0.5
-                    ul_y = coords['y_min'] + 0.5
+                    # Upper-left position in SciSports coords for zone name
+                    ul_x = coords['x_min'] + 0.5
+                    ul_y = coords['y_max'] - 0.5
                     zone_title = zone_name.split('(')[0].strip()
                     pitch.annotate(zone_title, (ul_x, ul_y), ax=ax,
                                    ha='left', va='top', fontsize=6, color='black',
