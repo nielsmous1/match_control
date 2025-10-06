@@ -2435,8 +2435,8 @@ if events_data is not None:
                     ax.add_patch(rect)
 
                     # Upper-left position in SciSports coords for zone name (restore previous vertical pos, shift 0.8 left)
-                    ul_x = coords['x_min'] - 0.3
-                    ul_y = coords['y_max'] - 0.2
+                    ul_x = coords['x_min'] + 0.3
+                    ul_y = coords['y_max'] + 0.2
                     zone_title = zone_name.split('(')[0].strip()
                     pitch.annotate(zone_title, (ul_x, ul_y), ax=ax,
                                    ha='left', va='top', fontsize=6, color='black',
