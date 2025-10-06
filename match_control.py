@@ -1415,7 +1415,7 @@ if events_data is not None:
                 # Slightly smaller vertical spacing between rows vs previous
                 y_pos = y_start - (i * 2.5)
                 ax_pitch_imp.text(-20, y_pos, home_val, fontsize=12, fontweight='bold', color='black', ha='center', va='center')
-                ax_pitch_imp.text(0, y_pos, label, fontsize=10, color='gray', ha='center', va='center')
+                ax_pitch_imp.text(0, y_pos, label, fontsize=12, color='gray', ha='center', va='center')
                 ax_pitch_imp.text(20, y_pos, away_val, fontsize=12, fontweight='bold', color='black', ha='center', va='center')
 
             # Side bar charts
