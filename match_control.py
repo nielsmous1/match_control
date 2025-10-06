@@ -1184,10 +1184,8 @@ if events_data is not None:
             }
 
             for shot in home_shots:
-                if shot['x'] > 0:
-                    x = -shot['x']; y = -shot['y']
-                else:
-                    x = shot['x']; y = shot['y']
+                # Always flip home team shots so they appear on the left
+                x = -shot['x']; y = -shot['y']
                 marker_size = 50 + (shot['xG'] * 450)
                 if shot['is_goal']:
                     face_color = home_color; edge_color = home_color; edge_width = 2; stats[home_team]['goals'] += 1
@@ -1209,10 +1207,8 @@ if events_data is not None:
                         stats[home_team]['shots_on_target'] += 1
 
             for shot in away_shots:
-                if shot['x'] < 0:
-                    x = -shot['x']; y = -shot['y']
-                else:
-                    x = shot['x']; y = shot['y']
+                # Away shots remain as-is (shown on the right)
+                x = shot['x']; y = shot['y']
                 marker_size = 50 + (shot['xG'] * 450)
                 if shot['is_goal']:
                     face_color = away_color; edge_color = away_color; edge_width = 2; stats[away_team]['goals'] += 1
@@ -1316,11 +1312,13 @@ if events_data is not None:
 
             # Build figure layout identical to Schoten tab, but draw pitch with mplsoccer
             fig_shots_imp = plt.figure(figsize=(22, 12))
-            gs_imp = gridspec.GridSpec(1, 3, width_ratios=[0.7, 3, 0.7], wspace=0.1)
+            # Slightly reduce center pitch width so it doesn't overlap bars
+            gs_imp = gridspec.GridSpec(1, 3, width_ratios=[0.8, 2.6, 0.8], wspace=0.1)
             ax_home_bars_imp = fig_shots_imp.add_subplot(gs_imp[0])
             ax_pitch_imp = fig_shots_imp.add_subplot(gs_imp[1])
             ax_away_bars_imp = fig_shots_imp.add_subplot(gs_imp[2])
-            Pitch(pitch_type='impect').draw(ax=ax_pitch_imp)
+            # Draw mplsoccer pitch with a small internal padding to further reduce occupied area
+            Pitch(pitch_type='impect', pad_top=2, pad_bottom=2, pad_left=2, pad_right=2).draw(ax=ax_pitch_imp)
 
             # Stats aggregation identical to Schoten tab (already excludes penalties from xG/xGOT)
             stats = {
@@ -1330,7 +1328,8 @@ if events_data is not None:
 
             # Plot shots on impect pitch and update stats
             for shot in home_shots:
-                x = shot['x']; y = shot['y']
+                # Always flip home shots to left on impect pitch
+                x = -shot['x']; y = -shot['y']
                 marker_size = 50 + (shot['xG'] * 450)
                 if shot['is_goal']:
                     face_color = home_color; edge_color = home_color; edge_width = 2; stats[home_team]['goals'] += 1
@@ -1352,6 +1351,7 @@ if events_data is not None:
                         stats[home_team]['shots_on_target'] += 1
 
             for shot in away_shots:
+                # Away shots stay as-is on impect pitch
                 x = shot['x']; y = shot['y']
                 marker_size = 50 + (shot['xG'] * 450)
                 if shot['is_goal']:
@@ -1443,7 +1443,7 @@ if events_data is not None:
             for tx in xticks:
                 ax_away_bars_imp.vlines(x=tx, ymin=ymin, ymax=ymax, linestyles='--', colors='gray', linewidth=0.7, zorder=0, alpha=0.55)
 
-            # xG scale guide
+            # xG scale guide (same as original Schoten tab)
             ax_pitch_imp.text(0, -40, "xG waarde", fontsize=10, fontweight='bold', ha='center', va='top')
             scale_xg_values = [0.1, 0.3, 0.5, 0.7, 0.9]
             scale_x_start = -20
