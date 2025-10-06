@@ -1469,8 +1469,8 @@ if events_data is not None:
             height = ymax_data - ymin_data
             # Position title/dots/text below pitch with adjusted spacing
             # Move title slightly up, ticks (labels) slightly down
-            title_y = ymin_data + height * 0.06
-            dots_y = ymin_data + height * 0.0275
+            title_y = ymin_data + height * 0.07
+            dots_y = ymin_data + height * 0.035
             labels_y = ymin_data + height * 0.004
             ax_pitch_imp.text(x_center, title_y, "xG Waarde", fontsize=10, fontweight='bold', ha='center', va='center')
             scale_xg_values = [0.1, 0.3, 0.5, 0.7, 0.9]
