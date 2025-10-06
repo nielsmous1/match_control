@@ -1281,35 +1281,181 @@ if events_data is not None:
             home_shots = [s for s in all_shots if s['team'] == home_team]
             away_shots = [s for s in all_shots if s['team'] == away_team]
 
-            # Build same stats, but render pitch with mplsoccer (impect)
-            fig_imp, ax_imp = plt.subplots(figsize=(12, 9))
-            pitch = Pitch(pitch_type='impect')
-            pitch.draw(ax=ax_imp)
+            # Calculate shot intervals (duplicate from Schoten tab)
+            def calculate_shot_intervals_imp(shots):
+                intervals = [0] * 6
+                second_half_start_time = 45
+                for event in events:
+                    if event.get('baseTypeId') == 14 and event.get('subTypeId') == 1400 and event.get('partId') == 2:
+                        second_half_start_time = int((event.get('startTimeMs', 0) or 0) / 1000 / 60)
+                        break
+                for shot in shots:
+                    minute = shot['time']
+                    part_id = shot['partId']
+                    if part_id == 1:
+                        if minute < 15:
+                            intervals[0] += 1
+                        elif minute < 30:
+                            intervals[1] += 1
+                        else:
+                            intervals[2] += 1
+                    elif part_id == 2:
+                        relative_minute = minute - second_half_start_time
+                        if relative_minute < 15:
+                            intervals[3] += 1
+                        elif relative_minute < 30:
+                            intervals[4] += 1
+                        else:
+                            intervals[5] += 1
+                return intervals
 
-            # Plot shots similarly to tab2
+            home_shot_intervals = calculate_shot_intervals_imp(home_shots)
+            away_shot_intervals = calculate_shot_intervals_imp(away_shots)
+            max_shots = max(max(home_shot_intervals) if home_shot_intervals else 0,
+                            max(away_shot_intervals) if away_shot_intervals else 0)
+
+            # Build figure layout identical to Schoten tab, but draw pitch with mplsoccer
+            fig_shots_imp = plt.figure(figsize=(22, 12))
+            gs_imp = gridspec.GridSpec(1, 3, width_ratios=[0.7, 3, 0.7], wspace=0.1)
+            ax_home_bars_imp = fig_shots_imp.add_subplot(gs_imp[0])
+            ax_pitch_imp = fig_shots_imp.add_subplot(gs_imp[1])
+            ax_away_bars_imp = fig_shots_imp.add_subplot(gs_imp[2])
+            Pitch(pitch_type='impect').draw(ax=ax_pitch_imp)
+
+            # Stats aggregation identical to Schoten tab (already excludes penalties from xG/xGOT)
+            stats = {
+                home_team: {'shots': 0, 'goals': 0, 'xG': 0.0, 'PSxG': 0.0, 'shots_on_target': 0, 'penalties': 0, 'pen_xG': 0.0, 'pen_PSxG': 0.0},
+                away_team: {'shots': 0, 'goals': 0, 'xG': 0.0, 'PSxG': 0.0, 'shots_on_target': 0, 'penalties': 0, 'pen_xG': 0.0, 'pen_PSxG': 0.0}
+            }
+
+            # Plot shots on impect pitch and update stats
             for shot in home_shots:
-                x = shot['x']
-                y = shot['y']
-                size = 50 + (shot['xG'] * 450)
+                x = shot['x']; y = shot['y']
+                marker_size = 50 + (shot['xG'] * 450)
                 if shot['is_goal']:
-                    face = home_color; edge = home_color; lw = 2
+                    face_color = home_color; edge_color = home_color; edge_width = 2; stats[home_team]['goals'] += 1
                 else:
-                    face = 'white'; edge = home_color; lw = 1
-                ax_imp.scatter(x, y, s=size, c=face, alpha=1.0, edgecolors=edge, linewidths=lw, zorder=5)
+                    face_color = 'white'; edge_color = home_color; edge_width = 1
+                ax_pitch_imp.scatter(x, y, s=marker_size, c=face_color, alpha=1.0,
+                                     edgecolors=edge_color, linewidths=edge_width, zorder=5)
+                stats[home_team]['shots'] += 1
+                if shot.get('is_penalty'):
+                    stats[home_team]['penalties'] += 1
+                    stats[home_team]['pen_xG'] += shot['xG']
+                    if shot['PSxG']:
+                        stats[home_team]['pen_PSxG'] += shot['PSxG']
+                        stats[home_team]['shots_on_target'] += 1
+                else:
+                    stats[home_team]['xG'] += shot['xG']
+                    if shot['PSxG']:
+                        stats[home_team]['PSxG'] += shot['PSxG']
+                        stats[home_team]['shots_on_target'] += 1
 
             for shot in away_shots:
-                x = shot['x']
-                y = shot['y']
-                size = 50 + (shot['xG'] * 450)
+                x = shot['x']; y = shot['y']
+                marker_size = 50 + (shot['xG'] * 450)
                 if shot['is_goal']:
-                    face = away_color; edge = away_color; lw = 2
+                    face_color = away_color; edge_color = away_color; edge_width = 2; stats[away_team]['goals'] += 1
                 else:
-                    face = 'white'; edge = away_color; lw = 1
-                ax_imp.scatter(x, y, s=size, c=face, alpha=1.0, edgecolors=edge, linewidths=lw, zorder=5)
+                    face_color = 'white'; edge_color = away_color; edge_width = 1
+                ax_pitch_imp.scatter(x, y, s=marker_size, c=face_color, alpha=1.0,
+                                     edgecolors=edge_color, linewidths=edge_width, zorder=5)
+                stats[away_team]['shots'] += 1
+                if shot.get('is_penalty'):
+                    stats[away_team]['penalties'] += 1
+                    stats[away_team]['pen_xG'] += shot['xG']
+                    if shot['PSxG']:
+                        stats[away_team]['pen_PSxG'] += shot['PSxG']
+                        stats[away_team]['shots_on_target'] += 1
+                else:
+                    stats[away_team]['xG'] += shot['xG']
+                    if shot['PSxG']:
+                        stats[away_team]['PSxG'] += shot['PSxG']
+                        stats[away_team]['shots_on_target'] += 1
 
-            # Titles
-            ax_imp.set_title(f"Schoten (Impect)\n{home_team} vs {away_team}", fontsize=14, fontweight='bold')
-            st.pyplot(fig_imp)
+            home_total_goals = stats[home_team]['goals'] + count_own_goals(events, home_team)
+            away_total_goals = stats[away_team]['goals'] + count_own_goals(events, away_team)
+
+            has_penalties = (stats[home_team]['penalties'] > 0) or (stats[away_team]['penalties'] > 0)
+            xg_label = "xG (zonder penalty's)" if has_penalties else 'xG'
+            xgot_label = "xGOT (zonder penalty's)" if has_penalties else 'xGOT'
+            stats_labels = ['Doelpunten', 'Schoten', 'Schoten op doel', xg_label, xgot_label]
+            home_values = [
+                f"{home_total_goals}",
+                f"{stats[home_team]['shots']}",
+                f"{stats[home_team]['shots_on_target']}",
+                f"{stats[home_team]['xG']:.2f}",
+                f"{stats[home_team]['PSxG']:.2f}",
+            ]
+            away_values = [
+                f"{away_total_goals}",
+                f"{stats[away_team]['shots']}",
+                f"{stats[away_team]['shots_on_target']}",
+                f"{stats[away_team]['xG']:.2f}",
+                f"{stats[away_team]['PSxG']:.2f}",
+            ]
+            if has_penalties:
+                stats_labels.append("xG uit penalty's")
+                home_values.append(f"{stats[home_team]['pen_xG']:.2f}")
+                away_values.append(f"{stats[away_team]['pen_xG']:.2f}")
+
+            # Render stats texts in center panel
+            ax_pitch_imp.text(-20, 56, home_team, fontsize=14, fontweight='bold', color=home_color, ha='center', va='center')
+            ax_pitch_imp.text(20, 56, away_team, fontsize=14, fontweight='bold', color=away_color, ha='center', va='center')
+            y_start = 52
+            for i, (label, home_val, away_val) in enumerate(zip(stats_labels, home_values, away_values)):
+                y_pos = y_start - (i * 3)
+                ax_pitch_imp.text(-20, y_pos, home_val, fontsize=12, fontweight='bold', color='black', ha='center', va='center')
+                ax_pitch_imp.text(0, y_pos, label, fontsize=10, color='gray', ha='center', va='center')
+                ax_pitch_imp.text(20, y_pos, away_val, fontsize=12, fontweight='bold', color='black', ha='center', va='center')
+
+            # Side bar charts
+            y_pos = np.arange(6)
+            bar_height = 0.6
+            ax_home_bars_imp.barh(y_pos, home_shot_intervals, bar_height, color=home_color, alpha=0.7)
+            ax_home_bars_imp.set_yticks(y_pos)
+            ax_home_bars_imp.set_yticklabels(["0-15'", "15-30'", "30-45+'", "45-60'", "60-75'", "75-90+'"]) 
+            ax_home_bars_imp.invert_xaxis()
+            ax_home_bars_imp.set_xlabel("Aantal schoten")
+            for spine in ['right','top','bottom','left']:
+                ax_home_bars_imp.spines[spine].set_visible(False)
+            ax_home_bars_imp.yaxis.tick_right()
+            ax_home_bars_imp.tick_params(axis='y', which='major', pad=10)
+            ax_home_bars_imp.set_xlim(max_shots + 0.5, 0)
+            xticks = ax_home_bars_imp.get_xticks()
+            ymin = y_pos[0] - bar_height * 0.6
+            ymax = y_pos[-1] + bar_height * 1.2
+            for tx in xticks:
+                ax_home_bars_imp.vlines(x=tx, ymin=ymin, ymax=ymax, linestyles='--', colors='gray', linewidth=0.7, zorder=0, alpha=0.55)
+
+            ax_away_bars_imp.barh(y_pos, away_shot_intervals, bar_height, color=away_color, alpha=0.7)
+            ax_away_bars_imp.set_yticks(y_pos)
+            ax_away_bars_imp.set_yticklabels(["0-15'", "15-30'", "30-45+'", "45-60'", "60-75'", "75-90+'"]) 
+            ax_away_bars_imp.set_xlabel("Aantal schoten")
+            for spine in ['left','top','bottom','right']:
+                ax_away_bars_imp.spines[spine].set_visible(False)
+            ax_away_bars_imp.yaxis.tick_left()
+            ax_away_bars_imp.tick_params(axis='y', which='major', pad=10)
+            ax_away_bars_imp.set_xlim(0, max_shots + 0.5)
+            xticks = ax_away_bars_imp.get_xticks()
+            ymin = y_pos[0] - bar_height * 0.6
+            ymax = y_pos[-1] + bar_height * 1.2
+            for tx in xticks:
+                ax_away_bars_imp.vlines(x=tx, ymin=ymin, ymax=ymax, linestyles='--', colors='gray', linewidth=0.7, zorder=0, alpha=0.55)
+
+            # xG scale guide
+            ax_pitch_imp.text(0, -40, "xG waarde", fontsize=10, fontweight='bold', ha='center', va='top')
+            scale_xg_values = [0.1, 0.3, 0.5, 0.7, 0.9]
+            scale_x_start = -20
+            scale_y = -44
+            for i, xg in enumerate(scale_xg_values):
+                size = 50 + (xg * 450)
+                x_pos = scale_x_start + (i * 10)
+                ax_pitch_imp.scatter(x_pos, scale_y, s=size, c='gray', alpha=0.5, edgecolors='black', linewidths=1)
+                ax_pitch_imp.text(x_pos, scale_y - 3, f'{xg:.1f}', ha='center', va='top', fontsize=8)
+
+            plt.tight_layout()
+            st.pyplot(fig_shots_imp)
 
             y_pos = np.arange(6)
             bar_height = 0.6
