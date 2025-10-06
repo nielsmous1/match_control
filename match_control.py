@@ -1258,7 +1258,7 @@ if events_data is not None:
 
             # Append penalties xG row only if present
             if has_penalties:
-                stats_labels.append('xG from penalties')
+                stats_labels.append("xG uit penalty's")
                 home_values.append(f"{stats[home_team]['pen_xG']:.2f}")
                 away_values.append(f"{stats[away_team]['pen_xG']:.2f}")
 
@@ -2434,9 +2434,9 @@ if events_data is not None:
                                              linewidth=1.5, edgecolor='black', facecolor=facecolor, alpha=0.5, zorder=1)
                     ax.add_patch(rect)
 
-                    # Upper-left position in SciSports coords for zone name
+                    # Upper-left position in SciSports coords for zone name (slightly above)
                     ul_x = coords['x_min'] + 0.5
-                    ul_y = coords['y_max'] - 0.5
+                    ul_y = coords['y_max'] - 0.2
                     zone_title = zone_name.split('(')[0].strip()
                     pitch.annotate(zone_title, (ul_x, ul_y), ax=ax,
                                    ha='left', va='top', fontsize=6, color='black',
@@ -2445,7 +2445,7 @@ if events_data is not None:
                     # Centered stats text
                     center_x = (coords['x_min'] + coords['x_max']) / 2
                     center_y = (coords['y_min'] + coords['y_max']) / 2
-                    text_string = f"Totaal: {total}\nSuc: {successful}\n{percentage:.0f}%"
+                    text_string = f"{successful}/{total}\n{percentage:.0f}%"
                     pitch.annotate(text_string, (center_x, center_y), ax=ax,
                                    ha='center', va='center', fontsize=8, color='black',
                                    fontweight='bold', zorder=12)
