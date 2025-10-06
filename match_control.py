@@ -1404,7 +1404,8 @@ if events_data is not None:
             ax_pitch_imp.text(20, 56, away_team, fontsize=14, fontweight='bold', color=away_color, ha='center', va='center')
             y_start = 52
             for i, (label, home_val, away_val) in enumerate(zip(stats_labels, home_values, away_values)):
-                y_pos = y_start - (i * 3)
+                # Slightly smaller vertical spacing between rows vs previous
+                y_pos = y_start - (i * 2.4)
                 ax_pitch_imp.text(-20, y_pos, home_val, fontsize=12, fontweight='bold', color='black', ha='center', va='center')
                 ax_pitch_imp.text(0, y_pos, label, fontsize=10, color='gray', ha='center', va='center')
                 ax_pitch_imp.text(20, y_pos, away_val, fontsize=12, fontweight='bold', color='black', ha='center', va='center')
@@ -1446,15 +1447,22 @@ if events_data is not None:
                 ax_away_bars_imp.vlines(x=tx, ymin=ymin, ymax=ymax, linestyles='--', colors='gray', linewidth=0.7, zorder=0, alpha=0.55)
 
             # xG scale guide (position relative to current pitch limits)
+            # Ensure there is space below the pitch for xG scale
+            xmin, xmax = ax_pitch_imp.get_xlim()
+            ymin_data, ymax_data = ax_pitch_imp.get_ylim()
+            height = ymax_data - ymin_data
+            extra_space = height * 0.10
+            ax_pitch_imp.set_ylim(ymin_data - extra_space, ymax_data)
+            # Recompute with updated limits
             xmin, xmax = ax_pitch_imp.get_xlim()
             ymin_data, ymax_data = ax_pitch_imp.get_ylim()
             x_center = (xmin + xmax) / 2
             width = xmax - xmin
             height = ymax_data - ymin_data
-            # Move title/dots/text a lot further down (below pitch) and increase spacing
-            title_y = ymin_data - height * 0.020
-            dots_y = ymin_data - height * 0.040
-            labels_y = ymin_data - height * 0.060
+            # Position title/dots/text below pitch with comfortable spacing
+            title_y = ymin_data + height * 0.045
+            dots_y = ymin_data + height * 0.028
+            labels_y = ymin_data + height * 0.015
             ax_pitch_imp.text(x_center, title_y, "xG waarde", fontsize=10, fontweight='bold', ha='center', va='center')
             scale_xg_values = [0.1, 0.3, 0.5, 0.7, 0.9]
             # place dots centered under title
@@ -1463,8 +1471,8 @@ if events_data is not None:
             for i, xg in enumerate(scale_xg_values):
                 size = 50 + (xg * 450)
                 x_pos = start_x + (i * dot_spacing)
-                ax_pitch_imp.scatter(x_pos, dots_y, s=size, c='gray', alpha=0.5, edgecolors='black', linewidths=1)
-                ax_pitch_imp.text(x_pos, labels_y, f'{xg:.1f}', ha='center', va='center', fontsize=8)
+                ax_pitch_imp.scatter(x_pos, dots_y, s=size, c='gray', alpha=0.5, edgecolors='black', linewidths=1, zorder=6, clip_on=False)
+                ax_pitch_imp.text(x_pos, labels_y, f'{xg:.1f}', ha='center', va='center', fontsize=8, zorder=6, clip_on=False)
 
             plt.tight_layout()
             st.pyplot(fig_shots_imp)
