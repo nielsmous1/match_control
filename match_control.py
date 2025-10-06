@@ -1312,8 +1312,8 @@ if events_data is not None:
 
             # Build figure layout identical to Schoten tab, but draw pitch with mplsoccer
             fig_shots_imp = plt.figure(figsize=(22, 12))
-            # Use original pitch width but increase spacing from side bars
-            gs_imp = gridspec.GridSpec(1, 3, width_ratios=[0.7, 3, 0.7], wspace=0.25)
+            # Increase pitch width while keeping some spacing from side bars
+            gs_imp = gridspec.GridSpec(1, 3, width_ratios=[0.6, 3.4, 0.6], wspace=0.2)
             ax_home_bars_imp = fig_shots_imp.add_subplot(gs_imp[0])
             ax_pitch_imp = fig_shots_imp.add_subplot(gs_imp[1])
             ax_away_bars_imp = fig_shots_imp.add_subplot(gs_imp[2])
@@ -1422,8 +1422,8 @@ if events_data is not None:
             ax_home_bars_imp.yaxis.tick_right()
             ax_home_bars_imp.tick_params(axis='y', which='major', pad=10)
             ax_home_bars_imp.set_xlim(max_shots + 0.5, 0)
-            # Fewer dashed guides similar to original: show every other tick
-            xticks = ax_home_bars_imp.get_xticks()[::2]
+            # Dashed guides at every tick (same logic as original)
+            xticks = ax_home_bars_imp.get_xticks()
             ymin = y_pos[0] - bar_height * 0.6
             ymax = y_pos[-1] + bar_height * 1.2
             for tx in xticks:
@@ -1438,8 +1438,8 @@ if events_data is not None:
             ax_away_bars_imp.yaxis.tick_left()
             ax_away_bars_imp.tick_params(axis='y', which='major', pad=10)
             ax_away_bars_imp.set_xlim(0, max_shots + 0.5)
-            # Fewer dashed guides similar to original: show every other tick
-            xticks = ax_away_bars_imp.get_xticks()[::2]
+            # Dashed guides at every tick (same logic as original)
+            xticks = ax_away_bars_imp.get_xticks()
             ymin = y_pos[0] - bar_height * 0.6
             ymax = y_pos[-1] + bar_height * 1.2
             for tx in xticks:
@@ -1451,9 +1451,10 @@ if events_data is not None:
             x_center = (xmin + xmax) / 2
             width = xmax - xmin
             height = ymax_data - ymin_data
-            title_y = ymin_data + height * 0.05
-            dots_y = ymin_data + height * 0.025
-            labels_y = ymin_data + height * 0.015
+            # Move title/dots/text slightly down and increase spacing between dots and their labels
+            title_y = ymin_data + height * 0.045
+            dots_y = ymin_data + height * 0.022
+            labels_y = ymin_data + height * 0.010
             ax_pitch_imp.text(x_center, title_y, "xG waarde", fontsize=10, fontweight='bold', ha='center', va='center')
             scale_xg_values = [0.1, 0.3, 0.5, 0.7, 0.9]
             # place dots centered under title
