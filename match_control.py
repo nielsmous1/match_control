@@ -1488,34 +1488,6 @@ if events_data is not None:
             plt.tight_layout()
             st.pyplot(fig_shots_imp)
 
-            scale_text = "xG waarde"
-            ax_pitch.text(0, -40, scale_text, fontsize=10, fontweight='bold', ha='center', va='top')
-            scale_xg_values = [0.1, 0.3, 0.5, 0.7, 0.9]
-            scale_x_start = -20
-            scale_y = -44
-            for i, xg in enumerate(scale_xg_values):
-                size = 50 + (xg * 450)
-                x_pos = scale_x_start + (i * 10)
-                ax_pitch.scatter(x_pos, scale_y, s=size, c='gray', alpha=0.5, edgecolors='black', linewidths=1)
-                ax_pitch.text(x_pos, scale_y - 3, f'{xg:.1f}', ha='center', va='top', fontsize=8)
-
-            ax_pitch.set_xlim(-65, 65)
-            ax_pitch.set_ylim(-50, 60)
-            ax_pitch.set_aspect('equal')
-            ax_pitch.axis('off')
-
-            st.pyplot(fig_shots)
-            import io
-            buf2 = io.BytesIO()
-            fig_shots.savefig(buf2, format='png', dpi=150, bbox_inches='tight')
-            buf2.seek(0)
-            st.download_button(
-                label="📥 Download",
-                data=buf2,
-                file_name=f"shot_map_{file_name.replace('.json', '')}.png",
-                mime="image/png"
-            )
-
         # ---------- xG Verloop Tab ----------
         def get_halftime_offset(events):
             """Calculate the time offset for the second half to account for halftime break"""
