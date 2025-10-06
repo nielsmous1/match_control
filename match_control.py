@@ -1313,16 +1313,16 @@ if events_data is not None:
             # Build figure layout identical to Schoten tab, but draw pitch with mplsoccer
             fig_shots_imp = plt.figure(figsize=(22, 12))
             # Increase pitch size and slightly reduce spacing from bars
-            gs_imp = gridspec.GridSpec(1, 3, width_ratios=[0.55, 3.6, 0.55], wspace=0.12)
+            gs_imp = gridspec.GridSpec(1, 3, width_ratios=[0.55, 3.6, 0.55], wspace=0.125)
             ax_home_bars_imp = fig_shots_imp.add_subplot(gs_imp[0])
             ax_pitch_imp = fig_shots_imp.add_subplot(gs_imp[1])
             ax_away_bars_imp = fig_shots_imp.add_subplot(gs_imp[2])
             # Slightly shift bar axes upward so their centers align better with pitch center
             try:
                 pos_left = ax_home_bars_imp.get_position()
-                ax_home_bars_imp.set_position([pos_left.x0, pos_left.y0 + 0.045, pos_left.width, pos_left.height])
+                ax_home_bars_imp.set_position([pos_left.x0, pos_left.y0 + 0.0475, pos_left.width, pos_left.height])
                 pos_right = ax_away_bars_imp.get_position()
-                ax_away_bars_imp.set_position([pos_right.x0, pos_right.y0 + 0.045, pos_right.width, pos_right.height])
+                ax_away_bars_imp.set_position([pos_right.x0, pos_right.y0 + 0.0475, pos_right.width, pos_right.height])
             except Exception:
                 pass
             # Draw mplsoccer pitch (default size), spacing handled by GridSpec wspace
