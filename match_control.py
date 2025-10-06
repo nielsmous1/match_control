@@ -1042,7 +1042,7 @@ if events_data is not None:
             None
         )
 
-        tab1, tab2, tab3, tab8, tab5, tab6, tab4 = st.tabs(["Controle & Gevaar", "Schoten", "xG Verloop", "Voorzetten", "Gemiddelde Posities", "Samenvatting", "Eredivisie Tabel"])
+        tab1, tab2, tab7, tab3, tab8, tab5, tab6, tab4 = st.tabs(["Controle & Gevaar", "Schoten", "Schoten (Impect)", "xG Verloop", "Voorzetten", "Gemiddelde Posities", "Samenvatting", "Eredivisie Tabel"])
 
         with tab1:
             st.pyplot(fig)
@@ -1271,6 +1271,45 @@ if events_data is not None:
                 ax_pitch.text(-20, y_pos, home_val, fontsize=12, fontweight='bold', color='black', ha='center', va='center')
                 ax_pitch.text(0, y_pos, label, fontsize=10, color='gray', ha='center', va='center')
                 ax_pitch.text(20, y_pos, away_val, fontsize=12, fontweight='bold', color='black', ha='center', va='center')
+        with tab7:
+            metadata = events_data.get('metaData', {}) if isinstance(events_data, dict) else {}
+            home_team = metadata.get('homeTeamName') or metadata.get('homeTeam') or metadata.get('home') or 'Home'
+            away_team = metadata.get('awayTeamName') or metadata.get('awayTeam') or metadata.get('away') or 'Away'
+            events = events_data.get('data', []) if isinstance(events_data, dict) else []
+
+            all_shots = find_shot_events(events)
+            home_shots = [s for s in all_shots if s['team'] == home_team]
+            away_shots = [s for s in all_shots if s['team'] == away_team]
+
+            # Build same stats, but render pitch with mplsoccer (impect)
+            fig_imp, ax_imp = plt.subplots(figsize=(12, 9))
+            pitch = Pitch(pitch_type='impect')
+            pitch.draw(ax=ax_imp)
+
+            # Plot shots similarly to tab2
+            for shot in home_shots:
+                x = shot['x']
+                y = shot['y']
+                size = 50 + (shot['xG'] * 450)
+                if shot['is_goal']:
+                    face = home_color; edge = home_color; lw = 2
+                else:
+                    face = 'white'; edge = home_color; lw = 1
+                ax_imp.scatter(x, y, s=size, c=face, alpha=1.0, edgecolors=edge, linewidths=lw, zorder=5)
+
+            for shot in away_shots:
+                x = shot['x']
+                y = shot['y']
+                size = 50 + (shot['xG'] * 450)
+                if shot['is_goal']:
+                    face = away_color; edge = away_color; lw = 2
+                else:
+                    face = 'white'; edge = away_color; lw = 1
+                ax_imp.scatter(x, y, s=size, c=face, alpha=1.0, edgecolors=edge, linewidths=lw, zorder=5)
+
+            # Titles
+            ax_imp.set_title(f"Schoten (Impect)\n{home_team} vs {away_team}", fontsize=14, fontweight='bold')
+            st.pyplot(fig_imp)
 
             y_pos = np.arange(6)
             bar_height = 0.6
