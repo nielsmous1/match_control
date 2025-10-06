@@ -1317,6 +1317,14 @@ if events_data is not None:
             ax_home_bars_imp = fig_shots_imp.add_subplot(gs_imp[0])
             ax_pitch_imp = fig_shots_imp.add_subplot(gs_imp[1])
             ax_away_bars_imp = fig_shots_imp.add_subplot(gs_imp[2])
+            # Slightly shift bar axes upward so their centers align better with pitch center
+            try:
+                pos_left = ax_home_bars_imp.get_position()
+                ax_home_bars_imp.set_position([pos_left.x0, pos_left.y0 + 0.01, pos_left.width, pos_left.height])
+                pos_right = ax_away_bars_imp.get_position()
+                ax_away_bars_imp.set_position([pos_right.x0, pos_right.y0 + 0.01, pos_right.width, pos_right.height])
+            except Exception:
+                pass
             # Draw mplsoccer pitch (default size), spacing handled by GridSpec wspace
             Pitch(pitch_type='impect').draw(ax=ax_pitch_imp)
 
@@ -1459,10 +1467,11 @@ if events_data is not None:
             x_center = (xmin + xmax) / 2
             width = xmax - xmin
             height = ymax_data - ymin_data
-            # Position title/dots/text below pitch with comfortable spacing
-            title_y = ymin_data + height * 0.045
-            dots_y = ymin_data + height * 0.028
-            labels_y = ymin_data + height * 0.015
+            # Position title/dots/text below pitch with adjusted spacing
+            # Move title slightly up, ticks (labels) slightly down
+            title_y = ymin_data + height * 0.052
+            dots_y = ymin_data + height * 0.027
+            labels_y = ymin_data + height * 0.010
             ax_pitch_imp.text(x_center, title_y, "xG waarde", fontsize=10, fontweight='bold', ha='center', va='center')
             scale_xg_values = [0.1, 0.3, 0.5, 0.7, 0.9]
             # place dots centered under title
