@@ -1042,7 +1042,7 @@ if events_data is not None:
             None
         )
 
-        tab1, tab2, tab7, tab3, tab8, tab5, tab6, tab4 = st.tabs(["Controle & Gevaar", "Schoten", "Schoten (Impect)", "xG Verloop", "Voorzetten", "Gemiddelde Posities", "Samenvatting", "Eredivisie Tabel"])
+        tab1, tab2, tab3, tab8, tab5, tab6, tab4 = st.tabs(["Controle & Gevaar", "Schoten", "xG Verloop", "Voorzetten", "Gemiddelde Posities", "Samenvatting", "Eredivisie Tabel"])
 
         with tab1:
             st.pyplot(fig)
@@ -1126,7 +1126,9 @@ if events_data is not None:
                     own_goals += 1
             return own_goals
 
-        with tab2:
+        # Removed Schoten tab per request
+        # with tab2:
+        if False:
             metadata = events_data.get('metaData', {}) if isinstance(events_data, dict) else {}
             home_team = metadata.get('homeTeamName') or metadata.get('homeTeam') or metadata.get('home') or 'Home'
             away_team = metadata.get('awayTeamName') or metadata.get('awayTeam') or metadata.get('away') or 'Away'
@@ -1267,7 +1269,7 @@ if events_data is not None:
                 ax_pitch.text(-20, y_pos, home_val, fontsize=12, fontweight='bold', color='black', ha='center', va='center')
                 ax_pitch.text(0, y_pos, label, fontsize=10, color='gray', ha='center', va='center')
                 ax_pitch.text(20, y_pos, away_val, fontsize=12, fontweight='bold', color='black', ha='center', va='center')
-        with tab7:
+        with tab2:
             metadata = events_data.get('metaData', {}) if isinstance(events_data, dict) else {}
             home_team = metadata.get('homeTeamName') or metadata.get('homeTeam') or metadata.get('home') or 'Home'
             away_team = metadata.get('awayTeamName') or metadata.get('awayTeam') or metadata.get('away') or 'Away'
@@ -1310,10 +1312,10 @@ if events_data is not None:
             max_shots = max(max(home_shot_intervals) if home_shot_intervals else 0,
                             max(away_shot_intervals) if away_shot_intervals else 0)
 
-            # Build figure layout identical to Schoten tab, but draw pitch with mplsoccer
+            # Build figure layout with mplsoccer pitch only (remove second/original graph)
             fig_shots_imp = plt.figure(figsize=(22, 12))
             # Increase pitch size and slightly reduce spacing from bars
-            gs_imp = gridspec.GridSpec(1, 3, width_ratios=[0.55, 3.6, 0.55], wspace=0.135)
+            gs_imp = gridspec.GridSpec(1, 3, width_ratios=[0.55, 3.6, 0.55], wspace=0.13)
             ax_home_bars_imp = fig_shots_imp.add_subplot(gs_imp[0])
             ax_pitch_imp = fig_shots_imp.add_subplot(gs_imp[1])
             ax_away_bars_imp = fig_shots_imp.add_subplot(gs_imp[2])
@@ -1485,45 +1487,6 @@ if events_data is not None:
 
             plt.tight_layout()
             st.pyplot(fig_shots_imp)
-
-            y_pos = np.arange(6)
-            bar_height = 0.6
-            ax_home_bars.barh(y_pos, home_shot_intervals, bar_height, color=home_color, alpha=0.7)
-            ax_home_bars.set_yticks(y_pos)
-            ax_home_bars.set_yticklabels(["0-15'", "15-30'", "30-45+'", "45-60'", "60-75'", "75-90+'"]) 
-            ax_home_bars.invert_xaxis()
-            ax_home_bars.set_xlabel("Aantal schoten")
-            ax_home_bars.spines['right'].set_visible(False)
-            ax_home_bars.spines['top'].set_visible(False)
-            ax_home_bars.spines['bottom'].set_visible(False)
-            ax_home_bars.spines['left'].set_visible(False)
-            ax_home_bars.yaxis.tick_right()
-            ax_home_bars.tick_params(axis='y', which='major', pad=10)
-            ax_home_bars.set_xlim(max_shots + 0.5, 0)
-            # Add dashed vertical guide lines behind bars
-            xticks = ax_home_bars.get_xticks()
-            ymin = y_pos[0] - bar_height * 0.6
-            ymax = y_pos[-1] + bar_height * 1.2
-            for tx in xticks:
-                ax_home_bars.vlines(x=tx, ymin=ymin, ymax=ymax, linestyles='--', colors='gray', linewidth=0.7, zorder=0, alpha=0.55)
-
-            ax_away_bars.barh(y_pos, away_shot_intervals, bar_height, color=away_color, alpha=0.7)
-            ax_away_bars.set_yticks(y_pos)
-            ax_away_bars.set_yticklabels(["0-15'", "15-30'", "30-45+'", "45-60'", "60-75'", "75-90+'"]) 
-            ax_away_bars.set_xlabel("Aantal schoten")
-            ax_away_bars.spines['left'].set_visible(False)
-            ax_away_bars.spines['top'].set_visible(False)
-            ax_away_bars.spines['bottom'].set_visible(False)
-            ax_away_bars.spines['right'].set_visible(False)
-            ax_away_bars.yaxis.tick_left()
-            ax_away_bars.tick_params(axis='y', which='major', pad=10)
-            ax_away_bars.set_xlim(0, max_shots + 0.5)
-            # Add dashed vertical guide lines behind bars
-            xticks = ax_away_bars.get_xticks()
-            ymin = y_pos[0] - bar_height * 0.6
-            ymax = y_pos[-1] + bar_height * 1.2
-            for tx in xticks:
-                ax_away_bars.vlines(x=tx, ymin=ymin, ymax=ymax, linestyles='--', colors='gray', linewidth=0.7, zorder=0, alpha=0.55)
 
             scale_text = "xG waarde"
             ax_pitch.text(0, -40, scale_text, fontsize=10, fontweight='bold', ha='center', va='top')
