@@ -1313,7 +1313,7 @@ if events_data is not None:
             # Build figure layout identical to Schoten tab, but draw pitch with mplsoccer
             fig_shots_imp = plt.figure(figsize=(22, 12))
             # Increase pitch size and slightly reduce spacing from bars
-            gs_imp = gridspec.GridSpec(1, 3, width_ratios=[0.55, 3.6, 0.55], wspace=0.13)
+            gs_imp = gridspec.GridSpec(1, 3, width_ratios=[0.55, 3.6, 0.55], wspace=0.135)
             ax_home_bars_imp = fig_shots_imp.add_subplot(gs_imp[0])
             ax_pitch_imp = fig_shots_imp.add_subplot(gs_imp[1])
             ax_away_bars_imp = fig_shots_imp.add_subplot(gs_imp[2])
