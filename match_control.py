@@ -9,7 +9,8 @@ import matplotlib.image as mpimg
 import os
 from pathlib import Path
 from collections import defaultdict
-from mplsoccer import Pitch
+from mplsoccer import Pitch, VerticalPitch
+import numpy as np
 
 # Page config
 st.set_page_config(page_title="Match Control Analysis", layout="wide")
@@ -1041,7 +1042,7 @@ if events_data is not None:
             None
         )
 
-        tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["Controle & Gevaar", "Schoten", "xG Verloop", "Eredivisie Tabel", "Gemiddelde Posities", "Samenvatting", "Penalty Schoten"])
+        tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs(["Controle & Gevaar", "Schoten", "xG Verloop", "Eredivisie Tabel", "Gemiddelde Posities", "Samenvatting", "Penalty Schoten", "Voorzetten"])
 
         with tab1:
             st.pyplot(fig)
@@ -2451,6 +2452,106 @@ if events_data is not None:
                 
             else:
                 st.info("Geen penalty schoten gevonden in de beschikbare wedstrijden.")
+
+        # ---------- Voorzetten Tab ----------
+        with tab8:
+            st.subheader("📮 Voorzetten per Zone")
+            
+            # Require a selected match
+            if events_data is None:
+                st.info("Selecteer eerst een wedstrijd om voorzetten te bekijken.")
+            else:
+                # Use selected team and events of selected match already loaded as events_data
+                events = events_data.get('data', []) if isinstance(events_data, dict) else []
+                metadata = events_data.get('metaData', {}) if isinstance(events_data, dict) else {}
+                home_team = metadata.get('homeTeamName', 'Home')
+                away_team = metadata.get('awayTeamName', 'Away')
+                team_to_filter = selected_team if selected_team else home_team
+                
+                # IDs (adapted to example): Pass base type and cross/cutback subtypes
+                # Note: In earlier mappings PASS was 1, but the example uses 2. We follow example here.
+                PASS_BASE_TYPE_ID = 2
+                CROSS_SUB_TYPE_ID = 200
+                CUTBACK_SUB_TYPE_ID = 204
+                SUCCESSFUL_RESULT_ID = 1
+                
+                # Filter crosses by team
+                cross_events = [
+                    event for event in events
+                    if event.get('teamName') == team_to_filter and
+                    event.get('baseTypeId') == PASS_BASE_TYPE_ID and
+                    (event.get('subTypeId') == CROSS_SUB_TYPE_ID or event.get('subTypeId') == CUTBACK_SUB_TYPE_ID)
+                ]
+                
+                # Optional distance filter (kept from example; threshold set to 0 meters as in example)
+                filtered_cross_events = []
+                for event in cross_events:
+                    start_x = event.get('startPosXM')
+                    start_y = event.get('startPosYM')
+                    end_x = event.get('endPosXM')
+                    end_y = event.get('endPosYM')
+                    if start_x is not None and start_y is not None and end_x is not None and end_y is not None:
+                        distance = np.sqrt((end_x - start_x)**2 + (end_y - start_y)**2)
+                        if distance >= 0:
+                            filtered_cross_events.append(event)
+                
+                # Zones definition (as per provided example)
+                zones = {
+                    'Zone 18 (Wide Attacking Right)': {'x_min': 36, 'x_max': 52.5, 'y_min': -34, 'y_max': -20.16},
+                    'Zone 16 (Wide Attacking Left)': {'x_min': 36, 'x_max': 52.5, 'y_min': 20.16, 'y_max': 34},
+                    'Zone 17 LL (Box Left Deep)': {'x_min': 36, 'x_max': 47, 'y_min': 9.25, 'y_max': 20.16},
+                    'Zone 17 LR (Box Right Deep)': {'x_min': 36, 'x_max': 47, 'y_min': -20.16, 'y_max': -9.25},
+                    'Zone 17 HL (Box Left Attacking)': {'x_min': 47, 'x_max': 52.5, 'y_min': 9.25, 'y_max': 20.16},
+                    'Zone 17 HR (Box Right Attacking)': {'x_min': 47, 'x_max': 52.5, 'y_min': -20.16, 'y_max': -9.25},
+                    'Zone 13 (Wide Middle Left)': {'x_min': 17.5, 'x_max': 36, 'y_min': 20.16, 'y_max': 34},
+                    'Zone 15 (Wide Middle Right)': {'x_min': 17.5, 'x_max': 36, 'y_min': -34, 'y_max': -20.16},
+                    'Zone 14 R (Central Deep Left)': {'x_min': 17.5, 'x_max': 36, 'y_min': -20.16, 'y_max': -9.25},
+                    'Zone 14 L (Central Deep Right)': {'x_min': 17.5, 'x_max': 36, 'y_min': 9.25, 'y_max': 20.16},
+                    'Zone 14 M (Zone 14 Area)': {'x_min': 17.5, 'x_max': 36, 'y_min': -9.25, 'y_max': 9.25},
+                }
+                
+                # Count crosses per zone
+                zone_stats = {zone_name: {'total': 0, 'successful': 0} for zone_name in zones}
+                for event in filtered_cross_events:
+                    start_x = event.get('startPosXM')
+                    start_y = event.get('startPosYM')
+                    is_successful = event.get('resultId') == SUCCESSFUL_RESULT_ID
+                    if start_x is not None and start_y is not None:
+                        for zone_name, coords in zones.items():
+                            if (coords['x_min'] <= start_x < coords['x_max'] and
+                                coords['y_min'] <= start_y < coords['y_max']):
+                                zone_stats[zone_name]['total'] += 1
+                                if is_successful:
+                                    zone_stats[zone_name]['successful'] += 1
+                                break
+                
+                # Draw vertical half pitch and annotate zones
+                pitch = VerticalPitch(half=True, pitch_type='impect')
+                fig, ax = pitch.draw(figsize=(8, 12))
+                
+                for zone_name, coords in zones.items():
+                    total = zone_stats[zone_name]['total']
+                    successful = zone_stats[zone_name]['successful']
+                    percentage = (successful / total * 100) if total > 0 else 0
+                    
+                    # Draw zone outline (map SciSports to VerticalPitch: swap x/y and dimensions)
+                    rect = patches.Rectangle((coords['y_min'], coords['x_min']),
+                                             coords['y_max'] - coords['y_min'],
+                                             coords['x_max'] - coords['x_min'],
+                                             linewidth=1.5, edgecolor='black', facecolor='none', alpha=0.5, zorder=1)
+                    ax.add_patch(rect)
+                    
+                    # Center for annotation in SciSports coords
+                    center_x = (coords['x_min'] + coords['x_max']) / 2
+                    center_y = (coords['y_min'] + coords['y_max']) / 2
+                    
+                    text_string = f"{zone_name.split('(')[0]}\nTotaal: {total}\nSuc: {successful}\n{percentage:.0f}%"
+                    pitch.annotate(text_string, (center_x, center_y), ax=ax,
+                                   ha='center', va='center', fontsize=8, color='black',
+                                   fontweight='bold', zorder=10)
+                
+                plt.title(f"Voorzetten per Zone: {team_to_filter}", fontsize=16, fontweight='bold')
+                st.pyplot(fig)
 
 st.info("Please select a team and match on the main screen to begin analysis.")
 
