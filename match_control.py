@@ -2409,12 +2409,12 @@ if events_data is not None:
                                              linewidth=1.5, edgecolor='black', facecolor=facecolor, alpha=0.5, zorder=1)
                     ax.add_patch(rect)
 
-                    # Upper-left position in SciSports coords for zone name
-                    ul_x = coords['x_min'] + 0.5
+                    # Upper-left position in SciSports coords for zone name (closer to opponent goal, left side)
+                    ul_x = coords['x_max'] - 0.5
                     ul_y = coords['y_min'] + 0.5
                     zone_title = zone_name.split('(')[0].strip()
                     pitch.annotate(zone_title, (ul_x, ul_y), ax=ax,
-                                   ha='left', va='top', fontsize=7, color='black',
+                                   ha='left', va='top', fontsize=6, color='black',
                                    fontweight='bold', zorder=11)
 
                     # Centered stats text
