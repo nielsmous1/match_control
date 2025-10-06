@@ -1451,10 +1451,10 @@ if events_data is not None:
             x_center = (xmin + xmax) / 2
             width = xmax - xmin
             height = ymax_data - ymin_data
-            # Move title/dots/text slightly down and increase spacing between dots and their labels
-            title_y = ymin_data + height * 0.045
-            dots_y = ymin_data + height * 0.022
-            labels_y = ymin_data + height * 0.010
+            # Move title/dots/text further down to avoid overlapping the pitch
+            title_y = ymin_data + height * 0.030
+            dots_y = ymin_data + height * 0.015
+            labels_y = ymin_data + height * 0.006
             ax_pitch_imp.text(x_center, title_y, "xG waarde", fontsize=10, fontweight='bold', ha='center', va='center')
             scale_xg_values = [0.1, 0.3, 0.5, 0.7, 0.9]
             # place dots centered under title
