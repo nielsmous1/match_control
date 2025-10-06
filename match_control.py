@@ -1312,13 +1312,13 @@ if events_data is not None:
 
             # Build figure layout identical to Schoten tab, but draw pitch with mplsoccer
             fig_shots_imp = plt.figure(figsize=(22, 12))
-            # Slightly reduce center pitch width so it doesn't overlap bars
-            gs_imp = gridspec.GridSpec(1, 3, width_ratios=[0.8, 2.6, 0.8], wspace=0.1)
+            # Use original pitch width but increase spacing from side bars
+            gs_imp = gridspec.GridSpec(1, 3, width_ratios=[0.7, 3, 0.7], wspace=0.25)
             ax_home_bars_imp = fig_shots_imp.add_subplot(gs_imp[0])
             ax_pitch_imp = fig_shots_imp.add_subplot(gs_imp[1])
             ax_away_bars_imp = fig_shots_imp.add_subplot(gs_imp[2])
-            # Draw mplsoccer pitch with a small internal padding to further reduce occupied area
-            Pitch(pitch_type='impect', pad_top=2, pad_bottom=2, pad_left=2, pad_right=2).draw(ax=ax_pitch_imp)
+            # Draw mplsoccer pitch (default size), spacing handled by GridSpec wspace
+            Pitch(pitch_type='impect').draw(ax=ax_pitch_imp)
 
             # Stats aggregation identical to Schoten tab (already excludes penalties from xG/xGOT)
             stats = {
@@ -1422,7 +1422,8 @@ if events_data is not None:
             ax_home_bars_imp.yaxis.tick_right()
             ax_home_bars_imp.tick_params(axis='y', which='major', pad=10)
             ax_home_bars_imp.set_xlim(max_shots + 0.5, 0)
-            xticks = ax_home_bars_imp.get_xticks()
+            # Fewer dashed guides similar to original: show every other tick
+            xticks = ax_home_bars_imp.get_xticks()[::2]
             ymin = y_pos[0] - bar_height * 0.6
             ymax = y_pos[-1] + bar_height * 1.2
             for tx in xticks:
@@ -1437,22 +1438,32 @@ if events_data is not None:
             ax_away_bars_imp.yaxis.tick_left()
             ax_away_bars_imp.tick_params(axis='y', which='major', pad=10)
             ax_away_bars_imp.set_xlim(0, max_shots + 0.5)
-            xticks = ax_away_bars_imp.get_xticks()
+            # Fewer dashed guides similar to original: show every other tick
+            xticks = ax_away_bars_imp.get_xticks()[::2]
             ymin = y_pos[0] - bar_height * 0.6
             ymax = y_pos[-1] + bar_height * 1.2
             for tx in xticks:
                 ax_away_bars_imp.vlines(x=tx, ymin=ymin, ymax=ymax, linestyles='--', colors='gray', linewidth=0.7, zorder=0, alpha=0.55)
 
-            # xG scale guide (same as original Schoten tab)
-            ax_pitch_imp.text(0, -40, "xG waarde", fontsize=10, fontweight='bold', ha='center', va='top')
+            # xG scale guide (position relative to current pitch limits)
+            xmin, xmax = ax_pitch_imp.get_xlim()
+            ymin_data, ymax_data = ax_pitch_imp.get_ylim()
+            x_center = (xmin + xmax) / 2
+            width = xmax - xmin
+            height = ymax_data - ymin_data
+            title_y = ymin_data + height * 0.05
+            dots_y = ymin_data + height * 0.025
+            labels_y = ymin_data + height * 0.015
+            ax_pitch_imp.text(x_center, title_y, "xG waarde", fontsize=10, fontweight='bold', ha='center', va='center')
             scale_xg_values = [0.1, 0.3, 0.5, 0.7, 0.9]
-            scale_x_start = -20
-            scale_y = -44
+            # place dots centered under title
+            dot_spacing = width * 0.095
+            start_x = x_center - dot_spacing * 2
             for i, xg in enumerate(scale_xg_values):
                 size = 50 + (xg * 450)
-                x_pos = scale_x_start + (i * 10)
-                ax_pitch_imp.scatter(x_pos, scale_y, s=size, c='gray', alpha=0.5, edgecolors='black', linewidths=1)
-                ax_pitch_imp.text(x_pos, scale_y - 3, f'{xg:.1f}', ha='center', va='top', fontsize=8)
+                x_pos = start_x + (i * dot_spacing)
+                ax_pitch_imp.scatter(x_pos, dots_y, s=size, c='gray', alpha=0.5, edgecolors='black', linewidths=1)
+                ax_pitch_imp.text(x_pos, labels_y, f'{xg:.1f}', ha='center', va='center', fontsize=8)
 
             plt.tight_layout()
             st.pyplot(fig_shots_imp)
