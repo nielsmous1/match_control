@@ -1731,8 +1731,8 @@ if events_data is not None:
                     avg_penalties = penalties_for / num_matches
                     
                     stats_data = [
-                        ('', 'Totaal', 'Per wedstrijd'),
                         ('', '', ''),
+                        ('', 'Totaal', 'Per wedstrijd'),
                         ('Doelpunten', f'{int(round(goals_for))}', f'{avg_goals:.2f}'),
                         ('Schoten', f'{shots_for}', f'{avg_shots:.1f}'),
                         ('Schoten op doel', f'{on_target_for}', f'{avg_on_target:.1f}'),
@@ -1747,8 +1747,13 @@ if events_data is not None:
                         if len(row) == 3:
                             # For xG/xGOT rows (with newline), align values with top of text (where "xG" is)
                             if '\n' in row[0]:
-                                ax_stats_for.text(0.05, table_y, row[0], ha='left', fontsize=10,
+                                # Split the label to show main part normal, comment smaller
+                                parts = row[0].split('\n')
+                                ax_stats_for.text(0.05, table_y, parts[0], ha='left', fontsize=10,
                                                  transform=ax_stats_for.transAxes, fontweight='normal', va='top')
+                                if len(parts) > 1:
+                                    ax_stats_for.text(0.05, table_y - table_step * 0.4, parts[1], ha='left', fontsize=8,
+                                                     transform=ax_stats_for.transAxes, fontweight='normal', va='top', color='gray')
                                 # Values at same y position as label (top-aligned)
                                 ax_stats_for.text(0.50, table_y, row[1], ha='center', fontsize=10,
                                                  transform=ax_stats_for.transAxes, fontweight='bold', va='top')
@@ -1867,8 +1872,8 @@ if events_data is not None:
                     avg_penalties_ag = penalties_against / num_matches
                     
                     stats_data_against = [
-                        ('', 'Totaal', 'Per wedstrijd'),
                         ('', '', ''),
+                        ('', 'Totaal', 'Per wedstrijd'),
                         ('Doelpunten', f'{int(round(goals_against))}', f'{avg_goals_ag:.2f}'),
                         ('Schoten', f'{shots_against}', f'{avg_shots_ag:.1f}'),
                         ('Schoten op doel', f'{on_target_against}', f'{avg_on_target_ag:.1f}'),
@@ -1882,8 +1887,13 @@ if events_data is not None:
                         if len(row) == 3:
                             # For xG/xGOT rows (with newline), align values with top of text (where "xG" is)
                             if '\n' in row[0]:
-                                ax_stats_against.text(0.05, table_y_ag, row[0], ha='left', fontsize=10,
+                                # Split the label to show main part normal, comment smaller
+                                parts = row[0].split('\n')
+                                ax_stats_against.text(0.05, table_y_ag, parts[0], ha='left', fontsize=10,
                                                      transform=ax_stats_against.transAxes, fontweight='normal', va='top')
+                                if len(parts) > 1:
+                                    ax_stats_against.text(0.05, table_y_ag - table_step * 0.4, parts[1], ha='left', fontsize=8,
+                                                         transform=ax_stats_against.transAxes, fontweight='normal', va='top', color='gray')
                                 # Values at same y position as label (top-aligned)
                                 ax_stats_against.text(0.50, table_y_ag, row[1], ha='center', fontsize=10,
                                                      transform=ax_stats_against.transAxes, fontweight='bold', va='top')
@@ -3120,31 +3130,3 @@ if events_data is not None:
                 st.info("Geen wedstrijden beschikbaar voor dit team.")
 else:
     st.info("Please select a team and match on the main screen to begin analysis.")
-
-# Sample data structure explanation
-with st.expander("Expected JSON Structure"):
-    st.code("""
-    {
-        "metaData": {
-            "homeTeamName": "Team A",
-            "awayTeamName": "Team B"
-        },
-        "data": [
-            {
-                "baseTypeId": 1,
-                "subTypeId": 101,
-                "resultId": 1,
-                "teamName": "Team A",
-                "playerName": "Player Name",
-                "startTimeMs": 120000,
-                "startPosXM": 25.5,
-                "startPosYM": 10.2,
-                "endPosXM": 35.5,
-                "endPosYM": 5.2,
-                "partId": 1,
-                ...
-            },
-            ...
-        ]
-    }
-    """, language="json")
