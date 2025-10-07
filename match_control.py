@@ -823,13 +823,27 @@ def calculate_game_control_and_domination(data, home_team_override=None, away_te
             return 50.0, 50.0
         return (home_sum / total * 100.0), (away_sum / total * 100.0)
     
-    # Handle red card split if present
+    # Handle red card splits - sort all cards chronologically and filter those not too close to edges
     if len(all_cards) > 0:
-        card_minute = min(c['minute'] for c in all_cards)
-        card_minute = max(match_start, min(card_minute, match_end - 1e-6))
-
-        # Do not split if card occurs within 5 minutes of start or 5 minutes of end
-        too_close_to_edges = ((card_minute - match_start) < 5) or ((match_end - card_minute) < 5)
+        # Sort cards by minute
+        sorted_cards = sorted(all_cards, key=lambda c: c['minute'])
+        
+        # Filter cards that are not too close to start or end (at least 5 minutes away)
+        valid_card_minutes = []
+        for card in sorted_cards:
+            card_minute = card['minute']
+            card_minute = max(match_start, min(card_minute, match_end - 1e-6))
+            too_close_to_edges = ((card_minute - match_start) < 5) or ((match_end - card_minute) < 5)
+            if not too_close_to_edges:
+                valid_card_minutes.append(card_minute)
+        
+        # Remove cards that are too close to each other (at least 5 minutes apart)
+        filtered_card_minutes = []
+        for card_minute in valid_card_minutes:
+            if not filtered_card_minutes or (card_minute - filtered_card_minutes[-1]) >= 5:
+                filtered_card_minutes.append(card_minute)
+        
+        too_close_to_edges = len(filtered_card_minutes) == 0
 
         if too_close_to_edges:
             # Standard bars (no split)
