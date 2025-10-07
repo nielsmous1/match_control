@@ -1643,15 +1643,15 @@ if events_data is not None:
                         
                         if shot.get('is_goal'):
                             face_color = home_color
-                            edge_color = 'black'
+                            edge_color = home_color
                             alpha = 1.0
                             edge_width = 2
                             zorder = 10
                         else:
                             face_color = 'white'
-                            edge_color = 'black'
-                            alpha = 0.7
-                            edge_width = 2
+                            edge_color = home_color
+                            alpha = 1.0
+                            edge_width = 1
                             zorder = 5
                         
                         pitch.scatter(x, y, s=marker_size, c=face_color,
@@ -1687,9 +1687,9 @@ if events_data is not None:
                         ax_bars_for.vlines(x=tx, ymin=ymin, ymax=ymax, linestyles='--',
                                           colors='gray', linewidth=0.7, zorder=0, alpha=0.55)
                     
-                    # xG scale under pitch
-                    title_axes_y = 0.08
-                    scatter_axes_y = 0.04
+                    # xG scale under pitch (moved lower)
+                    title_axes_y = 0.02
+                    scatter_axes_y = -0.02
                     scale_xg_values = [0.1, 0.3, 0.5, 0.7, 0.9]
                     n = len(scale_xg_values)
                     spacing = 0.15
@@ -1733,8 +1733,8 @@ if events_data is not None:
                         ('Doelpunten', f'{int(round(goals_for))}', f'{avg_goals:.2f}'),
                         ('Schoten', f'{shots_for}', f'{avg_shots:.1f}'),
                         ('Schoten op doel', f'{on_target_for}', f'{avg_on_target:.1f}'),
-                        ('xG', f'{xg_for:.2f}', f'{avg_xg:.2f}'),
-                        ('xGOT', f'{xgot_for:.2f}', f'{avg_xgot:.2f}'),
+                        ("xG (zonder penalty's)", f'{xg_for:.2f}', f'{avg_xg:.2f}'),
+                        ("xGOT (zonder penalty's)", f'{xgot_for:.2f}', f'{avg_xgot:.2f}'),
                         ('Penalties', f'{penalties_for}', f'{avg_penalties:.2f}'),
                     ]
                     
@@ -1745,9 +1745,9 @@ if events_data is not None:
                             ax_stats_for.text(0.05, table_y, row[0], ha='left', fontsize=10,
                                              transform=ax_stats_for.transAxes, fontweight='bold' if row[0] == '' else 'normal')
                             ax_stats_for.text(0.50, table_y, row[1], ha='center', fontsize=10,
-                                             transform=ax_stats_for.transAxes, fontweight='bold' if row[0] == '' else 'normal')
+                                             transform=ax_stats_for.transAxes, fontweight='bold')
                             ax_stats_for.text(0.85, table_y, row[2], ha='center', fontsize=10,
-                                             transform=ax_stats_for.transAxes, fontweight='bold' if row[0] == '' else 'normal')
+                                             transform=ax_stats_for.transAxes, fontweight='bold')
                         table_y -= table_step
                     
                     plt.tight_layout()
@@ -1781,15 +1781,15 @@ if events_data is not None:
                         
                         if shot.get('is_goal'):
                             face_color = away_color
-                            edge_color = 'black'
+                            edge_color = away_color
                             alpha = 1.0
                             edge_width = 2
                             zorder = 10
                         else:
                             face_color = 'white'
-                            edge_color = 'black'
-                            alpha = 0.7
-                            edge_width = 2
+                            edge_color = away_color
+                            alpha = 1.0
+                            edge_width = 1
                             zorder = 5
                         
                         pitch_against.scatter(x, y, s=marker_size, c=face_color,
@@ -1819,7 +1819,7 @@ if events_data is not None:
                         ax_bars_against.vlines(x=tx, ymin=ymin, ymax=ymax, linestyles='--',
                                               colors='gray', linewidth=0.7, zorder=0, alpha=0.55)
                     
-                    # xG scale under pitch
+                    # xG scale under pitch (moved lower)
                     ax_pitch_against.text(0.5, title_axes_y, 'xG Schaal', fontsize=10, fontweight='bold',
                                          ha='center', transform=ax_pitch_against.transAxes)
                     
@@ -1856,8 +1856,8 @@ if events_data is not None:
                         ('Doelpunten', f'{int(round(goals_against))}', f'{avg_goals_ag:.2f}'),
                         ('Schoten', f'{shots_against}', f'{avg_shots_ag:.1f}'),
                         ('Schoten op doel', f'{on_target_against}', f'{avg_on_target_ag:.1f}'),
-                        ('xG', f'{xg_against:.2f}', f'{avg_xg_ag:.2f}'),
-                        ('xGOT', f'{xgot_against:.2f}', f'{avg_xgot_ag:.2f}'),
+                        ("xG (zonder penalty's)", f'{xg_against:.2f}', f'{avg_xg_ag:.2f}'),
+                        ("xGOT (zonder penalty's)", f'{xgot_against:.2f}', f'{avg_xgot_ag:.2f}'),
                         ('Penalties', f'{penalties_against}', f'{avg_penalties_ag:.2f}'),
                     ]
                     
@@ -1867,9 +1867,9 @@ if events_data is not None:
                             ax_stats_against.text(0.05, table_y_ag, row[0], ha='left', fontsize=10,
                                                  transform=ax_stats_against.transAxes, fontweight='bold' if row[0] == '' else 'normal')
                             ax_stats_against.text(0.50, table_y_ag, row[1], ha='center', fontsize=10,
-                                                 transform=ax_stats_against.transAxes, fontweight='bold' if row[0] == '' else 'normal')
+                                                 transform=ax_stats_against.transAxes, fontweight='bold')
                             ax_stats_against.text(0.85, table_y_ag, row[2], ha='center', fontsize=10,
-                                                 transform=ax_stats_against.transAxes, fontweight='bold' if row[0] == '' else 'normal')
+                                                 transform=ax_stats_against.transAxes, fontweight='bold')
                         table_y_ag -= table_step
                     
                     plt.tight_layout()
