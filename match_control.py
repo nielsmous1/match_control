@@ -1688,8 +1688,8 @@ if events_data is not None:
                                           colors='gray', linewidth=0.7, zorder=0, alpha=0.55)
                     
                     # xG scale under pitch (moved lower)
-                    title_axes_y = -0.02
-                    scatter_axes_y = -0.06
+                    title_axes_y = -0.05
+                    scatter_axes_y = -0.09
                     scale_xg_values = [0.1, 0.3, 0.5, 0.7, 0.9]
                     n = len(scale_xg_values)
                     spacing = 0.15
@@ -1706,7 +1706,7 @@ if events_data is not None:
                         ax_pitch_for.scatter([x_pos], [scatter_axes_y], s=adjusted_scale_marker_size, c='white', alpha=1,
                                             edgecolors='black', linewidths=2, clip_on=False,
                                             transform=ax_pitch_for.transAxes, zorder=20)
-                        ax_pitch_for.text(x_pos, scatter_axes_y - 0.05, f'{xg:.1f}', ha='center',
+                        ax_pitch_for.text(x_pos, scatter_axes_y - 0.06, f'{xg:.1f}', ha='center',
                                          transform=ax_pitch_for.transAxes, fontsize=8)
                     
                     # Statistics table (right)
@@ -1740,14 +1740,24 @@ if events_data is not None:
                     
                     table_y = 0.95
                     table_step = 0.08
-                    for row in stats_data:
+                    for idx, row in enumerate(stats_data):
                         if len(row) == 3:
-                            ax_stats_for.text(0.05, table_y, row[0], ha='left', fontsize=10,
-                                             transform=ax_stats_for.transAxes, fontweight='bold' if row[0] == '' else 'normal')
-                            ax_stats_for.text(0.50, table_y, row[1], ha='center', fontsize=10,
-                                             transform=ax_stats_for.transAxes, fontweight='bold')
-                            ax_stats_for.text(0.85, table_y, row[2], ha='center', fontsize=10,
-                                             transform=ax_stats_for.transAxes, fontweight='bold')
+                            # For xG/xGOT rows (with newline), adjust value positions to align with first line
+                            if '\n' in row[0]:
+                                ax_stats_for.text(0.05, table_y, row[0], ha='left', fontsize=10,
+                                                 transform=ax_stats_for.transAxes, fontweight='normal', va='top')
+                                # Shift values up by half step to align with "xG"/"xGOT" line
+                                ax_stats_for.text(0.50, table_y + table_step * 0.3, row[1], ha='center', fontsize=10,
+                                                 transform=ax_stats_for.transAxes, fontweight='bold')
+                                ax_stats_for.text(0.85, table_y + table_step * 0.3, row[2], ha='center', fontsize=10,
+                                                 transform=ax_stats_for.transAxes, fontweight='bold')
+                            else:
+                                ax_stats_for.text(0.05, table_y, row[0], ha='left', fontsize=10,
+                                                 transform=ax_stats_for.transAxes, fontweight='bold' if row[0] == '' else 'normal')
+                                ax_stats_for.text(0.50, table_y, row[1], ha='center', fontsize=10,
+                                                 transform=ax_stats_for.transAxes, fontweight='bold')
+                                ax_stats_for.text(0.85, table_y, row[2], ha='center', fontsize=10,
+                                                 transform=ax_stats_for.transAxes, fontweight='bold')
                         table_y -= table_step
                     
                     plt.tight_layout()
@@ -1830,7 +1840,7 @@ if events_data is not None:
                         ax_pitch_against.scatter([x_pos], [scatter_axes_y], s=adjusted_scale_marker_size, c='white', alpha=1,
                                                 edgecolors='black', linewidths=2, clip_on=False,
                                                 transform=ax_pitch_against.transAxes, zorder=20)
-                        ax_pitch_against.text(x_pos, scatter_axes_y - 0.05, f'{xg:.1f}', ha='center',
+                        ax_pitch_against.text(x_pos, scatter_axes_y - 0.06, f'{xg:.1f}', ha='center',
                                              transform=ax_pitch_against.transAxes, fontsize=8)
                     
                     # Statistics table (right) for shots against
@@ -1862,14 +1872,24 @@ if events_data is not None:
                     ]
                     
                     table_y_ag = 0.95
-                    for row in stats_data_against:
+                    for idx, row in enumerate(stats_data_against):
                         if len(row) == 3:
-                            ax_stats_against.text(0.05, table_y_ag, row[0], ha='left', fontsize=10,
-                                                 transform=ax_stats_against.transAxes, fontweight='bold' if row[0] == '' else 'normal')
-                            ax_stats_against.text(0.50, table_y_ag, row[1], ha='center', fontsize=10,
-                                                 transform=ax_stats_against.transAxes, fontweight='bold')
-                            ax_stats_against.text(0.85, table_y_ag, row[2], ha='center', fontsize=10,
-                                                 transform=ax_stats_against.transAxes, fontweight='bold')
+                            # For xG/xGOT rows (with newline), adjust value positions to align with first line
+                            if '\n' in row[0]:
+                                ax_stats_against.text(0.05, table_y_ag, row[0], ha='left', fontsize=10,
+                                                     transform=ax_stats_against.transAxes, fontweight='normal', va='top')
+                                # Shift values up by half step to align with "xG"/"xGOT" line
+                                ax_stats_against.text(0.50, table_y_ag + table_step * 0.3, row[1], ha='center', fontsize=10,
+                                                     transform=ax_stats_against.transAxes, fontweight='bold')
+                                ax_stats_against.text(0.85, table_y_ag + table_step * 0.3, row[2], ha='center', fontsize=10,
+                                                     transform=ax_stats_against.transAxes, fontweight='bold')
+                            else:
+                                ax_stats_against.text(0.05, table_y_ag, row[0], ha='left', fontsize=10,
+                                                     transform=ax_stats_against.transAxes, fontweight='bold' if row[0] == '' else 'normal')
+                                ax_stats_against.text(0.50, table_y_ag, row[1], ha='center', fontsize=10,
+                                                     transform=ax_stats_against.transAxes, fontweight='bold')
+                                ax_stats_against.text(0.85, table_y_ag, row[2], ha='center', fontsize=10,
+                                                     transform=ax_stats_against.transAxes, fontweight='bold')
                         table_y_ag -= table_step
                     
                     plt.tight_layout()
