@@ -929,9 +929,7 @@ def calculate_game_control_and_domination(data, home_team_override=None, away_te
                     'dang_home_pct': dang_home_pct,
                     'dang_away_pct': dang_away_pct
                 })
-
-        else:
-            # Multiple red cards - create segments between each card
+            
             # Calculate segment positions on bar (0-100%)
             segment_positions = [0.0] + card_split_positions + [100.0]
             
