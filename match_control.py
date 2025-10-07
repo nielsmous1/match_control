@@ -621,17 +621,29 @@ def calculate_game_control_and_domination(data, home_team_override=None, away_te
     home_plot_color = home_color
     away_plot_color = away_color
     
-    # Adjust danger line colors for better visibility
-    home_danger_line_color = home_color
-    away_danger_line_color = away_color
+    # Set danger line colors - default is red and black
+    home_danger_line_color = 'red'
+    away_danger_line_color = 'black'
     
-    # If home team is red (#e50000), use darker red for danger lines
+    # If home team is red (#e50000), use black for home and red for away
     if home_color.lower().replace('#', '') == 'e50000':
-        home_danger_line_color = '#8B0000'  # Dark red
+        home_danger_line_color = 'black'
+        away_danger_line_color = 'red'
     
-    # If away team is black (#000000), use dark gray for danger lines
+    # If away team is black (#000000), use red for away and black for home
     if away_color.lower().replace('#', '') == '000000':
-        away_danger_line_color = '#404040'  # Dark gray
+        away_danger_line_color = 'red'
+        home_danger_line_color = 'black'
+    
+    # If home team is black (#000000), use red for home and black for away
+    if home_color.lower().replace('#', '') == '000000':
+        home_danger_line_color = 'red'
+        away_danger_line_color = 'black'
+    
+    # If away team is red (#e50000), use black for away and red for home
+    if away_color.lower().replace('#', '') == 'e50000':
+        away_danger_line_color = 'black'
+        home_danger_line_color = 'red'
     
     # Plot function
     def plot_half(ax, minutes, home_domination, away_domination, net_control, home_control, away_control,
@@ -845,7 +857,7 @@ def calculate_game_control_and_domination(data, home_team_override=None, away_te
         for card in sorted_cards:
             card_minute = card['minute']
             card_minute = max(match_start, min(card_minute, match_end - 1e-6))
-        too_close_to_edges = ((card_minute - match_start) < 5) or ((match_end - card_minute) < 5)
+            too_close_to_edges = ((card_minute - match_start) < 5) or ((match_end - card_minute) < 5)
             if not too_close_to_edges:
                 valid_card_minutes.append(card_minute)
         
@@ -911,15 +923,15 @@ def calculate_game_control_and_domination(data, home_team_override=None, away_te
             # Calculate percentage position of each card on the bar
             card_split_positions = []
             for card_minute in filtered_card_minutes:
-            if total_plotted_span_actual <= 0:
+                if total_plotted_span_actual <= 0:
                     split_pct = 50.0
-            else:
-                if (card_minute <= first_half_end) and (hasattr(first_half_minutes, 'size') and first_half_minutes.size > 0):
-                    time_before_card_on_plot = card_minute - first_half_minutes[0]
-                elif hasattr(second_half_minutes, 'size') and second_half_minutes.size > 0:
-                    time_before_card_on_plot = first_half_plotted_duration + (card_minute - second_half_minutes[0])
                 else:
-                    time_before_card_on_plot = 0
+                    if (card_minute <= first_half_end) and (hasattr(first_half_minutes, 'size') and first_half_minutes.size > 0):
+                        time_before_card_on_plot = card_minute - first_half_minutes[0]
+                    elif hasattr(second_half_minutes, 'size') and second_half_minutes.size > 0:
+                        time_before_card_on_plot = first_half_plotted_duration + (card_minute - second_half_minutes[0])
+                    else:
+                        time_before_card_on_plot = 0
                     split_pct = (time_before_card_on_plot / total_plotted_span_actual) * 100.0
                     split_pct = float(np.clip(split_pct, 0.0, 100.0))
                 card_split_positions.append(split_pct)
@@ -1225,7 +1237,7 @@ if events_data is not None:
 
             for shot in home_shots:
                 # Always flip home team shots so they appear on the left
-                    x = -shot['x']; y = -shot['y']
+                x = -shot['x']; y = -shot['y']
                 marker_size = 50 + (shot['xG'] * 450)
                 if shot['is_goal']:
                     face_color = home_color; edge_color = home_color; edge_width = 2; stats[home_team]['goals'] += 1
@@ -1241,14 +1253,14 @@ if events_data is not None:
                         stats[home_team]['pen_PSxG'] += shot['PSxG']
                         stats[home_team]['shots_on_target'] += 1
                 else:
-                stats[home_team]['xG'] += shot['xG']
-                if shot['PSxG']:
-                    stats[home_team]['PSxG'] += shot['PSxG']
-                    stats[home_team]['shots_on_target'] += 1
+                    stats[home_team]['xG'] += shot['xG']
+                    if shot['PSxG']:
+                        stats[home_team]['PSxG'] += shot['PSxG']
+                        stats[home_team]['shots_on_target'] += 1
 
             for shot in away_shots:
                 # Away shots remain as-is (shown on the right)
-                    x = shot['x']; y = shot['y']
+                x = shot['x']; y = shot['y']
                 marker_size = 50 + (shot['xG'] * 450)
                 if shot['is_goal']:
                     face_color = away_color; edge_color = away_color; edge_width = 2; stats[away_team]['goals'] += 1
@@ -1264,10 +1276,10 @@ if events_data is not None:
                         stats[away_team]['pen_PSxG'] += shot['PSxG']
                         stats[away_team]['shots_on_target'] += 1
                 else:
-                stats[away_team]['xG'] += shot['xG']
-                if shot['PSxG']:
-                    stats[away_team]['PSxG'] += shot['PSxG']
-                    stats[away_team]['shots_on_target'] += 1
+                    stats[away_team]['xG'] += shot['xG']
+                    if shot['PSxG']:
+                        stats[away_team]['PSxG'] += shot['PSxG']
+                        stats[away_team]['shots_on_target'] += 1
 
             home_total_goals = stats[home_team]['goals'] + away_own_goals
             away_total_goals = stats[away_team]['goals'] + home_own_goals
