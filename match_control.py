@@ -2904,6 +2904,9 @@ with tab6:
         with tab8:
             st.subheader("📮 Voorzetten per Zone")
             
+            # Debug: show what we have
+            st.write(f"DEBUG: events_data is {'not None' if events_data is not None else 'None'}")
+            
             # Use current match data
             if events_data is not None:
                 events = events_data.get('data', []) if isinstance(events_data, dict) else []
