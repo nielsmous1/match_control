@@ -3250,8 +3250,8 @@ with tab6:
                     st.info("Selecteer minstens één wedstrijd voor voorzetten analyse.")
             else:
                 st.info("Geen wedstrijden beschikbaar voor dit team.")
-
-st.info("Please select a team and match on the main screen to begin analysis.")
+else:
+    st.info("Please select a team and match on the main screen to begin analysis.")
 
 # Sample data structure explanation
 with st.expander("Expected JSON Structure"):
