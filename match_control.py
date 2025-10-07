@@ -1532,7 +1532,7 @@ if events_data is not None:
             for i, xg in enumerate(scale_xg_values):
                 size = 50 + (xg * 450)
                 x_pos = start_x + (i * dot_spacing)
-                ax_pitch_imp.scatter(x_pos, dots_y, s=size, c='white', alpha=0.5, edgecolors='black', linewidths=2, zorder=6, clip_on=False)
+                ax_pitch_imp.scatter(x_pos, dots_y, s=size, c='white', alpha=1, edgecolors='black', linewidths=2, zorder=6, clip_on=False)
                 ax_pitch_imp.text(x_pos, labels_y, f'{xg:.1f}', ha='center', va='center', fontsize=8, zorder=6, clip_on=False)
 
             plt.tight_layout()
@@ -1665,7 +1665,7 @@ if events_data is not None:
                     y_pos = np.arange(6)
                     bar_height = 0.7
                     interval_labels = ['0-15\'', '15-30\'', '30-45+\'', '45-60\'', '60-75\'', '75-90+\'']
-                    bars = ax_bars_for.barh(y_pos, for_intervals, bar_height, color=home_color, alpha=0.7, zorder=5)
+                    bars = ax_bars_for.barh(y_pos, for_intervals, bar_height, color=home_color, alpha=1, zorder=5)
                     ax_bars_for.set_yticks(y_pos)
                     ax_bars_for.set_yticklabels(interval_labels)
                     ax_bars_for.set_xlabel("Aantal schoten")
@@ -1813,7 +1813,7 @@ if events_data is not None:
                                              linewidths=edge_width, zorder=zorder, ax=ax_pitch_against)
                     
                     # Bars (left)
-                    bars_against = ax_bars_against.barh(y_pos, against_intervals, bar_height, color=away_color, alpha=0.7, zorder=5)
+                    bars_against = ax_bars_against.barh(y_pos, against_intervals, bar_height, color=away_color, alpha=1, zorder=5)
                     ax_bars_against.set_yticks(y_pos)
                     ax_bars_against.set_yticklabels(interval_labels)
                     ax_bars_against.set_xlabel("Aantal schoten")
