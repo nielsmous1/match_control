@@ -621,6 +621,18 @@ def calculate_game_control_and_domination(data, home_team_override=None, away_te
     home_plot_color = home_color
     away_plot_color = away_color
     
+    # Adjust danger line colors for better visibility
+    home_danger_line_color = home_color
+    away_danger_line_color = away_color
+    
+    # If home team is red (#e50000), use darker red for danger lines
+    if home_color.lower().replace('#', '') == 'e50000':
+        home_danger_line_color = '#8B0000'  # Dark red
+    
+    # If away team is black (#000000), use dark gray for danger lines
+    if away_color.lower().replace('#', '') == '000000':
+        away_danger_line_color = '#404040'  # Dark gray
+    
     # Plot function
     def plot_half(ax, minutes, home_domination, away_domination, net_control, home_control, away_control,
                   goals, subs, cards, half_name, home_color, away_color, home_team_name, away_team_name):
@@ -660,9 +672,9 @@ def calculate_game_control_and_domination(data, home_team_override=None, away_te
             smooth_home_domination = home_domination
             smooth_away_domination = [-away_domination[i] for i in range(len(away_domination))]
         
-        ax.plot(smooth_minutes, smooth_home_domination, color='red', linewidth=2,
+        ax.plot(smooth_minutes, smooth_home_domination, color=home_danger_line_color, linewidth=2,
                 linestyle='--', zorder=6, label=f'{home_team_name} Danger', alpha=0.9, dashes=(5, 3))
-        ax.plot(smooth_minutes, smooth_away_domination, color='black', linewidth=2,
+        ax.plot(smooth_minutes, smooth_away_domination, color=away_danger_line_color, linewidth=2,
                 linestyle='--', zorder=6, label=f'{away_team_name} Danger', alpha=0.9, dashes=(5, 3))
         
         y_limit = 80
@@ -833,7 +845,7 @@ def calculate_game_control_and_domination(data, home_team_override=None, away_te
         for card in sorted_cards:
             card_minute = card['minute']
             card_minute = max(match_start, min(card_minute, match_end - 1e-6))
-            too_close_to_edges = ((card_minute - match_start) < 5) or ((match_end - card_minute) < 5)
+        too_close_to_edges = ((card_minute - match_start) < 5) or ((match_end - card_minute) < 5)
             if not too_close_to_edges:
                 valid_card_minutes.append(card_minute)
         
@@ -899,15 +911,15 @@ def calculate_game_control_and_domination(data, home_team_override=None, away_te
             # Calculate percentage position of each card on the bar
             card_split_positions = []
             for card_minute in filtered_card_minutes:
-                if total_plotted_span_actual <= 0:
+            if total_plotted_span_actual <= 0:
                     split_pct = 50.0
+            else:
+                if (card_minute <= first_half_end) and (hasattr(first_half_minutes, 'size') and first_half_minutes.size > 0):
+                    time_before_card_on_plot = card_minute - first_half_minutes[0]
+                elif hasattr(second_half_minutes, 'size') and second_half_minutes.size > 0:
+                    time_before_card_on_plot = first_half_plotted_duration + (card_minute - second_half_minutes[0])
                 else:
-                    if (card_minute <= first_half_end) and (hasattr(first_half_minutes, 'size') and first_half_minutes.size > 0):
-                        time_before_card_on_plot = card_minute - first_half_minutes[0]
-                    elif hasattr(second_half_minutes, 'size') and second_half_minutes.size > 0:
-                        time_before_card_on_plot = first_half_plotted_duration + (card_minute - second_half_minutes[0])
-                    else:
-                        time_before_card_on_plot = 0
+                    time_before_card_on_plot = 0
                     split_pct = (time_before_card_on_plot / total_plotted_span_actual) * 100.0
                     split_pct = float(np.clip(split_pct, 0.0, 100.0))
                 card_split_positions.append(split_pct)
@@ -932,7 +944,7 @@ def calculate_game_control_and_domination(data, home_team_override=None, away_te
             
             # Calculate segment positions on bar (0-100%)
             segment_positions = [0.0] + card_split_positions + [100.0]
-            
+
             ax_bar.clear()
             ax_bar.set_xlim(0, 100)
             ax_bar.set_ylim(-0.65, 1.65)
@@ -1213,7 +1225,7 @@ if events_data is not None:
 
             for shot in home_shots:
                 # Always flip home team shots so they appear on the left
-                x = -shot['x']; y = -shot['y']
+                    x = -shot['x']; y = -shot['y']
                 marker_size = 50 + (shot['xG'] * 450)
                 if shot['is_goal']:
                     face_color = home_color; edge_color = home_color; edge_width = 2; stats[home_team]['goals'] += 1
@@ -1229,14 +1241,14 @@ if events_data is not None:
                         stats[home_team]['pen_PSxG'] += shot['PSxG']
                         stats[home_team]['shots_on_target'] += 1
                 else:
-                    stats[home_team]['xG'] += shot['xG']
-                    if shot['PSxG']:
-                        stats[home_team]['PSxG'] += shot['PSxG']
-                        stats[home_team]['shots_on_target'] += 1
+                stats[home_team]['xG'] += shot['xG']
+                if shot['PSxG']:
+                    stats[home_team]['PSxG'] += shot['PSxG']
+                    stats[home_team]['shots_on_target'] += 1
 
             for shot in away_shots:
                 # Away shots remain as-is (shown on the right)
-                x = shot['x']; y = shot['y']
+                    x = shot['x']; y = shot['y']
                 marker_size = 50 + (shot['xG'] * 450)
                 if shot['is_goal']:
                     face_color = away_color; edge_color = away_color; edge_width = 2; stats[away_team]['goals'] += 1
@@ -1252,10 +1264,10 @@ if events_data is not None:
                         stats[away_team]['pen_PSxG'] += shot['PSxG']
                         stats[away_team]['shots_on_target'] += 1
                 else:
-                    stats[away_team]['xG'] += shot['xG']
-                    if shot['PSxG']:
-                        stats[away_team]['PSxG'] += shot['PSxG']
-                        stats[away_team]['shots_on_target'] += 1
+                stats[away_team]['xG'] += shot['xG']
+                if shot['PSxG']:
+                    stats[away_team]['PSxG'] += shot['PSxG']
+                    stats[away_team]['shots_on_target'] += 1
 
             home_total_goals = stats[home_team]['goals'] + away_own_goals
             away_total_goals = stats[away_team]['goals'] + home_own_goals
@@ -2376,137 +2388,137 @@ if events_data is not None:
             plt.tight_layout(rect=[0, 0, 1, 0.98]) # Adjust layout to make space for suptitle
             st.pyplot(fig)
 
-        with tab6:
-            st.subheader("Samenvatting Statistieken")
+with tab6:
+    st.subheader("Samenvatting Statistieken")
+    
+    if events_data is not None:
+        events = events_data.get('data', []) if isinstance(events_data, dict) else []
+        
+        # High Recoveries Analysis
+        st.subheader("🏃‍♂️ High Recoveries (x > -17.5)")
+        
+        # Define base type IDs for Interception and Ball Recovery
+        INTERCEPTION_BASE_TYPE_ID = 5
+        BALL_RECOVERY_BASE_TYPE_ID = 9
+        SUCCESSFUL_RESULT_ID = 1
+        RECOVERY_SUB_TYPE_ID_INTERCEPTION = 501
+        
+        # Filter for successful interceptions and recoveries in the middle and final third (x > -17.5)
+        filtered_recoveries_interceptions = []
+        
+        for event in events:
+            base_type_id = event.get('baseTypeId')
+            sub_type_id = event.get('subTypeId')
+            result_id = event.get('resultId')
+            event_x = event.get('startPosXM')
             
-            if events_data is not None:
-                events = events_data.get('data', []) if isinstance(events_data, dict) else []
+            # Check if it's a successful event
+            if result_id == SUCCESSFUL_RESULT_ID:
+                # Check if it's an Interception or a Ball Recovery
+                is_interception = base_type_id == INTERCEPTION_BASE_TYPE_ID
+                is_ball_recovery = base_type_id == BALL_RECOVERY_BASE_TYPE_ID
+                is_interception_recovery = (base_type_id == INTERCEPTION_BASE_TYPE_ID and
+                                            sub_type_id == RECOVERY_SUB_TYPE_ID_INTERCEPTION)
                 
-                # High Recoveries Analysis
-                st.subheader("🏃‍♂️ High Recoveries (x > -17.5)")
-                
-                # Define base type IDs for Interception and Ball Recovery
-                INTERCEPTION_BASE_TYPE_ID = 5
-                BALL_RECOVERY_BASE_TYPE_ID = 9
-                SUCCESSFUL_RESULT_ID = 1
-                RECOVERY_SUB_TYPE_ID_INTERCEPTION = 501
-                
-                # Filter for successful interceptions and recoveries in the middle and final third (x > -17.5)
-                filtered_recoveries_interceptions = []
-                
-                for event in events:
-                    base_type_id = event.get('baseTypeId')
-                    sub_type_id = event.get('subTypeId')
-                    result_id = event.get('resultId')
-                    event_x = event.get('startPosXM')
-                    
-                    # Check if it's a successful event
-                    if result_id == SUCCESSFUL_RESULT_ID:
-                        # Check if it's an Interception or a Ball Recovery
-                        is_interception = base_type_id == INTERCEPTION_BASE_TYPE_ID
-                        is_ball_recovery = base_type_id == BALL_RECOVERY_BASE_TYPE_ID
-                        is_interception_recovery = (base_type_id == INTERCEPTION_BASE_TYPE_ID and
-                                                    sub_type_id == RECOVERY_SUB_TYPE_ID_INTERCEPTION)
-                        
-                        # If it's one of the relevant types and the location is correct (x > -17.5)
-                        if (is_interception or is_ball_recovery or is_interception_recovery) and event_x is not None and event_x > -17.5:
-                            filtered_recoveries_interceptions.append(event)
-                
-                # Prepare data for a DataFrame
-                recovery_interception_data = []
-                for event in filtered_recoveries_interceptions:
-                    recovery_interception_data.append({
-                        'Minute': int(event.get('startTimeMs', 0) / 1000 / 60),
-                        'Team': event.get('teamName', 'Unknown Team'),
-                        'Player': event.get('playerName', 'Unknown Player'),
-                        'Base Type': event.get('baseTypeName', 'Unknown'),
-                        'Sub Type': event.get('subTypeName', 'Unknown'),
-                        'Start X': event.get('startPosXM'),
-                        'Start Y': event.get('startPosYM'),
-                        'Labels': event.get('labels', [])
-                    })
-                
-                # Create and display the DataFrame
-                recovery_interception_df = pd.DataFrame(recovery_interception_data)
-                
-                # Count events per team
-                team_counts = recovery_interception_df['Team'].value_counts().reset_index()
-                team_counts.columns = ['Team', 'Count of Recoveries/Interceptions (x > -17.5)']
-                
-                # Display the counts per team
-                st.dataframe(team_counts)
-                
-                # Show detailed events table
-                if not recovery_interception_df.empty:
-                    st.subheader("📋 Gedetailleerde High Recoveries")
-                    st.dataframe(recovery_interception_df)
-                else:
-                    st.info("Geen High Recoveries gevonden in deze wedstrijd.")
-                
-                # Final Third Entries Analysis
-                st.subheader("⚽ Final Third Entries")
-                
-                # Define relevant labels
-                DRIBBLE_CHANCE_CREATION_LABEL = 127
-                FINAL_3RD_PASS_SUCCESS_LABEL = 69
-                
-                # Initialize counters
-                team_stats = defaultdict(lambda: {'successful_dribbles_chance_creation': 0, 'successful_final_3rd_passes': 0})
-                
-                # Process events
-                for event in events:
-                    team_name = event.get('teamName', 'Unknown Team')
-                    event_labels = event.get('labels', [])
-                    base_type_id = event.get('baseTypeId')
-                    result_id = event.get('resultId')
-                    
-                    # Check for successful dribbles with label 127 (chance creation dribbles)
-                    if base_type_id == 2 and result_id == 1 and DRIBBLE_CHANCE_CREATION_LABEL in event_labels:
-                        team_stats[team_name]['successful_dribbles_chance_creation'] += 1
-                    
-                    # Check for successful passes to final third with label 69
-                    if base_type_id == 1 and result_id == 1 and FINAL_3RD_PASS_SUCCESS_LABEL in event_labels:
-                        team_stats[team_name]['successful_final_3rd_passes'] += 1
-                
-                # Create summary DataFrame
-                final_third_data = []
-                for team, stats in team_stats.items():
-                    final_third_data.append({
-                        'Team': team,
-                        'Chance Creation Dribbles': stats['successful_dribbles_chance_creation'],
-                        'Final 3rd Passes': stats['successful_final_3rd_passes'],
-                        'Total Final Third Entries': stats['successful_dribbles_chance_creation'] + stats['successful_final_3rd_passes']
-                    })
-                
-                final_third_df = pd.DataFrame(final_third_data)
-                
-                if not final_third_df.empty:
-                    st.dataframe(final_third_df)
-                else:
-                    st.info("Geen Final Third Entries gevonden in deze wedstrijd.")
-                
-                # Summary Statistics
-                st.subheader("📊 Wedstrijd Samenvatting")
-                
-                col1, col2, col3 = st.columns(3)
-                
-                with col1:
-                    st.metric("Totaal Events", len(events))
-                    st.metric("High Recoveries", len(filtered_recoveries_interceptions))
-                
-                with col2:
-                    total_final_third = sum(stats['successful_dribbles_chance_creation'] + stats['successful_final_3rd_passes'] for stats in team_stats.values())
-                    st.metric("Final Third Entries", total_final_third)
-                    st.metric("Chance Creation Dribbles", sum(stats['successful_dribbles_chance_creation'] for stats in team_stats.values()))
-                
-                with col3:
-                    st.metric("Final 3rd Passes", sum(stats['successful_final_3rd_passes'] for stats in team_stats.values()))
-                    if len(filtered_recoveries_interceptions) > 0:
-                        avg_recovery_x = sum(event.get('startPosXM', 0) for event in filtered_recoveries_interceptions) / len(filtered_recoveries_interceptions)
-                        st.metric("Gem. Recovery X Positie", f"{avg_recovery_x:.1f}")
-                
-            else:
-                st.info("Selecteer eerst een wedstrijd om de samenvatting te bekijken.")
+                # If it's one of the relevant types and the location is correct (x > -17.5)
+                if (is_interception or is_ball_recovery or is_interception_recovery) and event_x is not None and event_x > -17.5:
+                    filtered_recoveries_interceptions.append(event)
+        
+        # Prepare data for a DataFrame
+        recovery_interception_data = []
+        for event in filtered_recoveries_interceptions:
+            recovery_interception_data.append({
+                'Minute': int(event.get('startTimeMs', 0) / 1000 / 60),
+                'Team': event.get('teamName', 'Unknown Team'),
+                'Player': event.get('playerName', 'Unknown Player'),
+                'Base Type': event.get('baseTypeName', 'Unknown'),
+                'Sub Type': event.get('subTypeName', 'Unknown'),
+                'Start X': event.get('startPosXM'),
+                'Start Y': event.get('startPosYM'),
+                'Labels': event.get('labels', [])
+            })
+        
+        # Create and display the DataFrame
+        recovery_interception_df = pd.DataFrame(recovery_interception_data)
+        
+        # Count events per team
+        team_counts = recovery_interception_df['Team'].value_counts().reset_index()
+        team_counts.columns = ['Team', 'Count of Recoveries/Interceptions (x > -17.5)']
+        
+        # Display the counts per team
+        st.dataframe(team_counts)
+        
+        # Show detailed events table
+        if not recovery_interception_df.empty:
+            st.subheader("📋 Gedetailleerde High Recoveries")
+            st.dataframe(recovery_interception_df)
+        else:
+            st.info("Geen High Recoveries gevonden in deze wedstrijd.")
+        
+        # Final Third Entries Analysis
+        st.subheader("⚽ Final Third Entries")
+        
+        # Define relevant labels
+        DRIBBLE_CHANCE_CREATION_LABEL = 127
+        FINAL_3RD_PASS_SUCCESS_LABEL = 69
+        
+        # Initialize counters
+        team_stats = defaultdict(lambda: {'successful_dribbles_chance_creation': 0, 'successful_final_3rd_passes': 0})
+        
+        # Process events
+        for event in events:
+            team_name = event.get('teamName', 'Unknown Team')
+            event_labels = event.get('labels', [])
+            base_type_id = event.get('baseTypeId')
+            result_id = event.get('resultId')
+            
+            # Check for successful dribbles with label 127 (chance creation dribbles)
+            if base_type_id == 2 and result_id == 1 and DRIBBLE_CHANCE_CREATION_LABEL in event_labels:
+                team_stats[team_name]['successful_dribbles_chance_creation'] += 1
+            
+            # Check for successful passes to final third with label 69
+            if base_type_id == 1 and result_id == 1 and FINAL_3RD_PASS_SUCCESS_LABEL in event_labels:
+                team_stats[team_name]['successful_final_3rd_passes'] += 1
+        
+        # Create summary DataFrame
+        final_third_data = []
+        for team, stats in team_stats.items():
+            final_third_data.append({
+                'Team': team,
+                'Chance Creation Dribbles': stats['successful_dribbles_chance_creation'],
+                'Final 3rd Passes': stats['successful_final_3rd_passes'],
+                'Total Final Third Entries': stats['successful_dribbles_chance_creation'] + stats['successful_final_3rd_passes']
+            })
+        
+        final_third_df = pd.DataFrame(final_third_data)
+        
+        if not final_third_df.empty:
+            st.dataframe(final_third_df)
+        else:
+            st.info("Geen Final Third Entries gevonden in deze wedstrijd.")
+        
+        # Summary Statistics
+        st.subheader("📊 Wedstrijd Samenvatting")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.metric("Totaal Events", len(events))
+            st.metric("High Recoveries", len(filtered_recoveries_interceptions))
+        
+        with col2:
+            total_final_third = sum(stats['successful_dribbles_chance_creation'] + stats['successful_final_3rd_passes'] for stats in team_stats.values())
+            st.metric("Final Third Entries", total_final_third)
+            st.metric("Chance Creation Dribbles", sum(stats['successful_dribbles_chance_creation'] for stats in team_stats.values()))
+        
+        with col3:
+            st.metric("Final 3rd Passes", sum(stats['successful_final_3rd_passes'] for stats in team_stats.values()))
+            if len(filtered_recoveries_interceptions) > 0:
+                avg_recovery_x = sum(event.get('startPosXM', 0) for event in filtered_recoveries_interceptions) / len(filtered_recoveries_interceptions)
+                st.metric("Gem. Recovery X Positie", f"{avg_recovery_x:.1f}")
+        
+    else:
+        st.info("Selecteer eerst een wedstrijd om de samenvatting te bekijken.")
 
 
         # ---------- Voorzetten Tab ----------
