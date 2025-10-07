@@ -146,8 +146,6 @@ selected_match = None
 if available_teams:
     team_options = sorted(available_teams.values(), key=lambda s: s.lower())
     selected_team = st.selectbox("Selecteer een team", team_options)
-    analysis_mode = None
-    selected_matches = []
     team_matches = []
     if selected_team:
         for info in files_info:
@@ -161,24 +159,16 @@ if available_teams:
         # Build friendly labels
         match_labels = [info['label'] for info in team_matches]
         if match_labels:
-            analysis_mode = st.radio("Selecteer analyse type", ["Enkele wedstrijd", "Meerdere wedstrijden"], horizontal=True)
-            
-            if analysis_mode == "Enkele wedstrijd":
-                choice = st.selectbox("Selecteer een wedstrijd", match_labels)
-                if choice:
-                    sel = next((i for i in team_matches if i['label'] == choice), None)
-                    if sel:
-                        file_name = sel['name']
-                        try:
-                            events_data = load_json_lenient(sel['path'])
-                        except Exception as e:
-                            st.error(f"Failed to load JSON: {e}")
-                            events_data = None
-            else:  # Meerdere wedstrijden
-                selected_match_labels = st.multiselect("Selecteer wedstrijden", match_labels, default=[])
-                selected_matches = [m for m in team_matches if m['label'] in selected_match_labels]
-                # For multi-match, we don't set events_data (handle separately in tabs)
-                events_data = None
+            choice = st.selectbox("Selecteer een wedstrijd", match_labels)
+            if choice:
+                sel = next((i for i in team_matches if i['label'] == choice), None)
+                if sel:
+                    file_name = sel['name']
+                    try:
+                        events_data = load_json_lenient(sel['path'])
+                    except Exception as e:
+                        st.error(f"Failed to load JSON: {e}")
+                        events_data = None
         else:
             st.info("No matches found for the selected team in this folder.")
 else:
@@ -1044,15 +1034,13 @@ def calculate_game_control_and_domination(data, home_team_override=None, away_te
     }
 
 # Main app
-if events_data is not None or (analysis_mode == "Meerdere wedstrijden" and selected_matches):
-    # Single match mode
-    if analysis_mode == "Enkele wedstrijd" and events_data is not None:
-        with st.spinner("Analyzing match control..."):
-            fig, control_data = calculate_game_control_and_domination(
-                events_data, 
-                None,
-                None
-            )
+if events_data is not None:
+    with st.spinner("Analyzing match control..."):
+        fig, control_data = calculate_game_control_and_domination(
+            events_data, 
+            None,
+            None
+        )
 
         tab1, tab2, tab3, tab8, tab5, tab6, tab4 = st.tabs(["Controle & Gevaar", "Schoten", "xG Verloop", "Voorzetten", "Gemiddelde Posities", "Samenvatting", "Eredivisie Tabel"])
 
@@ -1068,86 +1056,6 @@ if events_data is not None or (analysis_mode == "Meerdere wedstrijden" and selec
                 file_name=f"match_control_{file_name.replace('.json', '')}.png",
                 mime="image/png"
             )
-    # Multi-match mode
-    elif analysis_mode == "Meerdere wedstrijden" and selected_matches:
-        tab1, tab2, tab3, tab8, tab5, tab6, tab4 = st.tabs(["Controle & Gevaar", "Schoten", "xG Verloop", "Voorzetten", "Gemiddelde Posities", "Samenvatting", "Eredivisie Tabel"])
-        
-        with tab1:
-            st.subheader(f"Controle & Gevaar - {len(selected_matches)} wedstrijden")
-            
-            # Generate control plots for each match and aggregate stats
-            match_figures = []
-            all_control_stats = []
-            all_danger_stats = []
-            
-            for match_info in selected_matches:
-                try:
-                    match_data = load_json_lenient(match_info['path'])
-                    fig_match, control_data = calculate_game_control_and_domination(match_data, None, None)
-                    match_figures.append((match_info['label'], fig_match))
-                    
-                    # Extract aggregated control/danger per team
-                    metadata = match_data.get('metaData', {})
-                    home_team = metadata.get('homeTeamName', 'Home')
-                    away_team = metadata.get('awayTeamName', 'Away')
-                    
-                    # Aggregate control and danger per half
-                    for half_key in ['first_half', 'second_half']:
-                        half_data = control_data.get(half_key, {})
-                        home_ctrl = sum(half_data.get('home_control', []))
-                        away_ctrl = sum(half_data.get('away_control', []))
-                        home_dang = sum(half_data.get('home_domination', []))
-                        away_dang = sum(half_data.get('away_domination', []))
-                        
-                        all_control_stats.append({
-                            'match': match_info['label'],
-                            'half': half_key,
-                            selected_team: home_ctrl if selected_team == home_team else away_ctrl,
-                            'opponent': away_ctrl if selected_team == home_team else home_ctrl
-                        })
-                        all_danger_stats.append({
-                            'match': match_info['label'],
-                            'half': half_key,
-                            selected_team: home_dang if selected_team == home_team else away_dang,
-                            'opponent': away_dang if selected_team == home_team else home_ctrl
-                        })
-                except Exception as e:
-                    st.warning(f"Could not load {match_info['label']}: {e}")
-            
-            # Display individual match plots in a grid
-            import math
-            cols_per_row = 2
-            rows_needed = math.ceil(len(match_figures) / cols_per_row)
-            for row_idx in range(rows_needed):
-                cols = st.columns(cols_per_row)
-                for col_idx in range(cols_per_row):
-                    fig_idx = row_idx * cols_per_row + col_idx
-                    if fig_idx < len(match_figures):
-                        label, fig = match_figures[fig_idx]
-                        with cols[col_idx]:
-                            st.write(f"**{label}**")
-                            st.pyplot(fig)
-            
-            # Aggregated vertical bar chart on the right (control and danger)
-            st.subheader("Geaggregeerde Controle & Gevaar")
-            fig_agg, (ax_ctrl, ax_dang) = plt.subplots(1, 2, figsize=(12, 6))
-            
-            # Aggregate totals
-            total_team_ctrl = sum([s[selected_team] for s in all_control_stats])
-            total_opp_ctrl = sum([s['opponent'] for s in all_control_stats])
-            total_team_dang = sum([s[selected_team] for s in all_danger_stats])
-            total_opp_dang = sum([s['opponent'] for s in all_danger_stats])
-            
-            # Vertical bars
-            ax_ctrl.bar([selected_team, 'Tegenstander'], [total_team_ctrl, total_opp_ctrl], color=[home_color, away_color], alpha=0.7)
-            ax_ctrl.set_title('Totale Controle')
-            ax_ctrl.set_ylabel('Controle')
-            
-            ax_dang.bar([selected_team, 'Tegenstander'], [total_team_dang, total_opp_dang], color=[home_color, away_color], alpha=0.7)
-            ax_dang.set_title('Totaal Gevaar')
-            ax_dang.set_ylabel('Gevaar')
-            
-            st.pyplot(fig_agg)
 
         # ---------- Shot Map Tab ----------
         def draw_pitch(ax):
@@ -1279,7 +1187,7 @@ if events_data is not None or (analysis_mode == "Meerdere wedstrijden" and selec
 
             for shot in home_shots:
                 # Always flip home team shots so they appear on the left
-                x = -shot['x']; y = -shot['y']
+                    x = -shot['x']; y = -shot['y']
                 marker_size = 50 + (shot['xG'] * 450)
                 if shot['is_goal']:
                     face_color = home_color; edge_color = home_color; edge_width = 2; stats[home_team]['goals'] += 1
@@ -1295,14 +1203,14 @@ if events_data is not None or (analysis_mode == "Meerdere wedstrijden" and selec
                         stats[home_team]['pen_PSxG'] += shot['PSxG']
                         stats[home_team]['shots_on_target'] += 1
                 else:
-                    stats[home_team]['xG'] += shot['xG']
-                    if shot['PSxG']:
-                        stats[home_team]['PSxG'] += shot['PSxG']
-                        stats[home_team]['shots_on_target'] += 1
+                stats[home_team]['xG'] += shot['xG']
+                if shot['PSxG']:
+                    stats[home_team]['PSxG'] += shot['PSxG']
+                    stats[home_team]['shots_on_target'] += 1
 
             for shot in away_shots:
                 # Away shots remain as-is (shown on the right)
-                x = shot['x']; y = shot['y']
+                    x = shot['x']; y = shot['y']
                 marker_size = 50 + (shot['xG'] * 450)
                 if shot['is_goal']:
                     face_color = away_color; edge_color = away_color; edge_width = 2; stats[away_team]['goals'] += 1
@@ -1318,10 +1226,10 @@ if events_data is not None or (analysis_mode == "Meerdere wedstrijden" and selec
                         stats[away_team]['pen_PSxG'] += shot['PSxG']
                         stats[away_team]['shots_on_target'] += 1
                 else:
-                    stats[away_team]['xG'] += shot['xG']
-                    if shot['PSxG']:
-                        stats[away_team]['PSxG'] += shot['PSxG']
-                        stats[away_team]['shots_on_target'] += 1
+                stats[away_team]['xG'] += shot['xG']
+                if shot['PSxG']:
+                    stats[away_team]['PSxG'] += shot['PSxG']
+                    stats[away_team]['shots_on_target'] += 1
 
             home_total_goals = stats[home_team]['goals'] + away_own_goals
             away_total_goals = stats[away_team]['goals'] + home_own_goals
@@ -2442,137 +2350,137 @@ if events_data is not None or (analysis_mode == "Meerdere wedstrijden" and selec
             plt.tight_layout(rect=[0, 0, 1, 0.98]) # Adjust layout to make space for suptitle
             st.pyplot(fig)
 
-        with tab6:
-            st.subheader("Samenvatting Statistieken")
+with tab6:
+    st.subheader("Samenvatting Statistieken")
+    
+    if events_data is not None:
+        events = events_data.get('data', []) if isinstance(events_data, dict) else []
+        
+        # High Recoveries Analysis
+        st.subheader("🏃‍♂️ High Recoveries (x > -17.5)")
+        
+        # Define base type IDs for Interception and Ball Recovery
+        INTERCEPTION_BASE_TYPE_ID = 5
+        BALL_RECOVERY_BASE_TYPE_ID = 9
+        SUCCESSFUL_RESULT_ID = 1
+        RECOVERY_SUB_TYPE_ID_INTERCEPTION = 501
+        
+        # Filter for successful interceptions and recoveries in the middle and final third (x > -17.5)
+        filtered_recoveries_interceptions = []
+        
+        for event in events:
+            base_type_id = event.get('baseTypeId')
+            sub_type_id = event.get('subTypeId')
+            result_id = event.get('resultId')
+            event_x = event.get('startPosXM')
             
-            if events_data is not None:
-                events = events_data.get('data', []) if isinstance(events_data, dict) else []
+            # Check if it's a successful event
+            if result_id == SUCCESSFUL_RESULT_ID:
+                # Check if it's an Interception or a Ball Recovery
+                is_interception = base_type_id == INTERCEPTION_BASE_TYPE_ID
+                is_ball_recovery = base_type_id == BALL_RECOVERY_BASE_TYPE_ID
+                is_interception_recovery = (base_type_id == INTERCEPTION_BASE_TYPE_ID and
+                                            sub_type_id == RECOVERY_SUB_TYPE_ID_INTERCEPTION)
                 
-                # High Recoveries Analysis
-                st.subheader("🏃‍♂️ High Recoveries (x > -17.5)")
-                
-                # Define base type IDs for Interception and Ball Recovery
-                INTERCEPTION_BASE_TYPE_ID = 5
-                BALL_RECOVERY_BASE_TYPE_ID = 9
-                SUCCESSFUL_RESULT_ID = 1
-                RECOVERY_SUB_TYPE_ID_INTERCEPTION = 501
-                
-                # Filter for successful interceptions and recoveries in the middle and final third (x > -17.5)
-                filtered_recoveries_interceptions = []
-                
-                for event in events:
-                    base_type_id = event.get('baseTypeId')
-                    sub_type_id = event.get('subTypeId')
-                    result_id = event.get('resultId')
-                    event_x = event.get('startPosXM')
-                    
-                    # Check if it's a successful event
-                    if result_id == SUCCESSFUL_RESULT_ID:
-                        # Check if it's an Interception or a Ball Recovery
-                        is_interception = base_type_id == INTERCEPTION_BASE_TYPE_ID
-                        is_ball_recovery = base_type_id == BALL_RECOVERY_BASE_TYPE_ID
-                        is_interception_recovery = (base_type_id == INTERCEPTION_BASE_TYPE_ID and
-                                                    sub_type_id == RECOVERY_SUB_TYPE_ID_INTERCEPTION)
-                        
-                        # If it's one of the relevant types and the location is correct (x > -17.5)
-                        if (is_interception or is_ball_recovery or is_interception_recovery) and event_x is not None and event_x > -17.5:
-                            filtered_recoveries_interceptions.append(event)
-                
-                # Prepare data for a DataFrame
-                recovery_interception_data = []
-                for event in filtered_recoveries_interceptions:
-                    recovery_interception_data.append({
-                        'Minute': int(event.get('startTimeMs', 0) / 1000 / 60),
-                        'Team': event.get('teamName', 'Unknown Team'),
-                        'Player': event.get('playerName', 'Unknown Player'),
-                        'Base Type': event.get('baseTypeName', 'Unknown'),
-                        'Sub Type': event.get('subTypeName', 'Unknown'),
-                        'Start X': event.get('startPosXM'),
-                        'Start Y': event.get('startPosYM'),
-                        'Labels': event.get('labels', [])
-                    })
-                
-                # Create and display the DataFrame
-                recovery_interception_df = pd.DataFrame(recovery_interception_data)
-                
-                # Count events per team
-                team_counts = recovery_interception_df['Team'].value_counts().reset_index()
-                team_counts.columns = ['Team', 'Count of Recoveries/Interceptions (x > -17.5)']
-                
-                # Display the counts per team
-                st.dataframe(team_counts)
-                
-                # Show detailed events table
-                if not recovery_interception_df.empty:
-                    st.subheader("📋 Gedetailleerde High Recoveries")
-                    st.dataframe(recovery_interception_df)
-                else:
-                    st.info("Geen High Recoveries gevonden in deze wedstrijd.")
-                
-                # Final Third Entries Analysis
-                st.subheader("⚽ Final Third Entries")
-                
-                # Define relevant labels
-                DRIBBLE_CHANCE_CREATION_LABEL = 127
-                FINAL_3RD_PASS_SUCCESS_LABEL = 69
-                
-                # Initialize counters
-                team_stats = defaultdict(lambda: {'successful_dribbles_chance_creation': 0, 'successful_final_3rd_passes': 0})
-                
-                # Process events
-                for event in events:
-                    team_name = event.get('teamName', 'Unknown Team')
-                    event_labels = event.get('labels', [])
-                    base_type_id = event.get('baseTypeId')
-                    result_id = event.get('resultId')
-                    
-                    # Check for successful dribbles with label 127 (chance creation dribbles)
-                    if base_type_id == 2 and result_id == 1 and DRIBBLE_CHANCE_CREATION_LABEL in event_labels:
-                        team_stats[team_name]['successful_dribbles_chance_creation'] += 1
-                    
-                    # Check for successful passes to final third with label 69
-                    if base_type_id == 1 and result_id == 1 and FINAL_3RD_PASS_SUCCESS_LABEL in event_labels:
-                        team_stats[team_name]['successful_final_3rd_passes'] += 1
-                
-                # Create summary DataFrame
-                final_third_data = []
-                for team, stats in team_stats.items():
-                    final_third_data.append({
-                        'Team': team,
-                        'Chance Creation Dribbles': stats['successful_dribbles_chance_creation'],
-                        'Final 3rd Passes': stats['successful_final_3rd_passes'],
-                        'Total Final Third Entries': stats['successful_dribbles_chance_creation'] + stats['successful_final_3rd_passes']
-                    })
-                
-                final_third_df = pd.DataFrame(final_third_data)
-                
-                if not final_third_df.empty:
-                    st.dataframe(final_third_df)
-                else:
-                    st.info("Geen Final Third Entries gevonden in deze wedstrijd.")
-                
-                # Summary Statistics
-                st.subheader("📊 Wedstrijd Samenvatting")
-                
-                col1, col2, col3 = st.columns(3)
-                
-                with col1:
-                    st.metric("Totaal Events", len(events))
-                    st.metric("High Recoveries", len(filtered_recoveries_interceptions))
-                
-                with col2:
-                    total_final_third = sum(stats['successful_dribbles_chance_creation'] + stats['successful_final_3rd_passes'] for stats in team_stats.values())
-                    st.metric("Final Third Entries", total_final_third)
-                    st.metric("Chance Creation Dribbles", sum(stats['successful_dribbles_chance_creation'] for stats in team_stats.values()))
-                
-                with col3:
-                    st.metric("Final 3rd Passes", sum(stats['successful_final_3rd_passes'] for stats in team_stats.values()))
-                    if len(filtered_recoveries_interceptions) > 0:
-                        avg_recovery_x = sum(event.get('startPosXM', 0) for event in filtered_recoveries_interceptions) / len(filtered_recoveries_interceptions)
-                        st.metric("Gem. Recovery X Positie", f"{avg_recovery_x:.1f}")
-                
-            else:
-                st.info("Selecteer eerst een wedstrijd om de samenvatting te bekijken.")
+                # If it's one of the relevant types and the location is correct (x > -17.5)
+                if (is_interception or is_ball_recovery or is_interception_recovery) and event_x is not None and event_x > -17.5:
+                    filtered_recoveries_interceptions.append(event)
+        
+        # Prepare data for a DataFrame
+        recovery_interception_data = []
+        for event in filtered_recoveries_interceptions:
+            recovery_interception_data.append({
+                'Minute': int(event.get('startTimeMs', 0) / 1000 / 60),
+                'Team': event.get('teamName', 'Unknown Team'),
+                'Player': event.get('playerName', 'Unknown Player'),
+                'Base Type': event.get('baseTypeName', 'Unknown'),
+                'Sub Type': event.get('subTypeName', 'Unknown'),
+                'Start X': event.get('startPosXM'),
+                'Start Y': event.get('startPosYM'),
+                'Labels': event.get('labels', [])
+            })
+        
+        # Create and display the DataFrame
+        recovery_interception_df = pd.DataFrame(recovery_interception_data)
+        
+        # Count events per team
+        team_counts = recovery_interception_df['Team'].value_counts().reset_index()
+        team_counts.columns = ['Team', 'Count of Recoveries/Interceptions (x > -17.5)']
+        
+        # Display the counts per team
+        st.dataframe(team_counts)
+        
+        # Show detailed events table
+        if not recovery_interception_df.empty:
+            st.subheader("📋 Gedetailleerde High Recoveries")
+            st.dataframe(recovery_interception_df)
+        else:
+            st.info("Geen High Recoveries gevonden in deze wedstrijd.")
+        
+        # Final Third Entries Analysis
+        st.subheader("⚽ Final Third Entries")
+        
+        # Define relevant labels
+        DRIBBLE_CHANCE_CREATION_LABEL = 127
+        FINAL_3RD_PASS_SUCCESS_LABEL = 69
+        
+        # Initialize counters
+        team_stats = defaultdict(lambda: {'successful_dribbles_chance_creation': 0, 'successful_final_3rd_passes': 0})
+        
+        # Process events
+        for event in events:
+            team_name = event.get('teamName', 'Unknown Team')
+            event_labels = event.get('labels', [])
+            base_type_id = event.get('baseTypeId')
+            result_id = event.get('resultId')
+            
+            # Check for successful dribbles with label 127 (chance creation dribbles)
+            if base_type_id == 2 and result_id == 1 and DRIBBLE_CHANCE_CREATION_LABEL in event_labels:
+                team_stats[team_name]['successful_dribbles_chance_creation'] += 1
+            
+            # Check for successful passes to final third with label 69
+            if base_type_id == 1 and result_id == 1 and FINAL_3RD_PASS_SUCCESS_LABEL in event_labels:
+                team_stats[team_name]['successful_final_3rd_passes'] += 1
+        
+        # Create summary DataFrame
+        final_third_data = []
+        for team, stats in team_stats.items():
+            final_third_data.append({
+                'Team': team,
+                'Chance Creation Dribbles': stats['successful_dribbles_chance_creation'],
+                'Final 3rd Passes': stats['successful_final_3rd_passes'],
+                'Total Final Third Entries': stats['successful_dribbles_chance_creation'] + stats['successful_final_3rd_passes']
+            })
+        
+        final_third_df = pd.DataFrame(final_third_data)
+        
+        if not final_third_df.empty:
+            st.dataframe(final_third_df)
+        else:
+            st.info("Geen Final Third Entries gevonden in deze wedstrijd.")
+        
+        # Summary Statistics
+        st.subheader("📊 Wedstrijd Samenvatting")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.metric("Totaal Events", len(events))
+            st.metric("High Recoveries", len(filtered_recoveries_interceptions))
+        
+        with col2:
+            total_final_third = sum(stats['successful_dribbles_chance_creation'] + stats['successful_final_3rd_passes'] for stats in team_stats.values())
+            st.metric("Final Third Entries", total_final_third)
+            st.metric("Chance Creation Dribbles", sum(stats['successful_dribbles_chance_creation'] for stats in team_stats.values()))
+        
+        with col3:
+            st.metric("Final 3rd Passes", sum(stats['successful_final_3rd_passes'] for stats in team_stats.values()))
+            if len(filtered_recoveries_interceptions) > 0:
+                avg_recovery_x = sum(event.get('startPosXM', 0) for event in filtered_recoveries_interceptions) / len(filtered_recoveries_interceptions)
+                st.metric("Gem. Recovery X Positie", f"{avg_recovery_x:.1f}")
+        
+    else:
+        st.info("Selecteer eerst een wedstrijd om de samenvatting te bekijken.")
 
 
         # ---------- Voorzetten Tab ----------
