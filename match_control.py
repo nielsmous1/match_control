@@ -1092,7 +1092,7 @@ if events_data is not None:
             None
         )
 
-        tab1, tab2, tab3, tab8, tab5, tab6, tab4 = st.tabs(["Controle & Gevaar", "Schoten", "xG Verloop", "Voorzetten", "Gemiddelde Posities", "Samenvatting", "Eredivisie Tabel"])
+        tab1, tab2, tab9, tab3, tab8, tab5, tab6, tab4 = st.tabs(["Controle & Gevaar", "Schoten", "Multi Match Schoten", "xG Verloop", "Voorzetten", "Gemiddelde Posities", "Samenvatting", "Eredivisie Tabel"])
 
         with tab1:
             st.pyplot(fig)
@@ -1537,6 +1537,190 @@ if events_data is not None:
 
             plt.tight_layout()
             st.pyplot(fig_shots_imp)
+
+        # ---------- Multi Match Schoten Tab ----------
+        with tab9:
+            st.subheader("🎯 Multi Match Schoten")
+            
+            # Allow user to select multiple matches
+            if team_matches and len(team_matches) > 0:
+                match_labels_multi = [info['label'] for info in team_matches]
+                selected_multi_matches = st.multiselect(
+                    "Selecteer wedstrijden voor analyse",
+                    match_labels_multi,
+                    default=[team_matches[0]['label']] if len(team_matches) > 0 else []
+                )
+                
+                if selected_multi_matches and len(selected_multi_matches) > 0:
+                    # Load all selected matches
+                    all_multi_shots_for = []  # Shots by selected team
+                    all_multi_shots_against = []  # Shots against selected team
+                    
+                    for match_label in selected_multi_matches:
+                        match_info = next((m for m in team_matches if m['label'] == match_label), None)
+                        if match_info:
+                            try:
+                                match_data = load_json_lenient(match_info['path'])
+                                events = match_data.get('data', []) if isinstance(match_data, dict) else []
+                                metadata = match_data.get('metaData', {}) if isinstance(match_data, dict) else {}
+                                home_team_m = metadata.get('homeTeamName', 'Home')
+                                away_team_m = metadata.get('awayTeamName', 'Away')
+                                
+                                # Determine if selected team is home or away
+                                is_home = (selected_team == home_team_m)
+                                
+                                # Find all shots
+                                all_shots_m = find_shot_events(events)
+                                for_shots = [s for s in all_shots_m if s['team'] == selected_team]
+                                against_shots = [s for s in all_shots_m if s['team'] != selected_team]
+                                
+                                all_multi_shots_for.extend(for_shots)
+                                all_multi_shots_against.extend(against_shots)
+                            except Exception as e:
+                                st.warning(f"Error loading {match_label}: {e}")
+                    
+                    # Calculate shot intervals for bar charts
+                    def calculate_multi_shot_intervals(shots):
+                        intervals = [0] * 6
+                        for shot in shots:
+                            minute = shot['time']
+                            part_id = shot['partId']
+                            if part_id == 1:
+                                if minute < 15:
+                                    intervals[0] += 1
+                                elif minute < 30:
+                                    intervals[1] += 1
+                                else:
+                                    intervals[2] += 1
+                            elif part_id == 2:
+                                # Approximate second half as 45-60, 60-75, 75-90+
+                                adjusted_minute = minute - 45
+                                if adjusted_minute < 15:
+                                    intervals[3] += 1
+                                elif adjusted_minute < 30:
+                                    intervals[4] += 1
+                                else:
+                                    intervals[5] += 1
+                        return intervals
+                    
+                    for_intervals = calculate_multi_shot_intervals(all_multi_shots_for)
+                    against_intervals = calculate_multi_shot_intervals(all_multi_shots_against)
+                    max_shots_multi = max(max(for_intervals) if for_intervals else 0,
+                                         max(against_intervals) if against_intervals else 0)
+                    
+                    # Create figure with vertical half pitch
+                    fig_multi = plt.figure(figsize=(20, 12))
+                    gs_multi = gridspec.GridSpec(1, 3, width_ratios=[0.6, 2.8, 1], wspace=0.15)
+                    ax_bars_multi = fig_multi.add_subplot(gs_multi[0])
+                    ax_pitch_multi = fig_multi.add_subplot(gs_multi[1])
+                    ax_stats_multi = fig_multi.add_subplot(gs_multi[2])
+                    
+                    # Draw vertical half pitch (attacking upwards)
+                    pitch_vert = VerticalPitch(half=True, pitch_type='impect')
+                    pitch_vert.draw(ax=ax_pitch_multi)
+                    
+                    # Plot shots on vertical pitch
+                    # For selected team shots (attacking upwards)
+                    for shot in all_multi_shots_for:
+                        x_orig = shot['x']
+                        y_orig = shot['y']
+                        # Map to vertical pitch: x_orig -> pitch x, y_orig -> pitch y
+                        marker_size = 50 + (shot['xG'] * 450)
+                        if shot['is_goal']:
+                            face = home_color; edge = home_color; lw = 2
+                        else:
+                            face = 'white'; edge = home_color; lw = 1
+                        ax_pitch_multi.scatter(y_orig, x_orig, s=marker_size, c=face, alpha=0.7,
+                                              edgecolors=edge, linewidths=lw, zorder=5)
+                    
+                    # For shots against (plot in opposite color)
+                    for shot in all_multi_shots_against:
+                        x_orig = shot['x']
+                        y_orig = shot['y']
+                        marker_size = 50 + (shot['xG'] * 450)
+                        if shot['is_goal']:
+                            face = away_color; edge = away_color; lw = 2
+                        else:
+                            face = 'white'; edge = away_color; lw = 1
+                        ax_pitch_multi.scatter(y_orig, x_orig, s=marker_size, c=face, alpha=0.7,
+                                              edgecolors=edge, linewidths=lw, zorder=5)
+                    
+                    ax_pitch_multi.set_title(f"Schoten van {selected_team} over {len(selected_multi_matches)} wedstrijden",
+                                            fontsize=14, fontweight='bold')
+                    
+                    # Left side bars (shot intervals)
+                    y_pos_multi = np.arange(6)
+                    bar_height_multi = 0.6
+                    ax_bars_multi.barh(y_pos_multi, for_intervals, bar_height_multi, color=home_color, alpha=0.7, label=selected_team)
+                    ax_bars_multi.set_yticks(y_pos_multi)
+                    ax_bars_multi.set_yticklabels(["0-15'", "15-30'", "30-45+'", "45-60'", "60-75'", "75-90+'"])
+                    ax_bars_multi.invert_xaxis()
+                    ax_bars_multi.set_xlabel("Aantal schoten")
+                    ax_bars_multi.set_title(f"Schoten {selected_team}", fontsize=10, fontweight='bold')
+                    for spine in ['right','top','bottom','left']:
+                        ax_bars_multi.spines[spine].set_visible(False)
+                    ax_bars_multi.yaxis.tick_right()
+                    ax_bars_multi.tick_params(axis='y', which='major', pad=10)
+                    ax_bars_multi.set_xlim(max_shots_multi + 0.5, 0)
+                    xticks_multi = ax_bars_multi.get_xticks()
+                    ymin_multi = y_pos_multi[0] - bar_height_multi * 0.6
+                    ymax_multi = y_pos_multi[-1] + bar_height_multi * 1.2
+                    for tx in xticks_multi:
+                        ax_bars_multi.vlines(x=tx, ymin=ymin_multi, ymax=ymax_multi, linestyles='--',
+                                            colors='gray', linewidth=0.7, zorder=0, alpha=0.55)
+                    
+                    # Right side statistics
+                    ax_stats_multi.axis('off')
+                    
+                    # Calculate aggregated stats
+                    total_shots_for = len(all_multi_shots_for)
+                    total_shots_against = len(all_multi_shots_against)
+                    goals_for = sum(1 for s in all_multi_shots_for if s['is_goal'])
+                    goals_against = sum(1 for s in all_multi_shots_against if s['is_goal'])
+                    
+                    penalties_for = sum(1 for s in all_multi_shots_for if s.get('is_penalty'))
+                    penalties_against = sum(1 for s in all_multi_shots_against if s.get('is_penalty'))
+                    
+                    xg_for = sum(s['xG'] for s in all_multi_shots_for if not s.get('is_penalty'))
+                    xg_against = sum(s['xG'] for s in all_multi_shots_against if not s.get('is_penalty'))
+                    
+                    xgot_for = sum(s['PSxG'] for s in all_multi_shots_for if s['PSxG'] and not s.get('is_penalty'))
+                    xgot_against = sum(s['PSxG'] for s in all_multi_shots_against if s['PSxG'] and not s.get('is_penalty'))
+                    
+                    on_target_for = sum(1 for s in all_multi_shots_for if s['PSxG'])
+                    on_target_against = sum(1 for s in all_multi_shots_against if s['PSxG'])
+                    
+                    num_matches = len(selected_multi_matches)
+                    
+                    # Display stats
+                    stats_y = 0.95
+                    stats_step = 0.08
+                    ax_stats_multi.text(0.5, stats_y, f"Statistieken over {num_matches} wedstrijden",
+                                       ha='center', fontsize=12, fontweight='bold', transform=ax_stats_multi.transAxes)
+                    stats_y -= stats_step * 1.5
+                    
+                    stat_items = [
+                        ("Doelpunten", goals_for, goals_for / num_matches),
+                        ("Schoten", total_shots_for, total_shots_for / num_matches),
+                        ("Schoten op doel", on_target_for, on_target_for / num_matches),
+                        ("xG (zonder penalty's)", xg_for, xg_for / num_matches),
+                        ("xGOT (zonder penalty's)", xgot_for, xgot_for / num_matches),
+                        ("Penalties", penalties_for, penalties_for / num_matches),
+                    ]
+                    
+                    for label, total, per_game in stat_items:
+                        ax_stats_multi.text(0.05, stats_y, label, ha='left', fontsize=11,
+                                           transform=ax_stats_multi.transAxes, fontweight='bold')
+                        ax_stats_multi.text(0.95, stats_y, f"{total:.1f} ({per_game:.2f}/wedstrijd)",
+                                           ha='right', fontsize=11, transform=ax_stats_multi.transAxes)
+                        stats_y -= stats_step
+                    
+                    plt.tight_layout()
+                    st.pyplot(fig_multi)
+                else:
+                    st.info("Selecteer minstens één wedstrijd voor multi-match analyse.")
+            else:
+                st.info("Geen wedstrijden beschikbaar voor dit team.")
 
         # ---------- xG Verloop Tab ----------
         def get_halftime_offset(events):
