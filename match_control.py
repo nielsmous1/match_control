@@ -1242,7 +1242,7 @@ if events_data is not None:
                 if shot['is_goal']:
                     face_color = home_color; edge_color = home_color; edge_width = 2; stats[home_team]['goals'] += 1
                 else:
-                    face_color = 'white'; edge_color = home_color; edge_width = 1
+                    face_color = 'white'; edge_color = home_color; edge_width = 2
                 ax_pitch.scatter(x, y, s=marker_size, c=face_color, alpha=1.0,
                                  edgecolors=edge_color, linewidths=edge_width, zorder=5)
                 stats[home_team]['shots'] += 1
@@ -1265,7 +1265,7 @@ if events_data is not None:
                 if shot['is_goal']:
                     face_color = away_color; edge_color = away_color; edge_width = 2; stats[away_team]['goals'] += 1
                 else:
-                    face_color = 'white'; edge_color = away_color; edge_width = 1
+                    face_color = 'white'; edge_color = away_color; edge_width = 2
                 ax_pitch.scatter(x, y, s=marker_size, c=face_color, alpha=1.0,
                                  edgecolors=edge_color, linewidths=edge_width, zorder=5)
                 stats[away_team]['shots'] += 1
@@ -1394,7 +1394,7 @@ if events_data is not None:
                 if shot['is_goal']:
                     face_color = home_color; edge_color = home_color; edge_width = 2; stats[home_team]['goals'] += 1
                 else:
-                    face_color = 'white'; edge_color = home_color; edge_width = 1
+                    face_color = 'white'; edge_color = home_color; edge_width = 2
                 ax_pitch_imp.scatter(x, y, s=marker_size, c=face_color, alpha=1.0,
                                      edgecolors=edge_color, linewidths=edge_width, zorder=5)
                 stats[home_team]['shots'] += 1
@@ -1417,7 +1417,7 @@ if events_data is not None:
                 if shot['is_goal']:
                     face_color = away_color; edge_color = away_color; edge_width = 2; stats[away_team]['goals'] += 1
                 else:
-                    face_color = 'white'; edge_color = away_color; edge_width = 1
+                    face_color = 'white'; edge_color = away_color; edge_width = 2
                 ax_pitch_imp.scatter(x, y, s=marker_size, c=face_color, alpha=1.0,
                                      edgecolors=edge_color, linewidths=edge_width, zorder=5)
                 stats[away_team]['shots'] += 1
@@ -1524,7 +1524,7 @@ if events_data is not None:
             title_y = ymin_data + height * 0.07
             dots_y = ymin_data + height * 0.035
             labels_y = ymin_data + height * 0.004
-            ax_pitch_imp.text(x_center, title_y, "xG Waarde", fontsize=10, fontweight='bold', ha='center', va='center')
+            ax_pitch_imp.text(x_center, title_y, "xG Schaal", fontsize=10, fontweight='bold', ha='center', va='center')
             scale_xg_values = [0.1, 0.3, 0.5, 0.7, 0.9]
             # place dots centered under title
             dot_spacing = width * 0.095
@@ -1532,7 +1532,7 @@ if events_data is not None:
             for i, xg in enumerate(scale_xg_values):
                 size = 50 + (xg * 450)
                 x_pos = start_x + (i * dot_spacing)
-                ax_pitch_imp.scatter(x_pos, dots_y, s=size, c='gray', alpha=0.5, edgecolors='black', linewidths=1, zorder=6, clip_on=False)
+                ax_pitch_imp.scatter(x_pos, dots_y, s=size, c='white', alpha=0.5, edgecolors='black', linewidths=2, zorder=6, clip_on=False)
                 ax_pitch_imp.text(x_pos, labels_y, f'{xg:.1f}', ha='center', va='center', fontsize=8, zorder=6, clip_on=False)
 
             plt.tight_layout()
@@ -1688,8 +1688,8 @@ if events_data is not None:
                                           colors='gray', linewidth=0.7, zorder=0, alpha=0.55)
                     
                     # xG scale under pitch (moved lower)
-                    title_axes_y = 0.02
-                    scatter_axes_y = -0.02
+                    title_axes_y = -0.02
+                    scatter_axes_y = -0.06
                     scale_xg_values = [0.1, 0.3, 0.5, 0.7, 0.9]
                     n = len(scale_xg_values)
                     spacing = 0.15
@@ -1733,9 +1733,9 @@ if events_data is not None:
                         ('Doelpunten', f'{int(round(goals_for))}', f'{avg_goals:.2f}'),
                         ('Schoten', f'{shots_for}', f'{avg_shots:.1f}'),
                         ('Schoten op doel', f'{on_target_for}', f'{avg_on_target:.1f}'),
-                        ("xG (zonder penalty's)", f'{xg_for:.2f}', f'{avg_xg:.2f}'),
-                        ("xGOT (zonder penalty's)", f'{xgot_for:.2f}', f'{avg_xgot:.2f}'),
-                        ('Penalties', f'{penalties_for}', f'{avg_penalties:.2f}'),
+                        ("xG\n(zonder penalty's)", f'{xg_for:.2f}', f'{avg_xg:.2f}'),
+                        ("xGOT\n(zonder penalty's)", f'{xgot_for:.2f}', f'{avg_xgot:.2f}'),
+                        ("Penalty's", f'{penalties_for}', f'{avg_penalties:.2f}'),
                     ]
                     
                     table_y = 0.95
@@ -1856,9 +1856,9 @@ if events_data is not None:
                         ('Doelpunten', f'{int(round(goals_against))}', f'{avg_goals_ag:.2f}'),
                         ('Schoten', f'{shots_against}', f'{avg_shots_ag:.1f}'),
                         ('Schoten op doel', f'{on_target_against}', f'{avg_on_target_ag:.1f}'),
-                        ("xG (zonder penalty's)", f'{xg_against:.2f}', f'{avg_xg_ag:.2f}'),
-                        ("xGOT (zonder penalty's)", f'{xgot_against:.2f}', f'{avg_xgot_ag:.2f}'),
-                        ('Penalties', f'{penalties_against}', f'{avg_penalties_ag:.2f}'),
+                        ("xG\n(zonder penalty's)", f'{xg_against:.2f}', f'{avg_xg_ag:.2f}'),
+                        ("xGOT\n(zonder penalty's)", f'{xgot_against:.2f}', f'{avg_xgot_ag:.2f}'),
+                        ("Penalty's", f'{penalties_against}', f'{avg_penalties_ag:.2f}'),
                     ]
                     
                     table_y_ag = 0.95
