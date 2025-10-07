@@ -1473,7 +1473,7 @@ if events_data is not None:
             # Side bar charts
             y_pos = np.arange(6)
             bar_height = 0.6
-            ax_home_bars_imp.barh(y_pos, home_shot_intervals, bar_height, color=home_color, alpha=0.7)
+            ax_home_bars_imp.barh(y_pos, home_shot_intervals, bar_height, color=home_color, alpha=1)
             ax_home_bars_imp.set_yticks(y_pos)
             ax_home_bars_imp.set_yticklabels(["0-15'", "15-30'", "30-45+'", "45-60'", "60-75'", "75-90+'"]) 
             ax_home_bars_imp.invert_xaxis()
@@ -1490,7 +1490,7 @@ if events_data is not None:
             for tx in xticks:
                 ax_home_bars_imp.vlines(x=tx, ymin=ymin, ymax=ymax, linestyles='--', colors='gray', linewidth=0.7, zorder=0, alpha=0.55)
 
-            ax_away_bars_imp.barh(y_pos, away_shot_intervals, bar_height, color=away_color, alpha=0.7)
+            ax_away_bars_imp.barh(y_pos, away_shot_intervals, bar_height, color=away_color, alpha=1)
             ax_away_bars_imp.set_yticks(y_pos)
             ax_away_bars_imp.set_yticklabels(["0-15'", "15-30'", "30-45+'", "45-60'", "60-75'", "75-90+'"]) 
             ax_away_bars_imp.set_xlabel("Aantal schoten")
@@ -1691,8 +1691,8 @@ if events_data is not None:
                                           colors='gray', linewidth=0.7, zorder=0, alpha=0.55)
                     
                     # xG scale under pitch (moved lower)
-                    title_axes_y = -0.05
-                    scatter_axes_y = -0.09
+                    title_axes_y = -0.08
+                    scatter_axes_y = -0.12
                     scale_xg_values = [0.1, 0.3, 0.5, 0.7, 0.9]
                     n = len(scale_xg_values)
                     spacing = 0.15
@@ -2904,120 +2904,222 @@ with tab6:
         with tab8:
             st.subheader("📮 Voorzetten per Zone")
             
-            # Require a selected match
-            if events_data is None:
-                st.info("Selecteer eerst een wedstrijd om voorzetten te bekijken.")
+            # Allow multi-match selection
+            if team_matches and len(team_matches) > 0:
+                match_labels_voorzetten = [info['label'] for info in team_matches]
+                selected_voorzetten_matches = st.multiselect(
+                    "Selecteer wedstrijden voor voorzetten analyse",
+                    match_labels_voorzetten,
+                    default=[team_matches[0]['label']] if len(team_matches) > 0 else []
+                )
+                
+                if selected_voorzetten_matches and len(selected_voorzetten_matches) > 0:
+                    # Aggregate crosses from all selected matches
+                    all_cross_events_for = []
+                    all_cross_events_against = []
+                    team_to_filter = selected_team if selected_team else 'Unknown'
+                    
+                    # IDs for crosses
+                    PASS_BASE_TYPE_ID = 2
+                    CROSS_SUB_TYPE_ID = 200
+                    CUTBACK_SUB_TYPE_ID = 204
+                    SUCCESSFUL_RESULT_ID = 1
+                    
+                    # Load all selected matches and collect crosses
+                    for match_label in selected_voorzetten_matches:
+                        match_info = next((m for m in team_matches if m['label'] == match_label), None)
+                        if match_info:
+                            try:
+                                match_data = load_json_lenient(match_info['path'])
+                                events = match_data.get('data', []) if isinstance(match_data, dict) else []
+                                
+                                # Filter crosses by selected team
+                                cross_events_for = [
+                                    event for event in events
+                                    if event.get('teamName') == team_to_filter and
+                                    event.get('baseTypeId') == PASS_BASE_TYPE_ID and
+                                    (event.get('subTypeId') == CROSS_SUB_TYPE_ID or event.get('subTypeId') == CUTBACK_SUB_TYPE_ID)
+                                ]
+                                
+                                # Filter crosses against selected team
+                                cross_events_against = [
+                                    event for event in events
+                                    if event.get('teamName') != team_to_filter and
+                                    event.get('baseTypeId') == PASS_BASE_TYPE_ID and
+                                    (event.get('subTypeId') == CROSS_SUB_TYPE_ID or event.get('subTypeId') == CUTBACK_SUB_TYPE_ID)
+                                ]
+                                
+                                # Distance filter
+                                for event in cross_events_for:
+                                    start_x = event.get('startPosXM')
+                                    start_y = event.get('startPosYM')
+                                    end_x = event.get('endPosXM')
+                                    end_y = event.get('endPosYM')
+                                    if start_x is not None and start_y is not None and end_x is not None and end_y is not None:
+                                        distance = np.sqrt((end_x - start_x)**2 + (end_y - start_y)**2)
+                                        if distance >= 0:
+                                            all_cross_events_for.append(event)
+                                
+                                for event in cross_events_against:
+                                    start_x = event.get('startPosXM')
+                                    start_y = event.get('startPosYM')
+                                    end_x = event.get('endPosXM')
+                                    end_y = event.get('endPosYM')
+                                    if start_x is not None and start_y is not None and end_x is not None and end_y is not None:
+                                        distance = np.sqrt((end_x - start_x)**2 + (end_y - start_y)**2)
+                                        if distance >= 0:
+                                            all_cross_events_against.append(event)
+                            except Exception as e:
+                                st.warning(f"Error loading {match_label}: {e}")
+                
+                    # Zones definition
+                    zones = {
+                        'Zone 18 (Wide Attacking Right)': {'x_min': 36, 'x_max': 52.5, 'y_min': -34, 'y_max': -20.16},
+                        'Zone 16 (Wide Attacking Left)': {'x_min': 36, 'x_max': 52.5, 'y_min': 20.16, 'y_max': 34},
+                        'Zone 17 LL (Box Left Deep)': {'x_min': 36, 'x_max': 47, 'y_min': 9.25, 'y_max': 20.16},
+                        'Zone 17 LR (Box Right Deep)': {'x_min': 36, 'x_max': 47, 'y_min': -20.16, 'y_max': -9.25},
+                        'Zone 17 HL (Box Left Attacking)': {'x_min': 47, 'x_max': 52.5, 'y_min': 9.25, 'y_max': 20.16},
+                        'Zone 17 HR (Box Right Attacking)': {'x_min': 47, 'x_max': 52.5, 'y_min': -20.16, 'y_max': -9.25},
+                        'Zone 13 (Wide Middle Left)': {'x_min': 17.5, 'x_max': 36, 'y_min': 20.16, 'y_max': 34},
+                        'Zone 15 (Wide Middle Right)': {'x_min': 17.5, 'x_max': 36, 'y_min': -34, 'y_max': -20.16},
+                        'Zone 14 R (Central Deep Left)': {'x_min': 17.5, 'x_max': 36, 'y_min': -20.16, 'y_max': -9.25},
+                        'Zone 14 L (Central Deep Right)': {'x_min': 17.5, 'x_max': 36, 'y_min': 9.25, 'y_max': 20.16},
+                        'Zone 14 M (Zone 14 Area)': {'x_min': 17.5, 'x_max': 36, 'y_min': -9.25, 'y_max': 9.25},
+                    }
+                    
+                    # --- Figure 1: Voorzetten Voor (by selected team) ---
+                    st.subheader(f"{team_to_filter} - Voorzetten")
+                    
+                    # Count crosses per zone
+                    zone_stats_for = {zone_name: {'total': 0, 'successful': 0} for zone_name in zones}
+                    for event in all_cross_events_for:
+                        start_x = event.get('startPosXM')
+                        start_y = event.get('startPosYM')
+                        is_successful = event.get('resultId') == SUCCESSFUL_RESULT_ID
+                        if start_x is not None and start_y is not None:
+                            for zone_name, coords in zones.items():
+                                if (coords['x_min'] <= start_x < coords['x_max'] and
+                                    coords['y_min'] <= start_y < coords['y_max']):
+                                    zone_stats_for[zone_name]['total'] += 1
+                                    if is_successful:
+                                        zone_stats_for[zone_name]['successful'] += 1
+                                    break
+                    
+                    # Draw vertical half pitch and annotate zones
+                    pitch_for = VerticalPitch(half=True, pitch_type='impect')
+                    fig_for, ax_for = pitch_for.draw(figsize=(8, 12))
+                    
+                    for zone_name, coords in zones.items():
+                        total = zone_stats_for[zone_name]['total']
+                        successful = zone_stats_for[zone_name]['successful']
+                        percentage = (successful / total * 100) if total > 0 else 0
+
+                        # Choose background color based on percentage
+                        if total > 0 and percentage == 0:
+                            facecolor = '#f8d7da'
+                        elif percentage > 0 and percentage < 30:
+                            facecolor = '#ffd8a8'
+                        elif percentage >= 30 and percentage < 60:
+                            facecolor = '#fff3bf'
+                        elif percentage >= 60:
+                            facecolor = '#d3f9d8'
+                        else:
+                            facecolor = 'none'
+
+                        # Draw zone rectangle
+                        rect = patches.Rectangle((coords['y_min'], coords['x_min']),
+                                                 coords['y_max'] - coords['y_min'],
+                                                 coords['x_max'] - coords['x_min'],
+                                                 linewidth=1.5, edgecolor='black', facecolor=facecolor, alpha=0.85, zorder=1)
+                        ax_for.add_patch(rect)
+
+                        # Zone name
+                        ul_x = coords['x_min'] + 1.2
+                        ul_y = coords['y_max'] - 0.4
+                        zone_title = zone_name.split('(')[0].strip()
+                        pitch_for.annotate(zone_title, (ul_x, ul_y), ax=ax_for,
+                                       ha='left', va='top', fontsize=6, color='black',
+                                       zorder=11)
+
+                        # Centered stats text
+                        center_x = (coords['x_min'] + coords['x_max']) / 2
+                        center_y = (coords['y_min'] + coords['y_max']) / 2
+                        text_string = f"{successful}/{total}\n{percentage:.0f}%"
+                        pitch_for.annotate(text_string, (center_x, center_y), ax=ax_for,
+                                       ha='center', va='center', fontsize=8, color='black',
+                                       fontweight='bold', zorder=12)
+                    
+                    plt.title(f"{team_to_filter} - Voorzetten", fontsize=16, fontweight='bold')
+                    st.pyplot(fig_for)
+                    
+                    # --- Figure 2: Voorzetten Tegen (by opponents) ---
+                    st.subheader(f"{team_to_filter} - Voorzetten Tegen")
+                    
+                    # Count crosses per zone for opponents
+                    zone_stats_against = {zone_name: {'total': 0, 'successful': 0} for zone_name in zones}
+                    for event in all_cross_events_against:
+                        start_x = event.get('startPosXM')
+                        start_y = event.get('startPosYM')
+                        is_successful = event.get('resultId') == SUCCESSFUL_RESULT_ID
+                        if start_x is not None and start_y is not None:
+                            for zone_name, coords in zones.items():
+                                if (coords['x_min'] <= start_x < coords['x_max'] and
+                                    coords['y_min'] <= start_y < coords['y_max']):
+                                    zone_stats_against[zone_name]['total'] += 1
+                                    if is_successful:
+                                        zone_stats_against[zone_name]['successful'] += 1
+                                    break
+                    
+                    # Draw vertical half pitch for against
+                    pitch_against = VerticalPitch(half=True, pitch_type='impect')
+                    fig_against, ax_against = pitch_against.draw(figsize=(8, 12))
+                    
+                    for zone_name, coords in zones.items():
+                        total = zone_stats_against[zone_name]['total']
+                        successful = zone_stats_against[zone_name]['successful']
+                        percentage = (successful / total * 100) if total > 0 else 0
+
+                        # Choose background color based on percentage
+                        if total > 0 and percentage == 0:
+                            facecolor = '#f8d7da'
+                        elif percentage > 0 and percentage < 30:
+                            facecolor = '#ffd8a8'
+                        elif percentage >= 30 and percentage < 60:
+                            facecolor = '#fff3bf'
+                        elif percentage >= 60:
+                            facecolor = '#d3f9d8'
+                        else:
+                            facecolor = 'none'
+
+                        # Draw zone rectangle
+                        rect = patches.Rectangle((coords['y_min'], coords['x_min']),
+                                                 coords['y_max'] - coords['y_min'],
+                                                 coords['x_max'] - coords['x_min'],
+                                                 linewidth=1.5, edgecolor='black', facecolor=facecolor, alpha=0.85, zorder=1)
+                        ax_against.add_patch(rect)
+
+                        # Zone name
+                        ul_x = coords['x_min'] + 1.2
+                        ul_y = coords['y_max'] - 0.4
+                        zone_title = zone_name.split('(')[0].strip()
+                        pitch_against.annotate(zone_title, (ul_x, ul_y), ax=ax_against,
+                                       ha='left', va='top', fontsize=6, color='black',
+                                       zorder=11)
+
+                        # Centered stats text
+                        center_x = (coords['x_min'] + coords['x_max']) / 2
+                        center_y = (coords['y_min'] + coords['y_max']) / 2
+                        text_string = f"{successful}/{total}\n{percentage:.0f}%"
+                        pitch_against.annotate(text_string, (center_x, center_y), ax=ax_against,
+                                       ha='center', va='center', fontsize=8, color='black',
+                                       fontweight='bold', zorder=12)
+                    
+                    plt.title(f"{team_to_filter} - Voorzetten Tegen", fontsize=16, fontweight='bold')
+                    st.pyplot(fig_against)
+                else:
+                    st.info("Selecteer minstens één wedstrijd voor voorzetten analyse.")
             else:
-                # Use selected team and events of selected match already loaded as events_data
-                events = events_data.get('data', []) if isinstance(events_data, dict) else []
-                metadata = events_data.get('metaData', {}) if isinstance(events_data, dict) else {}
-                home_team = metadata.get('homeTeamName', 'Home')
-                away_team = metadata.get('awayTeamName', 'Away')
-                team_to_filter = selected_team if selected_team else home_team
-                
-                # IDs (adapted to example): Pass base type and cross/cutback subtypes
-                # Note: In earlier mappings PASS was 1, but the example uses 2. We follow example here.
-                PASS_BASE_TYPE_ID = 2
-                CROSS_SUB_TYPE_ID = 200
-                CUTBACK_SUB_TYPE_ID = 204
-                SUCCESSFUL_RESULT_ID = 1
-                
-                # Filter crosses by team
-                cross_events = [
-                    event for event in events
-                    if event.get('teamName') == team_to_filter and
-                    event.get('baseTypeId') == PASS_BASE_TYPE_ID and
-                    (event.get('subTypeId') == CROSS_SUB_TYPE_ID or event.get('subTypeId') == CUTBACK_SUB_TYPE_ID)
-                ]
-                
-                # Optional distance filter (kept from example; threshold set to 0 meters as in example)
-                filtered_cross_events = []
-                for event in cross_events:
-                    start_x = event.get('startPosXM')
-                    start_y = event.get('startPosYM')
-                    end_x = event.get('endPosXM')
-                    end_y = event.get('endPosYM')
-                    if start_x is not None and start_y is not None and end_x is not None and end_y is not None:
-                        distance = np.sqrt((end_x - start_x)**2 + (end_y - start_y)**2)
-                        if distance >= 0:
-                            filtered_cross_events.append(event)
-                
-                # Zones definition (as per provided example)
-                zones = {
-                    'Zone 18 (Wide Attacking Right)': {'x_min': 36, 'x_max': 52.5, 'y_min': -34, 'y_max': -20.16},
-                    'Zone 16 (Wide Attacking Left)': {'x_min': 36, 'x_max': 52.5, 'y_min': 20.16, 'y_max': 34},
-                    'Zone 17 LL (Box Left Deep)': {'x_min': 36, 'x_max': 47, 'y_min': 9.25, 'y_max': 20.16},
-                    'Zone 17 LR (Box Right Deep)': {'x_min': 36, 'x_max': 47, 'y_min': -20.16, 'y_max': -9.25},
-                    'Zone 17 HL (Box Left Attacking)': {'x_min': 47, 'x_max': 52.5, 'y_min': 9.25, 'y_max': 20.16},
-                    'Zone 17 HR (Box Right Attacking)': {'x_min': 47, 'x_max': 52.5, 'y_min': -20.16, 'y_max': -9.25},
-                    'Zone 13 (Wide Middle Left)': {'x_min': 17.5, 'x_max': 36, 'y_min': 20.16, 'y_max': 34},
-                    'Zone 15 (Wide Middle Right)': {'x_min': 17.5, 'x_max': 36, 'y_min': -34, 'y_max': -20.16},
-                    'Zone 14 R (Central Deep Left)': {'x_min': 17.5, 'x_max': 36, 'y_min': -20.16, 'y_max': -9.25},
-                    'Zone 14 L (Central Deep Right)': {'x_min': 17.5, 'x_max': 36, 'y_min': 9.25, 'y_max': 20.16},
-                    'Zone 14 M (Zone 14 Area)': {'x_min': 17.5, 'x_max': 36, 'y_min': -9.25, 'y_max': 9.25},
-                }
-                
-                # Count crosses per zone
-                zone_stats = {zone_name: {'total': 0, 'successful': 0} for zone_name in zones}
-                for event in filtered_cross_events:
-                    start_x = event.get('startPosXM')
-                    start_y = event.get('startPosYM')
-                    is_successful = event.get('resultId') == SUCCESSFUL_RESULT_ID
-                    if start_x is not None and start_y is not None:
-                        for zone_name, coords in zones.items():
-                            if (coords['x_min'] <= start_x < coords['x_max'] and
-                                coords['y_min'] <= start_y < coords['y_max']):
-                                zone_stats[zone_name]['total'] += 1
-                                if is_successful:
-                                    zone_stats[zone_name]['successful'] += 1
-                                break
-                
-                # Draw vertical half pitch and annotate zones
-                pitch = VerticalPitch(half=True, pitch_type='impect')
-                fig, ax = pitch.draw(figsize=(8, 12))
-                
-                for zone_name, coords in zones.items():
-                    total = zone_stats[zone_name]['total']
-                    successful = zone_stats[zone_name]['successful']
-                    percentage = (successful / total * 100) if total > 0 else 0
-
-                    # Choose background color based on percentage
-                    if total > 0 and percentage == 0:
-                        facecolor = '#f8d7da'  # light red
-                    elif percentage > 0 and percentage < 30:
-                        facecolor = '#ffd8a8'  # orange
-                    elif percentage >= 30 and percentage < 60:
-                        facecolor = '#fff3bf'  # yellow
-                    elif percentage >= 60:
-                        facecolor = '#d3f9d8'  # green
-                    else:
-                        facecolor = 'none'     # white (no crosses)
-
-                    # Draw zone rectangle with background
-                    rect = patches.Rectangle((coords['y_min'], coords['x_min']),
-                                             coords['y_max'] - coords['y_min'],
-                                             coords['x_max'] - coords['x_min'],
-                                             linewidth=1.5, edgecolor='black', facecolor=facecolor, alpha=0.85, zorder=1)
-                    ax.add_patch(rect)
-
-                    # Upper-left position in SciSports coords for zone name (restore previous vertical pos, shift 0.8 left)
-                    ul_x = coords['x_min'] + 1.2
-                    ul_y = coords['y_max'] - 0.4
-                    zone_title = zone_name.split('(')[0].strip()
-                    pitch.annotate(zone_title, (ul_x, ul_y), ax=ax,
-                                   ha='left', va='top', fontsize=6, color='black',
-                                   zorder=11)
-
-                    # Centered stats text
-                    center_x = (coords['x_min'] + coords['x_max']) / 2
-                    center_y = (coords['y_min'] + coords['y_max']) / 2
-                    text_string = f"{successful}/{total}\n{percentage:.0f}%"
-                    pitch.annotate(text_string, (center_x, center_y), ax=ax,
-                                   ha='center', va='center', fontsize=8, color='black',
-                                   fontweight='bold', zorder=12)
-                
-                plt.title(f"Voorzetten per Zone: {team_to_filter}", fontsize=16, fontweight='bold')
-                st.pyplot(fig)
+                st.info("Geen wedstrijden beschikbaar voor dit team.")
 
 st.info("Please select a team and match on the main screen to begin analysis.")
 
