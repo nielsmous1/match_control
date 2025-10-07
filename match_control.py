@@ -146,6 +146,8 @@ selected_match = None
 if available_teams:
     team_options = sorted(available_teams.values(), key=lambda s: s.lower())
     selected_team = st.selectbox("Selecteer een team", team_options)
+    analysis_mode = None
+    selected_matches = []
     team_matches = []
     if selected_team:
         for info in files_info:
@@ -159,16 +161,24 @@ if available_teams:
         # Build friendly labels
         match_labels = [info['label'] for info in team_matches]
         if match_labels:
-            choice = st.selectbox("Selecteer een wedstrijd", match_labels)
-            if choice:
-                sel = next((i for i in team_matches if i['label'] == choice), None)
-                if sel:
-                    file_name = sel['name']
-                    try:
-                        events_data = load_json_lenient(sel['path'])
-                    except Exception as e:
-                        st.error(f"Failed to load JSON: {e}")
-                        events_data = None
+            analysis_mode = st.radio("Selecteer analyse type", ["Enkele wedstrijd", "Meerdere wedstrijden"], horizontal=True)
+            
+            if analysis_mode == "Enkele wedstrijd":
+                choice = st.selectbox("Selecteer een wedstrijd", match_labels)
+                if choice:
+                    sel = next((i for i in team_matches if i['label'] == choice), None)
+                    if sel:
+                        file_name = sel['name']
+                        try:
+                            events_data = load_json_lenient(sel['path'])
+                        except Exception as e:
+                            st.error(f"Failed to load JSON: {e}")
+                            events_data = None
+            else:  # Meerdere wedstrijden
+                selected_match_labels = st.multiselect("Selecteer wedstrijden", match_labels, default=[])
+                selected_matches = [m for m in team_matches if m['label'] in selected_match_labels]
+                # For multi-match, we don't set events_data (handle separately in tabs)
+                events_data = None
         else:
             st.info("No matches found for the selected team in this folder.")
 else:
@@ -1034,13 +1044,15 @@ def calculate_game_control_and_domination(data, home_team_override=None, away_te
     }
 
 # Main app
-if events_data is not None:
-    with st.spinner("Analyzing match control..."):
-        fig, control_data = calculate_game_control_and_domination(
-            events_data, 
-            None,
-            None
-        )
+if events_data is not None or (analysis_mode == "Meerdere wedstrijden" and selected_matches):
+    # Single match mode
+    if analysis_mode == "Enkele wedstrijd" and events_data is not None:
+        with st.spinner("Analyzing match control..."):
+            fig, control_data = calculate_game_control_and_domination(
+                events_data, 
+                None,
+                None
+            )
 
         tab1, tab2, tab3, tab8, tab5, tab6, tab4 = st.tabs(["Controle & Gevaar", "Schoten", "xG Verloop", "Voorzetten", "Gemiddelde Posities", "Samenvatting", "Eredivisie Tabel"])
 
@@ -1056,6 +1068,86 @@ if events_data is not None:
                 file_name=f"match_control_{file_name.replace('.json', '')}.png",
                 mime="image/png"
             )
+    # Multi-match mode
+    elif analysis_mode == "Meerdere wedstrijden" and selected_matches:
+        tab1, tab2, tab3, tab8, tab5, tab6, tab4 = st.tabs(["Controle & Gevaar", "Schoten", "xG Verloop", "Voorzetten", "Gemiddelde Posities", "Samenvatting", "Eredivisie Tabel"])
+        
+        with tab1:
+            st.subheader(f"Controle & Gevaar - {len(selected_matches)} wedstrijden")
+            
+            # Generate control plots for each match and aggregate stats
+            match_figures = []
+            all_control_stats = []
+            all_danger_stats = []
+            
+            for match_info in selected_matches:
+                try:
+                    match_data = load_json_lenient(match_info['path'])
+                    fig_match, control_data = calculate_game_control_and_domination(match_data, None, None)
+                    match_figures.append((match_info['label'], fig_match))
+                    
+                    # Extract aggregated control/danger per team
+                    metadata = match_data.get('metaData', {})
+                    home_team = metadata.get('homeTeamName', 'Home')
+                    away_team = metadata.get('awayTeamName', 'Away')
+                    
+                    # Aggregate control and danger per half
+                    for half_key in ['first_half', 'second_half']:
+                        half_data = control_data.get(half_key, {})
+                        home_ctrl = sum(half_data.get('home_control', []))
+                        away_ctrl = sum(half_data.get('away_control', []))
+                        home_dang = sum(half_data.get('home_domination', []))
+                        away_dang = sum(half_data.get('away_domination', []))
+                        
+                        all_control_stats.append({
+                            'match': match_info['label'],
+                            'half': half_key,
+                            selected_team: home_ctrl if selected_team == home_team else away_ctrl,
+                            'opponent': away_ctrl if selected_team == home_team else home_ctrl
+                        })
+                        all_danger_stats.append({
+                            'match': match_info['label'],
+                            'half': half_key,
+                            selected_team: home_dang if selected_team == home_team else away_dang,
+                            'opponent': away_dang if selected_team == home_team else home_ctrl
+                        })
+                except Exception as e:
+                    st.warning(f"Could not load {match_info['label']}: {e}")
+            
+            # Display individual match plots in a grid
+            import math
+            cols_per_row = 2
+            rows_needed = math.ceil(len(match_figures) / cols_per_row)
+            for row_idx in range(rows_needed):
+                cols = st.columns(cols_per_row)
+                for col_idx in range(cols_per_row):
+                    fig_idx = row_idx * cols_per_row + col_idx
+                    if fig_idx < len(match_figures):
+                        label, fig = match_figures[fig_idx]
+                        with cols[col_idx]:
+                            st.write(f"**{label}**")
+                            st.pyplot(fig)
+            
+            # Aggregated vertical bar chart on the right (control and danger)
+            st.subheader("Geaggregeerde Controle & Gevaar")
+            fig_agg, (ax_ctrl, ax_dang) = plt.subplots(1, 2, figsize=(12, 6))
+            
+            # Aggregate totals
+            total_team_ctrl = sum([s[selected_team] for s in all_control_stats])
+            total_opp_ctrl = sum([s['opponent'] for s in all_control_stats])
+            total_team_dang = sum([s[selected_team] for s in all_danger_stats])
+            total_opp_dang = sum([s['opponent'] for s in all_danger_stats])
+            
+            # Vertical bars
+            ax_ctrl.bar([selected_team, 'Tegenstander'], [total_team_ctrl, total_opp_ctrl], color=[home_color, away_color], alpha=0.7)
+            ax_ctrl.set_title('Totale Controle')
+            ax_ctrl.set_ylabel('Controle')
+            
+            ax_dang.bar([selected_team, 'Tegenstander'], [total_team_dang, total_opp_dang], color=[home_color, away_color], alpha=0.7)
+            ax_dang.set_title('Totaal Gevaar')
+            ax_dang.set_ylabel('Gevaar')
+            
+            st.pyplot(fig_agg)
 
         # ---------- Shot Map Tab ----------
         def draw_pitch(ax):
