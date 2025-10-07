@@ -1627,6 +1627,9 @@ if events_data is not None:
                                          linewidth=2, half=True, pad_bottom=0)
                     pitch.draw(ax=ax_pitch_for)
                     
+                    # Add title
+                    ax_pitch_for.set_title(f"{selected_team} - Schoten", fontsize=14, fontweight='bold', pad=10)
+                    
                     # Plot shots
                     import math
                     for shot in all_multi_shots_for:
@@ -1651,7 +1654,7 @@ if events_data is not None:
                             face_color = 'white'
                             edge_color = home_color
                             alpha = 1.0
-                            edge_width = 1
+                            edge_width = 2
                             zorder = 5
                         
                         pitch.scatter(x, y, s=marker_size, c=face_color,
@@ -1742,15 +1745,15 @@ if events_data is not None:
                     table_step = 0.08
                     for idx, row in enumerate(stats_data):
                         if len(row) == 3:
-                            # For xG/xGOT rows (with newline), adjust value positions to align with first line
+                            # For xG/xGOT rows (with newline), align values with top of text (where "xG" is)
                             if '\n' in row[0]:
                                 ax_stats_for.text(0.05, table_y, row[0], ha='left', fontsize=10,
                                                  transform=ax_stats_for.transAxes, fontweight='normal', va='top')
-                                # Shift values up by half step to align with "xG"/"xGOT" line
-                                ax_stats_for.text(0.50, table_y + table_step * 0.3, row[1], ha='center', fontsize=10,
-                                                 transform=ax_stats_for.transAxes, fontweight='bold')
-                                ax_stats_for.text(0.85, table_y + table_step * 0.3, row[2], ha='center', fontsize=10,
-                                                 transform=ax_stats_for.transAxes, fontweight='bold')
+                                # Values at same y position as label (top-aligned)
+                                ax_stats_for.text(0.50, table_y, row[1], ha='center', fontsize=10,
+                                                 transform=ax_stats_for.transAxes, fontweight='bold', va='top')
+                                ax_stats_for.text(0.85, table_y, row[2], ha='center', fontsize=10,
+                                                 transform=ax_stats_for.transAxes, fontweight='bold', va='top')
                             else:
                                 ax_stats_for.text(0.05, table_y, row[0], ha='left', fontsize=10,
                                                  transform=ax_stats_for.transAxes, fontweight='bold' if row[0] == '' else 'normal')
@@ -1776,6 +1779,9 @@ if events_data is not None:
                                                   linewidth=2, half=True, pad_bottom=0)
                     pitch_against.draw(ax=ax_pitch_against)
                     
+                    # Add title
+                    ax_pitch_against.set_title(f"{selected_team} - Schoten Tegen", fontsize=14, fontweight='bold', pad=10)
+                    
                     # Plot shots against
                     for shot in all_multi_shots_against:
                         sx = shot.get('x', 0.0)
@@ -1799,7 +1805,7 @@ if events_data is not None:
                             face_color = 'white'
                             edge_color = away_color
                             alpha = 1.0
-                            edge_width = 1
+                            edge_width = 2
                             zorder = 5
                         
                         pitch_against.scatter(x, y, s=marker_size, c=face_color,
@@ -1874,15 +1880,15 @@ if events_data is not None:
                     table_y_ag = 0.95
                     for idx, row in enumerate(stats_data_against):
                         if len(row) == 3:
-                            # For xG/xGOT rows (with newline), adjust value positions to align with first line
+                            # For xG/xGOT rows (with newline), align values with top of text (where "xG" is)
                             if '\n' in row[0]:
                                 ax_stats_against.text(0.05, table_y_ag, row[0], ha='left', fontsize=10,
                                                      transform=ax_stats_against.transAxes, fontweight='normal', va='top')
-                                # Shift values up by half step to align with "xG"/"xGOT" line
-                                ax_stats_against.text(0.50, table_y_ag + table_step * 0.3, row[1], ha='center', fontsize=10,
-                                                     transform=ax_stats_against.transAxes, fontweight='bold')
-                                ax_stats_against.text(0.85, table_y_ag + table_step * 0.3, row[2], ha='center', fontsize=10,
-                                                     transform=ax_stats_against.transAxes, fontweight='bold')
+                                # Values at same y position as label (top-aligned)
+                                ax_stats_against.text(0.50, table_y_ag, row[1], ha='center', fontsize=10,
+                                                     transform=ax_stats_against.transAxes, fontweight='bold', va='top')
+                                ax_stats_against.text(0.85, table_y_ag, row[2], ha='center', fontsize=10,
+                                                     transform=ax_stats_against.transAxes, fontweight='bold', va='top')
                             else:
                                 ax_stats_against.text(0.05, table_y_ag, row[0], ha='left', fontsize=10,
                                                      transform=ax_stats_against.transAxes, fontweight='bold' if row[0] == '' else 'normal')
