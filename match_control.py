@@ -2904,8 +2904,14 @@ with tab6:
         with tab8:
             st.subheader("📮 Voorzetten per Zone")
             
+            # Check if we have team_matches available (defined outside main app block)
+            try:
+                has_team_matches = team_matches and len(team_matches) > 0
+            except NameError:
+                has_team_matches = False
+            
             # Allow multi-match selection
-            if team_matches and len(team_matches) > 0:
+            if has_team_matches:
                 match_labels_voorzetten = [info['label'] for info in team_matches]
                 selected_voorzetten_matches = st.multiselect(
                     "Selecteer wedstrijden voor voorzetten analyse",
