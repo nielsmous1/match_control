@@ -887,47 +887,54 @@ def calculate_game_control_and_domination(data, home_team_override=None, away_te
             ax_bar.spines['right'].set_visible(False)
             ax_bar.spines['bottom'].set_visible(False)
         else:
+            # Multiple red cards - create segments between each card
             # Compute bar split based on plotted spans of first/second half
             first_half_plotted_duration = (first_half_minutes[-1] - first_half_minutes[0]) if (hasattr(first_half_minutes, 'size') and first_half_minutes.size > 0) else 0
             second_half_plotted_duration = (second_half_minutes[-1] - second_half_minutes[0]) if (hasattr(second_half_minutes, 'size') and second_half_minutes.size > 0) else 0
             total_plotted_span_actual = first_half_plotted_duration + second_half_plotted_duration
 
-            if total_plotted_span_actual <= 0:
-                bar_split_point_pct = 50.0
-            else:
-                if (card_minute <= first_half_end) and (hasattr(first_half_minutes, 'size') and first_half_minutes.size > 0):
-                    time_before_card_on_plot = card_minute - first_half_minutes[0]
-                elif hasattr(second_half_minutes, 'size') and second_half_minutes.size > 0:
-                    time_before_card_on_plot = first_half_plotted_duration + (card_minute - second_half_minutes[0])
+            # Create time segments: [match_start, card1, card2, ..., match_end]
+            segment_times = [match_start] + filtered_card_minutes + [match_end]
+            
+            # Calculate percentage position of each card on the bar
+            card_split_positions = []
+            for card_minute in filtered_card_minutes:
+                if total_plotted_span_actual <= 0:
+                    split_pct = 50.0
                 else:
-                    time_before_card_on_plot = 0
+                    if (card_minute <= first_half_end) and (hasattr(first_half_minutes, 'size') and first_half_minutes.size > 0):
+                        time_before_card_on_plot = card_minute - first_half_minutes[0]
+                    elif hasattr(second_half_minutes, 'size') and second_half_minutes.size > 0:
+                        time_before_card_on_plot = first_half_plotted_duration + (card_minute - second_half_minutes[0])
+                    else:
+                        time_before_card_on_plot = 0
+                    split_pct = (time_before_card_on_plot / total_plotted_span_actual) * 100.0
+                    split_pct = float(np.clip(split_pct, 0.0, 100.0))
+                card_split_positions.append(split_pct)
+            
+            # Calculate control and danger percentages for each segment
+            segment_data = []
+            for i in range(len(segment_times) - 1):
+                start_time = segment_times[i]
+                end_time = segment_times[i + 1]
+                
+                ctrl_home_pct, ctrl_away_pct = compute_pct_by_team(all_control_events, start_time, end_time, home_team, away_team)
+                dang_home_pct, dang_away_pct = compute_pct_by_team(all_domination_events, start_time, end_time, home_team, away_team)
+                
+                segment_data.append({
+                    'start_time': start_time,
+                    'end_time': end_time,
+                    'ctrl_home_pct': ctrl_home_pct,
+                    'ctrl_away_pct': ctrl_away_pct,
+                    'dang_home_pct': dang_home_pct,
+                    'dang_away_pct': dang_away_pct
+                })
 
-                bar_split_point_pct = (time_before_card_on_plot / total_plotted_span_actual) * 100.0
-                bar_split_point_pct = float(np.clip(bar_split_point_pct, 0.0, 100.0))
-
-            # Percentages pre/post card
-            pre_home_ctrl_pct, pre_away_ctrl_pct = compute_pct_by_team(all_control_events, match_start, card_minute, home_team, away_team)
-            post_home_ctrl_pct, post_away_ctrl_pct = compute_pct_by_team(all_control_events, card_minute, match_end, home_team, away_team)
-
-            pre_home_danger_pct, pre_away_danger_pct = compute_pct_by_team(all_domination_events, match_start, card_minute, home_team, away_team)
-            post_home_danger_pct, post_away_danger_pct = compute_pct_by_team(all_domination_events, card_minute, match_end, home_team, away_team)
-
-            # Absolute widths
-            pre_seg_width = bar_split_point_pct
-            post_seg_width = 100.0 - bar_split_point_pct
-
-            home_pre_width = pre_home_ctrl_pct / 100.0 * pre_seg_width
-            away_pre_width = pre_seg_width - home_pre_width
-
-            home_post_width = post_home_ctrl_pct / 100.0 * post_seg_width
-            away_post_width = post_seg_width - home_post_width
-
-            home_pre_danger_width = pre_home_danger_pct / 100.0 * pre_seg_width
-            away_pre_danger_width = pre_seg_width - home_pre_danger_width
-
-            home_post_danger_width = post_home_danger_pct / 100.0 * post_seg_width
-            away_post_danger_width = post_seg_width - home_post_danger_width
-
+        else:
+            # Multiple red cards - create segments between each card
+            # Calculate segment positions on bar (0-100%)
+            segment_positions = [0.0] + card_split_positions + [100.0]
+            
             ax_bar.clear()
             ax_bar.set_xlim(0, 100)
             ax_bar.set_ylim(-0.65, 1.65)
@@ -935,34 +942,41 @@ def calculate_game_control_and_domination(data, home_team_override=None, away_te
             ax_bar.set_yticklabels(['Danger', 'Control'], fontsize=12, fontweight='bold')
             ax_bar.set_xticks([])
 
-            # Control row
-            ax_bar.barh([1], [home_pre_width], left=[0], color=home_plot_color, alpha=0.8, height=0.85)
-            ax_bar.barh([1], [away_pre_width], left=[home_pre_width], color=away_plot_color, alpha=0.8, height=0.85)
-            ax_bar.barh([1], [home_post_width], left=[pre_seg_width], color=home_plot_color, alpha=0.8, height=0.85)
-            ax_bar.barh([1], [away_post_width], left=[pre_seg_width + home_post_width], color=away_plot_color, alpha=0.8, height=0.85)
-
-            # Danger row
-            ax_bar.barh([0], [home_pre_danger_width], left=[0], color=home_plot_color, alpha=0.8, height=0.85)
-            ax_bar.barh([0], [away_pre_danger_width], left=[home_pre_danger_width], color=away_plot_color, alpha=0.8, height=0.85)
-            ax_bar.barh([0], [home_post_danger_width], left=[pre_seg_width], color=home_plot_color, alpha=0.8, height=0.85)
-            ax_bar.barh([0], [away_post_danger_width], left=[pre_seg_width + home_post_danger_width], color=away_plot_color, alpha=0.8, height=0.85)
-
-            # Red card marker
-            ax_bar.axvline(x=pre_seg_width, color='red', linestyle=':', linewidth=1.2, zorder=5)
-
             def maybe_text(x_start, width, y, txt):
                 if width >= 3:
                     ax_bar.text(x_start + width / 2.0, y, txt, ha='center', va='center', color='white', fontweight='bold', fontsize=11)
 
-            maybe_text(0, home_pre_width, 1, f'{pre_home_ctrl_pct:.0f}%')
-            maybe_text(home_pre_width, away_pre_width, 1, f'{pre_away_ctrl_pct:.0f}%')
-            maybe_text(pre_seg_width, home_post_width, 1, f'{post_home_ctrl_pct:.0f}%')
-            maybe_text(pre_seg_width + home_post_width, away_post_width, 1, f'{post_away_ctrl_pct:.0f}%')
-
-            maybe_text(0, home_pre_danger_width, 0, f'{pre_home_danger_pct:.0f}%')
-            maybe_text(home_pre_danger_width, away_pre_danger_width, 0, f'{pre_away_danger_pct:.0f}%')
-            maybe_text(pre_seg_width, home_post_danger_width, 0, f'{post_home_danger_pct:.0f}%')
-            maybe_text(pre_seg_width + home_post_danger_width, away_post_danger_width, 0, f'{post_away_danger_pct:.0f}%')
+            # Draw each segment
+            for i in range(len(segment_data)):
+                seg = segment_data[i]
+                seg_start_pct = segment_positions[i]
+                seg_end_pct = segment_positions[i + 1]
+                seg_width = seg_end_pct - seg_start_pct
+                
+                # Calculate absolute widths for home/away in this segment
+                home_ctrl_width = seg['ctrl_home_pct'] / 100.0 * seg_width
+                away_ctrl_width = seg['ctrl_away_pct'] / 100.0 * seg_width
+                
+                home_dang_width = seg['dang_home_pct'] / 100.0 * seg_width
+                away_dang_width = seg['dang_away_pct'] / 100.0 * seg_width
+                
+                # Control row
+                ax_bar.barh([1], [home_ctrl_width], left=[seg_start_pct], color=home_plot_color, alpha=0.8, height=0.85)
+                ax_bar.barh([1], [away_ctrl_width], left=[seg_start_pct + home_ctrl_width], color=away_plot_color, alpha=0.8, height=0.85)
+                
+                # Danger row
+                ax_bar.barh([0], [home_dang_width], left=[seg_start_pct], color=home_plot_color, alpha=0.8, height=0.85)
+                ax_bar.barh([0], [away_dang_width], left=[seg_start_pct + home_dang_width], color=away_plot_color, alpha=0.8, height=0.85)
+                
+                # Add percentage labels
+                maybe_text(seg_start_pct, home_ctrl_width, 1, f"{seg['ctrl_home_pct']:.0f}%")
+                maybe_text(seg_start_pct + home_ctrl_width, away_ctrl_width, 1, f"{seg['ctrl_away_pct']:.0f}%")
+                maybe_text(seg_start_pct, home_dang_width, 0, f"{seg['dang_home_pct']:.0f}%")
+                maybe_text(seg_start_pct + home_dang_width, away_dang_width, 0, f"{seg['dang_away_pct']:.0f}%")
+            
+            # Draw red card markers at split positions
+            for split_pct in card_split_positions:
+                ax_bar.axvline(x=split_pct, color='red', linestyle=':', linewidth=1.2, zorder=5)
 
             ax_bar.spines['top'].set_visible(False)
             ax_bar.spines['right'].set_visible(False)
