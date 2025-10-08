@@ -2915,6 +2915,7 @@ if events_data is not None:
                 has_team_matches = False
             
             if has_team_matches:
+                st.caption("ℹ️ Voorzetten die leiden tot doelpoging")
                 match_labels_voorzetten = [info['label'] for info in team_matches]
                 selected_voorzetten_matches = st.multiselect(
                     "Selecteer wedstrijden voor voorzetten analyse",
