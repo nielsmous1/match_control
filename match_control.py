@@ -857,7 +857,7 @@ def calculate_game_control_and_domination(data, home_team_override=None, away_te
         for card in sorted_cards:
             card_minute = card['minute']
             card_minute = max(match_start, min(card_minute, match_end - 1e-6))
-            too_close_to_edges = ((card_minute - match_start) < 5) or ((match_end - card_minute) < 5)
+        too_close_to_edges = ((card_minute - match_start) < 5) or ((match_end - card_minute) < 5)
             if not too_close_to_edges:
                 valid_card_minutes.append(card_minute)
         
@@ -923,15 +923,15 @@ def calculate_game_control_and_domination(data, home_team_override=None, away_te
             # Calculate percentage position of each card on the bar
             card_split_positions = []
             for card_minute in filtered_card_minutes:
-                if total_plotted_span_actual <= 0:
+            if total_plotted_span_actual <= 0:
                     split_pct = 50.0
+            else:
+                if (card_minute <= first_half_end) and (hasattr(first_half_minutes, 'size') and first_half_minutes.size > 0):
+                    time_before_card_on_plot = card_minute - first_half_minutes[0]
+                elif hasattr(second_half_minutes, 'size') and second_half_minutes.size > 0:
+                    time_before_card_on_plot = first_half_plotted_duration + (card_minute - second_half_minutes[0])
                 else:
-                    if (card_minute <= first_half_end) and (hasattr(first_half_minutes, 'size') and first_half_minutes.size > 0):
-                        time_before_card_on_plot = card_minute - first_half_minutes[0]
-                    elif hasattr(second_half_minutes, 'size') and second_half_minutes.size > 0:
-                        time_before_card_on_plot = first_half_plotted_duration + (card_minute - second_half_minutes[0])
-                    else:
-                        time_before_card_on_plot = 0
+                    time_before_card_on_plot = 0
                     split_pct = (time_before_card_on_plot / total_plotted_span_actual) * 100.0
                     split_pct = float(np.clip(split_pct, 0.0, 100.0))
                 card_split_positions.append(split_pct)
@@ -1237,7 +1237,7 @@ if events_data is not None:
 
             for shot in home_shots:
                 # Always flip home team shots so they appear on the left
-                x = -shot['x']; y = -shot['y']
+                    x = -shot['x']; y = -shot['y']
                 marker_size = 50 + (shot['xG'] * 450)
                 if shot['is_goal']:
                     face_color = home_color; edge_color = home_color; edge_width = 2; stats[home_team]['goals'] += 1
@@ -1253,14 +1253,14 @@ if events_data is not None:
                         stats[home_team]['pen_PSxG'] += shot['PSxG']
                         stats[home_team]['shots_on_target'] += 1
                 else:
-                    stats[home_team]['xG'] += shot['xG']
-                    if shot['PSxG']:
-                        stats[home_team]['PSxG'] += shot['PSxG']
-                        stats[home_team]['shots_on_target'] += 1
+                stats[home_team]['xG'] += shot['xG']
+                if shot['PSxG']:
+                    stats[home_team]['PSxG'] += shot['PSxG']
+                    stats[home_team]['shots_on_target'] += 1
 
             for shot in away_shots:
                 # Away shots remain as-is (shown on the right)
-                x = shot['x']; y = shot['y']
+                    x = shot['x']; y = shot['y']
                 marker_size = 50 + (shot['xG'] * 450)
                 if shot['is_goal']:
                     face_color = away_color; edge_color = away_color; edge_width = 2; stats[away_team]['goals'] += 1
@@ -1276,10 +1276,10 @@ if events_data is not None:
                         stats[away_team]['pen_PSxG'] += shot['PSxG']
                         stats[away_team]['shots_on_target'] += 1
                 else:
-                    stats[away_team]['xG'] += shot['xG']
-                    if shot['PSxG']:
-                        stats[away_team]['PSxG'] += shot['PSxG']
-                        stats[away_team]['shots_on_target'] += 1
+                stats[away_team]['xG'] += shot['xG']
+                if shot['PSxG']:
+                    stats[away_team]['PSxG'] += shot['PSxG']
+                    stats[away_team]['shots_on_target'] += 1
 
             home_total_goals = stats[home_team]['goals'] + away_own_goals
             away_total_goals = stats[away_team]['goals'] + home_own_goals
@@ -2784,8 +2784,8 @@ if events_data is not None:
             st.write(f"DEBUG: events_data is {'not None' if events_data is not None else 'None'}")
             
             # Use current match data
-            if events_data is not None:
-                events = events_data.get('data', []) if isinstance(events_data, dict) else []
+    if events_data is not None:
+        events = events_data.get('data', []) if isinstance(events_data, dict) else []
                 metadata = events_data.get('metaData', {}) if isinstance(events_data, dict) else {}
                 home_team_v = metadata.get('homeTeamName', 'Home')
                 away_team_v = metadata.get('awayTeamName', 'Away')
@@ -2795,7 +2795,7 @@ if events_data is not None:
                 CROSS_SUB_TYPE_ID = 200
                 CUTBACK_SUB_TYPE_ID = 204
                 CROSS_LOW_SUB_TYPE_ID = 203
-                SUCCESSFUL_RESULT_ID = 1
+        SUCCESSFUL_RESULT_ID = 1
                 
                 # Zones definition
                 zones = {
@@ -2901,7 +2901,7 @@ if events_data is not None:
                 
                 fig_away = draw_voorzetten_pitch(away_crosses, f"{away_team_v} - Voorzetten")
                 st.pyplot(fig_away)
-            else:
+        else:
                 st.info("Selecteer een wedstrijd om voorzetten te bekijken.")
         
         # ---------- Multi Match Voorzetten Tab ----------
@@ -2915,7 +2915,6 @@ if events_data is not None:
                 has_team_matches = False
             
             if has_team_matches:
-                st.caption("ℹ️ Voorzetten die leiden tot doelpoging")
                 match_labels_voorzetten = [info['label'] for info in team_matches]
                 selected_voorzetten_matches = st.multiselect(
                     "Selecteer wedstrijden voor voorzetten analyse",
@@ -3180,8 +3179,13 @@ if events_data is not None:
                     # Add labels for each half (closer to the pitch)
                     fig_full.text(0.5, 0.88, f"{team_to_filter} - Voorzetten", fontsize=12, fontweight='bold',
                                 ha='center', va='center', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+                    fig_full.text(0.5, 0.85, "Voorzetten die leiden tot doelpoging", fontsize=9, fontstyle='italic',
+                                ha='center', va='center', color='gray')
+                    
                     fig_full.text(0.5, 0.12, f"{team_to_filter} - Voorzetten Tegen", fontsize=12, fontweight='bold',
                                 ha='center', va='center', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+                    fig_full.text(0.5, 0.09, "Voorzetten die leiden tot doelpoging", fontsize=9, fontstyle='italic',
+                                ha='center', va='center', color='gray')
                     
                     st.pyplot(fig_full)
                 else:
