@@ -2995,11 +2995,10 @@ if events_data is not None:
                         'Zone 14 M (Zone 14 Area)': {'x_min': 17.5, 'x_max': 36, 'y_min': -9.25, 'y_max': 9.25},
                     }
                     
-                    # --- Figure 1: Voorzetten Voor (by selected team) ---
-                    st.subheader(f"{team_to_filter} - Voorzetten")
-                    
-                    # Count crosses per zone
+                    # Count crosses per zone for both teams
                     zone_stats_for = {zone_name: {'total': 0, 'successful': 0} for zone_name in zones}
+                    zone_stats_against = {zone_name: {'total': 0, 'successful': 0} for zone_name in zones}
+                    
                     for event in all_cross_events_for:
                         start_x = event.get('startPosXM')
                         start_y = event.get('startPosYM')
@@ -3013,58 +3012,6 @@ if events_data is not None:
                                         zone_stats_for[zone_name]['successful'] += 1
                                     break
                     
-                    # Draw vertical half pitch and annotate zones
-                    pitch_for = VerticalPitch(half=True, pitch_type='impect')
-                    fig_for, ax_for = pitch_for.draw(figsize=(8, 12))
-                    
-                    for zone_name, coords in zones.items():
-                        total = zone_stats_for[zone_name]['total']
-                        successful = zone_stats_for[zone_name]['successful']
-                        percentage = (successful / total * 100) if total > 0 else 0
-
-                        # Choose background color based on percentage
-                        if total > 0 and percentage == 0:
-                            facecolor = '#f8d7da'
-                        elif percentage > 0 and percentage < 30:
-                            facecolor = '#ffd8a8'
-                        elif percentage >= 30 and percentage < 60:
-                            facecolor = '#fff3bf'
-                        elif percentage >= 60:
-                            facecolor = '#d3f9d8'
-                        else:
-                            facecolor = 'none'
-
-                        # Draw zone rectangle
-                        rect = patches.Rectangle((coords['y_min'], coords['x_min']),
-                                                 coords['y_max'] - coords['y_min'],
-                                                 coords['x_max'] - coords['x_min'],
-                                                 linewidth=1.5, edgecolor='black', facecolor=facecolor, alpha=0.85, zorder=1)
-                        ax_for.add_patch(rect)
-
-                        # Zone name
-                        ul_x = coords['x_min'] + 1.2
-                        ul_y = coords['y_max'] - 0.4
-                        zone_title = zone_name.split('(')[0].strip()
-                        pitch_for.annotate(zone_title, (ul_x, ul_y), ax=ax_for,
-                                       ha='left', va='top', fontsize=6, color='black',
-                                       zorder=11)
-
-                        # Centered stats text
-                        center_x = (coords['x_min'] + coords['x_max']) / 2
-                        center_y = (coords['y_min'] + coords['y_max']) / 2
-                        text_string = f"{successful}/{total}\n{percentage:.0f}%"
-                        pitch_for.annotate(text_string, (center_x, center_y), ax=ax_for,
-                                       ha='center', va='center', fontsize=8, color='black',
-                                       fontweight='bold', zorder=12)
-                    
-                    plt.title(f"{team_to_filter} - Voorzetten", fontsize=16, fontweight='bold')
-                    st.pyplot(fig_for)
-                    
-                    # --- Figure 2: Voorzetten Tegen (by opponents) ---
-                    st.subheader(f"{team_to_filter} - Voorzetten Tegen")
-                    
-                    # Count crosses per zone for opponents
-                    zone_stats_against = {zone_name: {'total': 0, 'successful': 0} for zone_name in zones}
                     for event in all_cross_events_against:
                         start_x = event.get('startPosXM')
                         start_y = event.get('startPosYM')
@@ -3078,16 +3025,16 @@ if events_data is not None:
                                         zone_stats_against[zone_name]['successful'] += 1
                                     break
                     
-                    # Draw vertical half pitch for against
-                    pitch_against = VerticalPitch(half=True, pitch_type='impect')
-                    fig_against, ax_against = pitch_against.draw(figsize=(8, 12))
+                    # Draw full vertical pitch (both halves)
+                    pitch_full = VerticalPitch(half=False, pitch_type='impect')
+                    fig_full, ax_full = pitch_full.draw(figsize=(8, 16))
                     
+                    # Draw zones for selected team's crosses (top half)
                     for zone_name, coords in zones.items():
-                        total = zone_stats_against[zone_name]['total']
-                        successful = zone_stats_against[zone_name]['successful']
+                        total = zone_stats_for[zone_name]['total']
+                        successful = zone_stats_for[zone_name]['successful']
                         percentage = (successful / total * 100) if total > 0 else 0
 
-                        # Choose background color based on percentage
                         if total > 0 and percentage == 0:
                             facecolor = '#f8d7da'
                         elif percentage > 0 and percentage < 30:
@@ -3099,31 +3046,82 @@ if events_data is not None:
                         else:
                             facecolor = 'none'
 
-                        # Draw zone rectangle
+                        # Draw zone rectangle (top half, normal coords)
                         rect = patches.Rectangle((coords['y_min'], coords['x_min']),
                                                  coords['y_max'] - coords['y_min'],
                                                  coords['x_max'] - coords['x_min'],
                                                  linewidth=1.5, edgecolor='black', facecolor=facecolor, alpha=0.85, zorder=1)
-                        ax_against.add_patch(rect)
+                        ax_full.add_patch(rect)
 
                         # Zone name
                         ul_x = coords['x_min'] + 1.2
                         ul_y = coords['y_max'] - 0.4
                         zone_title = zone_name.split('(')[0].strip()
-                        pitch_against.annotate(zone_title, (ul_x, ul_y), ax=ax_against,
-                                       ha='left', va='top', fontsize=6, color='black',
-                                       zorder=11)
+                        pitch_full.annotate(zone_title, (ul_x, ul_y), ax=ax_full,
+                                           ha='left', va='top', fontsize=6, color='black',
+                                           zorder=11)
 
                         # Centered stats text
                         center_x = (coords['x_min'] + coords['x_max']) / 2
                         center_y = (coords['y_min'] + coords['y_max']) / 2
                         text_string = f"{successful}/{total}\n{percentage:.0f}%"
-                        pitch_against.annotate(text_string, (center_x, center_y), ax=ax_against,
-                                       ha='center', va='center', fontsize=8, color='black',
-                                       fontweight='bold', zorder=12)
+                        pitch_full.annotate(text_string, (center_x, center_y), ax=ax_full,
+                                           ha='center', va='center', fontsize=8, color='black',
+                                           fontweight='bold', zorder=12)
                     
-                    plt.title(f"{team_to_filter} - Voorzetten Tegen", fontsize=16, fontweight='bold')
-                    st.pyplot(fig_against)
+                    # Draw zones for conceded crosses (bottom half, inverted)
+                    for zone_name, coords in zones.items():
+                        total = zone_stats_against[zone_name]['total']
+                        successful = zone_stats_against[zone_name]['successful']
+                        percentage = (successful / total * 100) if total > 0 else 0
+
+                        if total > 0 and percentage == 0:
+                            facecolor = '#f8d7da'
+                        elif percentage > 0 and percentage < 30:
+                            facecolor = '#ffd8a8'
+                        elif percentage >= 30 and percentage < 60:
+                            facecolor = '#fff3bf'
+                        elif percentage >= 60:
+                            facecolor = '#d3f9d8'
+                        else:
+                            facecolor = 'none'
+
+                        # Invert coordinates for bottom half: x -> -x, y -> -y
+                        inverted_y_min = -coords['y_max']
+                        inverted_y_max = -coords['y_min']
+                        inverted_x_min = -coords['x_max']
+                        inverted_x_max = -coords['x_min']
+                        
+                        # Draw zone rectangle (bottom half, inverted)
+                        rect = patches.Rectangle((inverted_y_min, inverted_x_min),
+                                                 inverted_y_max - inverted_y_min,
+                                                 inverted_x_max - inverted_x_min,
+                                                 linewidth=1.5, edgecolor='black', facecolor=facecolor, alpha=0.85, zorder=1)
+                        ax_full.add_patch(rect)
+
+                        # Zone name (inverted position)
+                        ul_x_inv = inverted_x_min + 1.2
+                        ul_y_inv = inverted_y_max - 0.4
+                        pitch_full.annotate(zone_title, (ul_x_inv, ul_y_inv), ax=ax_full,
+                                           ha='left', va='top', fontsize=6, color='black',
+                                           zorder=11)
+
+                        # Centered stats text (inverted)
+                        center_x_inv = (inverted_x_min + inverted_x_max) / 2
+                        center_y_inv = (inverted_y_min + inverted_y_max) / 2
+                        text_string = f"{successful}/{total}\n{percentage:.0f}%"
+                        pitch_full.annotate(text_string, (center_x_inv, center_y_inv), ax=ax_full,
+                                           ha='center', va='center', fontsize=8, color='black',
+                                           fontweight='bold', zorder=12)
+                    
+                    # Add labels for each half
+                    ax_full.text(0, 40, f"{team_to_filter} - Voorzetten", fontsize=12, fontweight='bold',
+                                ha='center', va='center', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+                    ax_full.text(0, -40, f"{team_to_filter} - Voorzetten Tegen", fontsize=12, fontweight='bold',
+                                ha='center', va='center', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+                    
+                    plt.title(f"Voorzetten - {team_to_filter}", fontsize=16, fontweight='bold')
+                    st.pyplot(fig_full)
                 else:
                     st.info("Selecteer minstens één wedstrijd voor voorzetten analyse.")
             else:
