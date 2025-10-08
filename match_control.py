@@ -3099,10 +3099,11 @@ if events_data is not None:
                                                  linewidth=1.5, edgecolor='black', facecolor=facecolor, alpha=0.85, zorder=1)
                         ax_full.add_patch(rect)
 
-                        # Zone name (inverted position)
+                        # Zone name (inverted position) - use zone_name not zone_title from previous loop
+                        zone_title_inv = zone_name.split('(')[0].strip()
                         ul_x_inv = inverted_x_min + 1.2
                         ul_y_inv = inverted_y_max - 0.4
-                        pitch_full.annotate(zone_title, (ul_x_inv, ul_y_inv), ax=ax_full,
+                        pitch_full.annotate(zone_title_inv, (ul_x_inv, ul_y_inv), ax=ax_full,
                                            ha='left', va='top', fontsize=6, color='black',
                                            zorder=11)
 
@@ -3114,10 +3115,10 @@ if events_data is not None:
                                            ha='center', va='center', fontsize=8, color='black',
                                            fontweight='bold', zorder=12)
                     
-                    # Add labels for each half
-                    ax_full.text(0, 40, f"{team_to_filter} - Voorzetten", fontsize=12, fontweight='bold',
+                    # Add labels for each half (outside the pitch)
+                    fig_full.text(0.5, 0.95, f"{team_to_filter} - Voorzetten", fontsize=12, fontweight='bold',
                                 ha='center', va='center', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
-                    ax_full.text(0, -40, f"{team_to_filter} - Voorzetten Tegen", fontsize=12, fontweight='bold',
+                    fig_full.text(0.5, 0.05, f"{team_to_filter} - Voorzetten Tegen", fontsize=12, fontweight='bold',
                                 ha='center', va='center', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
                     
                     plt.title(f"Voorzetten - {team_to_filter}", fontsize=16, fontweight='bold')
