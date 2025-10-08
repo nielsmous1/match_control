@@ -1722,23 +1722,22 @@ if events_data is not None:
                     xg_for = sum(s['xG'] for s in all_multi_shots_for if not s.get('is_penalty'))
                     xgot_for = sum(s['PSxG'] for s in all_multi_shots_for if s['PSxG'] and not s.get('is_penalty'))
                     penalties_for = sum(1 for s in all_multi_shots_for if s.get('is_penalty'))
+                    penalty_goals_for = sum(1 for s in all_multi_shots_for if s.get('is_penalty') and s['is_goal'])
                     
                     avg_goals = goals_for / num_matches
                     avg_shots = shots_for / num_matches
                     avg_on_target = on_target_for / num_matches
                     avg_xg = xg_for / num_matches
                     avg_xgot = xgot_for / num_matches
-                    avg_penalties = penalties_for / num_matches
                     
                     stats_data = [
                         ('', '', ''),
                         ('', 'Totaal', 'Per wedstrijd'),
-                        ('Doelpunten', f'{int(round(goals_for))}', f'{avg_goals:.2f}'),
+                        (f"Doelpunten\n(waarvan penalty's: {penalty_goals_for})", f'{int(round(goals_for))}', f'{avg_goals:.2f}'),
                         ('Schoten', f'{shots_for}', f'{avg_shots:.1f}'),
                         ('Schoten op doel', f'{on_target_for}', f'{avg_on_target:.1f}'),
                         ("xG\n(zonder penalty's)", f'{xg_for:.2f}', f'{avg_xg:.2f}'),
                         ("xGOT\n(zonder penalty's)", f'{xgot_for:.2f}', f'{avg_xgot:.2f}'),
-                        ("Penalty's", f'{penalties_for}', f'{avg_penalties:.2f}'),
                     ]
                     
                     table_y = 0.95
@@ -1863,23 +1862,22 @@ if events_data is not None:
                     xg_against = sum(s['xG'] for s in all_multi_shots_against if not s.get('is_penalty'))
                     xgot_against = sum(s['PSxG'] for s in all_multi_shots_against if s['PSxG'] and not s.get('is_penalty'))
                     penalties_against = sum(1 for s in all_multi_shots_against if s.get('is_penalty'))
+                    penalty_goals_against = sum(1 for s in all_multi_shots_against if s.get('is_penalty') and s['is_goal'])
                     
                     avg_goals_ag = goals_against / num_matches
                     avg_shots_ag = shots_against / num_matches
                     avg_on_target_ag = on_target_against / num_matches
                     avg_xg_ag = xg_against / num_matches
                     avg_xgot_ag = xgot_against / num_matches
-                    avg_penalties_ag = penalties_against / num_matches
                     
                     stats_data_against = [
                         ('', '', ''),
                         ('', 'Totaal', 'Per wedstrijd'),
-                        ('Doelpunten', f'{int(round(goals_against))}', f'{avg_goals_ag:.2f}'),
+                        (f"Doelpunten\n(waarvan penalty's: {penalty_goals_against})", f'{int(round(goals_against))}', f'{avg_goals_ag:.2f}'),
                         ('Schoten', f'{shots_against}', f'{avg_shots_ag:.1f}'),
                         ('Schoten op doel', f'{on_target_against}', f'{avg_on_target_ag:.1f}'),
                         ("xG\n(zonder penalty's)", f'{xg_against:.2f}', f'{avg_xg_ag:.2f}'),
                         ("xGOT\n(zonder penalty's)", f'{xgot_against:.2f}', f'{avg_xgot_ag:.2f}'),
-                        ("Penalty's", f'{penalties_against}', f'{avg_penalties_ag:.2f}'),
                     ]
                     
                     table_y_ag = 0.95
