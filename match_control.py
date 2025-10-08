@@ -1733,7 +1733,7 @@ if events_data is not None:
                     stats_data = [
                         ('', '', ''),
                         ('', 'Totaal', 'Per wedstrijd'),
-                        (f"Doelpunten\n(waarvan penalty's: {penalty_goals_for})", f'{int(round(goals_for))}', f'{avg_goals:.2f}'),
+                        ("Doelpunten\n(waarvan penalty's)", f'{int(round(goals_for))}({penalty_goals_for})', f'{avg_goals:.2f}'),
                         ('Schoten', f'{shots_for}', f'{avg_shots:.1f}'),
                         ('Schoten op doel', f'{on_target_for}', f'{avg_on_target:.1f}'),
                         ("xG\n(zonder penalty's)", f'{xg_for:.2f}', f'{avg_xg:.2f}'),
@@ -1873,7 +1873,7 @@ if events_data is not None:
                     stats_data_against = [
                         ('', '', ''),
                         ('', 'Totaal', 'Per wedstrijd'),
-                        (f"Doelpunten\n(waarvan penalty's: {penalty_goals_against})", f'{int(round(goals_against))}', f'{avg_goals_ag:.2f}'),
+                        ("Doelpunten\n(waarvan penalty's)", f'{int(round(goals_against))}({penalty_goals_against})', f'{avg_goals_ag:.2f}'),
                         ('Schoten', f'{shots_against}', f'{avg_shots_ag:.1f}'),
                         ('Schoten op doel', f'{on_target_against}', f'{avg_on_target_ag:.1f}'),
                         ("xG\n(zonder penalty's)", f'{xg_against:.2f}', f'{avg_xg_ag:.2f}'),
