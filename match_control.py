@@ -1276,10 +1276,10 @@ if events_data is not None:
                         stats[away_team]['pen_PSxG'] += shot['PSxG']
                         stats[away_team]['shots_on_target'] += 1
                 else:
-                stats[away_team]['xG'] += shot['xG']
-                if shot['PSxG']:
-                    stats[away_team]['PSxG'] += shot['PSxG']
-                    stats[away_team]['shots_on_target'] += 1
+                    stats[away_team]['xG'] += shot['xG']
+                    if shot['PSxG']:
+                        stats[away_team]['PSxG'] += shot['PSxG']
+                        stats[away_team]['shots_on_target'] += 1
 
             home_total_goals = stats[home_team]['goals'] + away_own_goals
             away_total_goals = stats[away_team]['goals'] + home_own_goals
@@ -2780,12 +2780,9 @@ if events_data is not None:
         with tab8:
             st.subheader("📮 Voorzetten per Zone")
             
-            # Debug: show what we have
-            st.write(f"DEBUG: events_data is {'not None' if events_data is not None else 'None'}")
-            
             # Use current match data
-    if events_data is not None:
-        events = events_data.get('data', []) if isinstance(events_data, dict) else []
+            if events_data is not None:
+                events = events_data.get('data', []) if isinstance(events_data, dict) else []
                 metadata = events_data.get('metaData', {}) if isinstance(events_data, dict) else {}
                 home_team_v = metadata.get('homeTeamName', 'Home')
                 away_team_v = metadata.get('awayTeamName', 'Away')
@@ -2795,7 +2792,7 @@ if events_data is not None:
                 CROSS_SUB_TYPE_ID = 200
                 CUTBACK_SUB_TYPE_ID = 204
                 CROSS_LOW_SUB_TYPE_ID = 203
-        SUCCESSFUL_RESULT_ID = 1
+                SUCCESSFUL_RESULT_ID = 1
                 
                 # Zones definition
                 zones = {
@@ -2901,7 +2898,7 @@ if events_data is not None:
                 
                 fig_away = draw_voorzetten_pitch(away_crosses, f"{away_team_v} - Voorzetten")
                 st.pyplot(fig_away)
-        else:
+            else:
                 st.info("Selecteer een wedstrijd om voorzetten te bekijken.")
         
         # ---------- Multi Match Voorzetten Tab ----------
