@@ -3075,14 +3075,15 @@ if events_data is not None:
                         successful = zone_stats_against[zone_name]['successful']
                         percentage = (successful / total * 100) if total > 0 else 0
 
+                        # Inverse color scheme: green for safe (low %), red for dangerous (high %)
                         if total > 0 and percentage == 0:
-                            facecolor = '#f8d7da'
+                            facecolor = '#d3f9d8'  # Green - safe, no successful crosses
                         elif percentage > 0 and percentage < 30:
-                            facecolor = '#ffd8a8'
+                            facecolor = '#fff3bf'  # Yellow - relatively safe
                         elif percentage >= 30 and percentage < 60:
-                            facecolor = '#fff3bf'
+                            facecolor = '#ffd8a8'  # Orange - moderate danger
                         elif percentage >= 60:
-                            facecolor = '#d3f9d8'
+                            facecolor = '#f8d7da'  # Red - dangerous, high success rate
                         else:
                             facecolor = 'none'
 
