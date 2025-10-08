@@ -3116,13 +3116,12 @@ if events_data is not None:
                                            ha='center', va='center', fontsize=8, color='black',
                                            fontweight='bold', zorder=12)
                     
-                    # Add labels for each half (outside the pitch)
-                    fig_full.text(0.5, 0.95, f"{team_to_filter} - Voorzetten", fontsize=12, fontweight='bold',
+                    # Add labels for each half (closer to the pitch)
+                    fig_full.text(0.5, 0.88, f"{team_to_filter} - Voorzetten", fontsize=12, fontweight='bold',
                                 ha='center', va='center', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
-                    fig_full.text(0.5, 0.05, f"{team_to_filter} - Voorzetten Tegen", fontsize=12, fontweight='bold',
+                    fig_full.text(0.5, 0.12, f"{team_to_filter} - Voorzetten Tegen", fontsize=12, fontweight='bold',
                                 ha='center', va='center', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
                     
-                    plt.title(f"Voorzetten - {team_to_filter}", fontsize=16, fontweight='bold')
                     st.pyplot(fig_full)
                 else:
                     st.info("Selecteer minstens één wedstrijd voor voorzetten analyse.")
