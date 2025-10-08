@@ -2942,10 +2942,14 @@ if events_data is not None:
                         """
                         A cross is successful if:
                         1. It has resultId = 1 AND
-                        2. Next event is a shot (baseTypeId 6) OR
-                        3. Next event is a defensive duel (baseTypeId 4) AND the event after that is a shot
+                        2. Next event is a shot (baseTypeId 6) by the SAME team OR
+                        3. Next TWO events are defensive duels AND the event after that is a shot by the SAME team
                         """
                         if cross_event.get('resultId') != SUCCESSFUL_RESULT_ID:
+                            return False
+                        
+                        cross_team = cross_event.get('teamName')
+                        if not cross_team:
                             return False
                         
                         # Find the index of this cross in the events list
@@ -2962,16 +2966,21 @@ if events_data is not None:
                         if cross_idx is None or cross_idx >= len(events) - 1:
                             return False
                         
-                        # Check next event
-                        next_event = events[cross_idx + 1]
-                        if next_event.get('baseTypeId') == SHOT_BASE_TYPE_ID:
+                        # Check Condition 1: Immediately followed by a shot by the SAME team
+                        next_event_1 = events[cross_idx + 1]
+                        if (next_event_1.get('baseTypeId') == SHOT_BASE_TYPE_ID and
+                            next_event_1.get('teamName') == cross_team):
                             return True
                         
-                        # Check if next event is defensive duel, then check the one after
-                        if (next_event.get('baseTypeId') == DEFENSIVE_DUEL_BASE_TYPE_ID and 
-                            cross_idx + 2 < len(events)):
-                            next_next_event = events[cross_idx + 2]
-                            if next_next_event.get('baseTypeId') == SHOT_BASE_TYPE_ID:
+                        # Check Condition 2: Followed by TWO defensive duels and then a shot by the SAME team
+                        if cross_idx + 3 < len(events):
+                            next_event_2 = events[cross_idx + 2]
+                            next_event_3 = events[cross_idx + 3]
+                            
+                            if (next_event_1.get('baseTypeName') == 'DEFENSIVE_DUEL' and
+                                next_event_2.get('baseTypeName') == 'DEFENSIVE_DUEL' and
+                                next_event_3.get('baseTypeId') == SHOT_BASE_TYPE_ID and
+                                next_event_3.get('teamName') == cross_team):
                                 return True
                         
                         return False
