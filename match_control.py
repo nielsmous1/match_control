@@ -1237,7 +1237,7 @@ if events_data is not None:
 
             for shot in home_shots:
                 # Always flip home team shots so they appear on the left
-                    x = -shot['x']; y = -shot['y']
+                x = -shot['x']; y = -shot['y']
                 marker_size = 50 + (shot['xG'] * 450)
                 if shot['is_goal']:
                     face_color = home_color; edge_color = home_color; edge_width = 2; stats[home_team]['goals'] += 1
@@ -1253,14 +1253,14 @@ if events_data is not None:
                         stats[home_team]['pen_PSxG'] += shot['PSxG']
                         stats[home_team]['shots_on_target'] += 1
                 else:
-                stats[home_team]['xG'] += shot['xG']
-                if shot['PSxG']:
-                    stats[home_team]['PSxG'] += shot['PSxG']
-                    stats[home_team]['shots_on_target'] += 1
+                    stats[home_team]['xG'] += shot['xG']
+                    if shot['PSxG']:
+                        stats[home_team]['PSxG'] += shot['PSxG']
+                        stats[home_team]['shots_on_target'] += 1
 
             for shot in away_shots:
                 # Away shots remain as-is (shown on the right)
-                    x = shot['x']; y = shot['y']
+                x = shot['x']; y = shot['y']
                 marker_size = 50 + (shot['xG'] * 450)
                 if shot['is_goal']:
                     face_color = away_color; edge_color = away_color; edge_width = 2; stats[away_team]['goals'] += 1
