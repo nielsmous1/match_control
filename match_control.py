@@ -2937,16 +2937,52 @@ if events_data is not None:
                     SHOT_BASE_TYPE_ID = 6
                     DEFENSIVE_DUEL_BASE_TYPE_ID = 4
                     
-                    # Load all selected matches and collect crosses with success info
-                    all_matches_events = []  # Store all events from all matches
+                    # Function to check if a cross leads to a shot
+                    def is_cross_successful(cross_event, events):
+                        """
+                        A cross is successful if:
+                        1. It has resultId = 1 AND
+                        2. Next event is a shot (baseTypeId 6) OR
+                        3. Next event is a defensive duel (baseTypeId 4) AND the event after that is a shot
+                        """
+                        if cross_event.get('resultId') != SUCCESSFUL_RESULT_ID:
+                            return False
+                        
+                        # Find the index of this cross in the events list
+                        cross_id = cross_event.get('eventId')
+                        if not cross_id:
+                            return False
+                        
+                        cross_idx = None
+                        for idx, evt in enumerate(events):
+                            if evt.get('eventId') == cross_id:
+                                cross_idx = idx
+                                break
+                        
+                        if cross_idx is None or cross_idx >= len(events) - 1:
+                            return False
+                        
+                        # Check next event
+                        next_event = events[cross_idx + 1]
+                        if next_event.get('baseTypeId') == SHOT_BASE_TYPE_ID:
+                            return True
+                        
+                        # Check if next event is defensive duel, then check the one after
+                        if (next_event.get('baseTypeId') == DEFENSIVE_DUEL_BASE_TYPE_ID and 
+                            cross_idx + 2 < len(events)):
+                            next_next_event = events[cross_idx + 2]
+                            if next_next_event.get('baseTypeId') == SHOT_BASE_TYPE_ID:
+                                return True
+                        
+                        return False
                     
+                    # Load all selected matches and collect crosses with success info
                     for match_label in selected_voorzetten_matches:
                         match_info = next((m for m in team_matches if m['label'] == match_label), None)
                         if match_info:
                             try:
                                 match_data = load_json_lenient(match_info['path'])
                                 events = match_data.get('data', []) if isinstance(match_data, dict) else []
-                                all_matches_events.extend(events)  # Collect all events
                                 
                                 # Filter crosses by selected team
                                 cross_events_for = [
@@ -2968,7 +3004,7 @@ if events_data is not None:
                                      event.get('subTypeId') == CROSS_LOW_SUB_TYPE_ID)
                                 ]
                                 
-                                # Distance filter and add to aggregated lists
+                                # Distance filter, check success, and add to aggregated lists
                                 for event in cross_events_for:
                                     start_x = event.get('startPosXM')
                                     start_y = event.get('startPosYM')
@@ -2977,6 +3013,8 @@ if events_data is not None:
                                     if start_x is not None and start_y is not None and end_x is not None and end_y is not None:
                                         distance = np.sqrt((end_x - start_x)**2 + (end_y - start_y)**2)
                                         if distance >= 0:
+                                            # Add success flag to the event
+                                            event['is_successful_cross'] = is_cross_successful(event, events)
                                             all_cross_events_for.append(event)
                                 
                                 for event in cross_events_against:
@@ -2987,48 +3025,11 @@ if events_data is not None:
                                     if start_x is not None and start_y is not None and end_x is not None and end_y is not None:
                                         distance = np.sqrt((end_x - start_x)**2 + (end_y - start_y)**2)
                                         if distance >= 0:
+                                            # Add success flag to the event
+                                            event['is_successful_cross'] = is_cross_successful(event, events)
                                             all_cross_events_against.append(event)
                             except Exception as e:
                                 st.warning(f"Error loading {match_label}: {e}")
-                    
-                    # Function to check if a cross leads to a shot
-                    def is_cross_successful(cross_event, all_events):
-                        """
-                        A cross is successful if:
-                        1. It has resultId = 1 AND
-                        2. Next event is a shot (baseTypeId 6) OR
-                        3. Next two events are defensive duels (baseTypeId 4) followed by a shot
-                        """
-                        if cross_event.get('resultId') != SUCCESSFUL_RESULT_ID:
-                            return False
-                        
-                        # Find the index of this cross in the events list
-                        cross_id = cross_event.get('eventId')
-                        if not cross_id:
-                            return False
-                        
-                        cross_idx = None
-                        for idx, evt in enumerate(all_events):
-                            if evt.get('eventId') == cross_id:
-                                cross_idx = idx
-                                break
-                        
-                        if cross_idx is None or cross_idx >= len(all_events) - 1:
-                            return False
-                        
-                        # Check next event
-                        next_event = all_events[cross_idx + 1]
-                        if next_event.get('baseTypeId') == SHOT_BASE_TYPE_ID:
-                            return True
-                        
-                        # Check if next event is defensive duel, then check the one after
-                        if (next_event.get('baseTypeId') == DEFENSIVE_DUEL_BASE_TYPE_ID and 
-                            cross_idx + 2 < len(all_events)):
-                            next_next_event = all_events[cross_idx + 2]
-                            if next_next_event.get('baseTypeId') == SHOT_BASE_TYPE_ID:
-                                return True
-                        
-                        return False
                 
                     # Zones definition
                     zones = {
@@ -3052,7 +3053,7 @@ if events_data is not None:
                     for event in all_cross_events_for:
                         start_x = event.get('startPosXM')
                         start_y = event.get('startPosYM')
-                        is_successful = is_cross_successful(event, all_matches_events)
+                        is_successful = event.get('is_successful_cross', False)
                         if start_x is not None and start_y is not None:
                             for zone_name, coords in zones.items():
                                 if (coords['x_min'] <= start_x < coords['x_max'] and
@@ -3065,7 +3066,7 @@ if events_data is not None:
                     for event in all_cross_events_against:
                         start_x = event.get('startPosXM')
                         start_y = event.get('startPosYM')
-                        is_successful = is_cross_successful(event, all_matches_events)
+                        is_successful = event.get('is_successful_cross', False)
                         if start_x is not None and start_y is not None:
                             for zone_name, coords in zones.items():
                                 if (coords['x_min'] <= start_x < coords['x_max'] and
