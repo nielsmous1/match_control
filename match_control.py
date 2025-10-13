@@ -1588,31 +1588,40 @@ if events_data is not None:
                     # Use average second half start
                     avg_second_half_start = int(np.mean(second_half_starts)) if second_half_starts else 45
                     
-                    # Calculate shot intervals using provided logic
+                    # Calculate shot intervals and xG per interval using provided logic
                     def calculate_multi_shot_intervals(shots, second_half_start_time):
                         shot_intervals = [0] * 6
+                        xg_intervals = [0.0] * 6
                         for shot in shots:
                             minute = int((shot.get('time', 0) or 0))
                             part_id = shot.get('partId', 1)
+                            xg_value = shot.get('xG', 0.0)
+                            
                             if part_id == 1:
                                 if minute < 15:
                                     shot_intervals[0] += 1
+                                    xg_intervals[0] += xg_value
                                 elif minute < 30:
                                     shot_intervals[1] += 1
+                                    xg_intervals[1] += xg_value
                                 else:
                                     shot_intervals[2] += 1
+                                    xg_intervals[2] += xg_value
                             elif part_id == 2:
                                 relative_minute = minute - second_half_start_time
                                 if relative_minute < 15:
                                     shot_intervals[3] += 1
+                                    xg_intervals[3] += xg_value
                                 elif relative_minute < 30:
                                     shot_intervals[4] += 1
+                                    xg_intervals[4] += xg_value
                                 else:
                                     shot_intervals[5] += 1
-                        return shot_intervals
+                                    xg_intervals[5] += xg_value
+                        return shot_intervals, xg_intervals
                     
-                    for_intervals = calculate_multi_shot_intervals(all_multi_shots_for, avg_second_half_start)
-                    against_intervals = calculate_multi_shot_intervals(all_multi_shots_against, avg_second_half_start)
+                    for_intervals, for_xg_intervals = calculate_multi_shot_intervals(all_multi_shots_for, avg_second_half_start)
+                    against_intervals, against_xg_intervals = calculate_multi_shot_intervals(all_multi_shots_against, avg_second_half_start)
                     
                     # --- Figure 1: Shots For ---
                     st.subheader(f"Schoten van {selected_team}")
@@ -1689,6 +1698,28 @@ if events_data is not None:
                     for tx in xticks:
                         ax_bars_for.vlines(x=tx, ymin=ymin, ymax=ymax, linestyles='--',
                                           colors='gray', linewidth=0.7, zorder=0, alpha=0.55)
+                    
+                    # Add xG text to bars
+                    for i, (bar, xg_val) in enumerate(zip(bars, for_xg_intervals)):
+                        if xg_val > 0:
+                            bar_width = bar.get_width()
+                            bar_y = bar.get_y() + bar.get_height() / 2
+                            xg_text = f'{xg_val:.2f}'
+                            
+                            # Estimate text width (rough approximation: 6 units per character)
+                            text_width = len(xg_text) * 0.5
+                            
+                            # Check if text fits horizontally (bar width > text width + margin)
+                            if bar_width > text_width + 0.5:
+                                # Horizontal text
+                                ax_bars_for.text(bar_width / 2, bar_y, xg_text,
+                                               ha='center', va='center', color='white',
+                                               fontsize=9, fontweight='bold', zorder=10)
+                            else:
+                                # Vertical text
+                                ax_bars_for.text(bar_width / 2, bar_y, xg_text,
+                                               ha='center', va='center', color='white',
+                                               fontsize=9, fontweight='bold', rotation=90, zorder=10)
                     
                     # xG scale under pitch (moved lower)
                     title_axes_y = -0.08
@@ -1838,6 +1869,28 @@ if events_data is not None:
                     for tx in xticks_against:
                         ax_bars_against.vlines(x=tx, ymin=ymin, ymax=ymax, linestyles='--',
                                               colors='gray', linewidth=0.7, zorder=0, alpha=0.55)
+                    
+                    # Add xG text to bars
+                    for i, (bar, xg_val) in enumerate(zip(bars_against, against_xg_intervals)):
+                        if xg_val > 0:
+                            bar_width = bar.get_width()
+                            bar_y = bar.get_y() + bar.get_height() / 2
+                            xg_text = f'{xg_val:.2f}'
+                            
+                            # Estimate text width (rough approximation: 6 units per character)
+                            text_width = len(xg_text) * 0.5
+                            
+                            # Check if text fits horizontally (bar width > text width + margin)
+                            if bar_width > text_width + 0.5:
+                                # Horizontal text
+                                ax_bars_against.text(bar_width / 2, bar_y, xg_text,
+                                                   ha='center', va='center', color='white',
+                                                   fontsize=9, fontweight='bold', zorder=10)
+                            else:
+                                # Vertical text
+                                ax_bars_against.text(bar_width / 2, bar_y, xg_text,
+                                                   ha='center', va='center', color='white',
+                                                   fontsize=9, fontweight='bold', rotation=90, zorder=10)
                     
                     # xG scale under pitch (moved lower)
                     ax_pitch_against.text(0.5, title_axes_y, 'xG Schaal', fontsize=10, fontweight='bold',
