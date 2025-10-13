@@ -1704,7 +1704,7 @@ if events_data is not None:
                         if xg_val > 0:
                             bar_width = bar.get_width()
                             bar_y = bar.get_y() + bar.get_height() / 2
-                            xg_text = f'{xg_val:.2f}'
+                            xg_text = f'{xg_val:.2f} xG'
                             
                             # Estimate text width (rough approximation: 6 units per character)
                             text_width = len(xg_text) * 0.5
@@ -1875,7 +1875,7 @@ if events_data is not None:
                         if xg_val > 0:
                             bar_width = bar.get_width()
                             bar_y = bar.get_y() + bar.get_height() / 2
-                            xg_text = f'{xg_val:.2f}'
+                            xg_text = f'{xg_val:.2f} xG'
                             
                             # Estimate text width (rough approximation: 6 units per character)
                             text_width = len(xg_text) * 0.5
