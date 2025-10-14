@@ -1556,9 +1556,6 @@ if events_data is not None:
                     all_multi_shots_for = []  # Shots by selected team
                     all_multi_shots_against = []  # Shots against selected team
                     
-                    # Get second half start times for each match
-                    second_half_starts = []
-                    
                     for match_label in selected_multi_matches:
                         match_info = next((m for m in team_matches if m['label'] == match_label), None)
                         if match_info:
@@ -1567,35 +1564,35 @@ if events_data is not None:
                                 events = match_data.get('data', []) if isinstance(match_data, dict) else []
                                 metadata = match_data.get('metaData', {}) if isinstance(match_data, dict) else {}
                                 
-                                # Find second half start
+                                # Find second half start for THIS match
                                 second_half_start_time = 45
                                 for event in events:
                                     if event.get('baseTypeId') == 14 and event.get('subTypeId') == 1400 and event.get('partId') == 2:
                                         second_half_start_time = int((event.get('startTimeMs', 0) or 0) / 1000 / 60)
                                         break
-                                second_half_starts.append(second_half_start_time)
                                 
-                                # Find all shots
+                                # Find all shots and store the second half start time with each shot
                                 all_shots_m = find_shot_events(events)
-                                for_shots = [s for s in all_shots_m if s['team'] == selected_team]
-                                against_shots = [s for s in all_shots_m if s['team'] != selected_team]
-                                
-                                all_multi_shots_for.extend(for_shots)
-                                all_multi_shots_against.extend(against_shots)
+                                for shot in all_shots_m:
+                                    # Add the match's second half start time to the shot
+                                    shot['match_second_half_start'] = second_half_start_time
+                                    
+                                    if shot['team'] == selected_team:
+                                        all_multi_shots_for.append(shot)
+                                    else:
+                                        all_multi_shots_against.append(shot)
                             except Exception as e:
                                 st.warning(f"Error loading {match_label}: {e}")
                     
-                    # Use average second half start
-                    avg_second_half_start = int(np.mean(second_half_starts)) if second_half_starts else 45
-                    
-                    # Calculate shot intervals and xG per interval using provided logic
-                    def calculate_multi_shot_intervals(shots, second_half_start_time):
+                    # Calculate shot intervals and xG per interval - each shot uses its own match's second half start
+                    def calculate_multi_shot_intervals(shots):
                         shot_intervals = [0] * 6
                         xg_intervals = [0.0] * 6
                         for shot in shots:
                             minute = int((shot.get('time', 0) or 0))
                             part_id = shot.get('partId', 1)
                             xg_value = shot.get('xG', 0.0)
+                            second_half_start_time = shot.get('match_second_half_start', 45)
                             
                             if part_id == 1:
                                 if minute < 15:
@@ -1608,6 +1605,7 @@ if events_data is not None:
                                     shot_intervals[2] += 1
                                     xg_intervals[2] += xg_value
                             elif part_id == 2:
+                                # Use THIS shot's match-specific second half start time
                                 relative_minute = minute - second_half_start_time
                                 if relative_minute < 15:
                                     shot_intervals[3] += 1
@@ -1620,8 +1618,8 @@ if events_data is not None:
                                     xg_intervals[5] += xg_value
                         return shot_intervals, xg_intervals
                     
-                    for_intervals, for_xg_intervals = calculate_multi_shot_intervals(all_multi_shots_for, avg_second_half_start)
-                    against_intervals, against_xg_intervals = calculate_multi_shot_intervals(all_multi_shots_against, avg_second_half_start)
+                    for_intervals, for_xg_intervals = calculate_multi_shot_intervals(all_multi_shots_for)
+                    against_intervals, against_xg_intervals = calculate_multi_shot_intervals(all_multi_shots_against)
                     
                     # --- Figure 1: Shots For ---
                     st.subheader(f"Schoten van {selected_team}")
@@ -1997,7 +1995,7 @@ if events_data is not None:
                         'xg_for': 0.0, 'xg_against': 0.0
                     }
                     
-                    # Process each match
+                    # Process each match individually
                     for match_label in selected_temp_matches:
                         match_info = next((m for m in team_matches if m['label'] == match_label), None)
                         if match_info:
@@ -2005,33 +2003,27 @@ if events_data is not None:
                                 match_data = load_json_lenient(match_info['path'])
                                 events = match_data.get('data', []) if isinstance(match_data, dict) else []
                                 
-                                # Find second half start time (accounting for halftime break)
+                                # Find second half start time for THIS match
                                 second_half_start_time = 45
                                 for event in events:
                                     if event.get('baseTypeId') == 14 and event.get('subTypeId') == 1400 and event.get('partId') == 2:
                                         second_half_start_time = int((event.get('startTimeMs', 0) or 0) / 1000 / 60)
                                         break
                                 
-                                # Find all shots
+                                # Find all shots in this match
                                 all_shots_temp = find_shot_events(events)
+                                
+                                # Calculate the 75th minute for THIS match (45 + 30 minutes into 2nd half)
+                                minute_75 = second_half_start_time + 30
                                 
                                 for shot in all_shots_temp:
                                     minute = shot.get('time', 0)
-                                    part_id = shot.get('partId', 1)
                                     xg = shot.get('xG', 0.0)
                                     is_goal = shot.get('is_goal', False)
                                     is_for_team = shot.get('team') == selected_team
                                     
-                                    # Calculate relative minute for second half (like in Multi Match Schoten)
-                                    if part_id == 2:
-                                        relative_minute = minute - second_half_start_time
-                                        # 75+ minutes means 30+ minutes into second half (since first half is 0-45)
-                                        is_75_plus = relative_minute >= 30
-                                    else:
-                                        # First half: 75+ is not possible (max is 45)
-                                        is_75_plus = False
-                                    
-                                    if not is_75_plus:
+                                    # Check if shot is before or after the 75th minute of THIS match
+                                    if minute < minute_75:
                                         # 0-75 minutes
                                         if is_for_team:
                                             stats_0_75['shots_for'] += 1
