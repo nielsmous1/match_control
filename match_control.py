@@ -2048,38 +2048,57 @@ if events_data is not None:
                     # Top section: 0-75 minutes
                     categories = ['Doelpunten', 'Schoten', 'xG']
                     y_pos = np.arange(len(categories))
-                    bar_height = 0.35
+                    bar_height = 0.6
                     
                     # For vs Against data for 0-75
                     for_values_0_75 = [stats_0_75['goals_for'], stats_0_75['shots_for'], stats_0_75['xg_for']]
                     against_values_0_75 = [stats_0_75['goals_against'], stats_0_75['shots_against'], stats_0_75['xg_against']]
                     
-                    # Plot 0-75 bars
-                    bars_for_top = ax_top.barh(y_pos - bar_height/2, for_values_0_75, bar_height, 
-                                              label='Voor', color=home_color, alpha=0.8)
-                    bars_against_top = ax_top.barh(y_pos + bar_height/2, against_values_0_75, bar_height, 
-                                                   label='Tegen', color=away_color, alpha=0.8)
+                    # Plot 0-75 bars with proportional coloring
+                    for i, (for_val, against_val) in enumerate(zip(for_values_0_75, against_values_0_75)):
+                        total = for_val + against_val
+                        if total > 0:
+                            for_proportion = for_val / total
+                            against_proportion = against_val / total
+                            
+                            # Draw the bar split proportionally
+                            ax_top.barh(y_pos[i], total * for_proportion, bar_height, 
+                                       left=0, color=home_color, alpha=0.8)
+                            ax_top.barh(y_pos[i], total * against_proportion, bar_height, 
+                                       left=total * for_proportion, color=away_color, alpha=0.8)
                     
                     ax_top.set_yticks(y_pos)
                     ax_top.set_yticklabels(categories)
                     ax_top.set_title("0' - 75'", fontsize=14, fontweight='bold')
-                    ax_top.legend(loc='upper right')
+                    
+                    # Create custom legend
+                    from matplotlib.patches import Patch
+                    legend_elements = [Patch(facecolor=home_color, alpha=0.8, label='Voor'),
+                                     Patch(facecolor=away_color, alpha=0.8, label='Tegen')]
+                    ax_top.legend(handles=legend_elements, loc='upper right')
                     ax_top.set_xlabel('Waarde')
                     
                     # Bottom section: 75+ minutes
                     for_values_75_plus = [stats_75_plus['goals_for'], stats_75_plus['shots_for'], stats_75_plus['xg_for']]
                     against_values_75_plus = [stats_75_plus['goals_against'], stats_75_plus['shots_against'], stats_75_plus['xg_against']]
                     
-                    # Plot 75+ bars
-                    bars_for_bottom = ax_bottom.barh(y_pos - bar_height/2, for_values_75_plus, bar_height, 
-                                                    label='Voor', color=home_color, alpha=0.8)
-                    bars_against_bottom = ax_bottom.barh(y_pos + bar_height/2, against_values_75_plus, bar_height, 
-                                                        label='Tegen', color=away_color, alpha=0.8)
+                    # Plot 75+ bars with proportional coloring
+                    for i, (for_val, against_val) in enumerate(zip(for_values_75_plus, against_values_75_plus)):
+                        total = for_val + against_val
+                        if total > 0:
+                            for_proportion = for_val / total
+                            against_proportion = against_val / total
+                            
+                            # Draw the bar split proportionally
+                            ax_bottom.barh(y_pos[i], total * for_proportion, bar_height, 
+                                          left=0, color=home_color, alpha=0.8)
+                            ax_bottom.barh(y_pos[i], total * against_proportion, bar_height, 
+                                          left=total * for_proportion, color=away_color, alpha=0.8)
                     
                     ax_bottom.set_yticks(y_pos)
                     ax_bottom.set_yticklabels(categories)
                     ax_bottom.set_title("75'+", fontsize=14, fontweight='bold')
-                    ax_bottom.legend(loc='upper right')
+                    ax_bottom.legend(handles=legend_elements, loc='upper right')
                     ax_bottom.set_xlabel('Waarde')
                     
                     plt.tight_layout()
