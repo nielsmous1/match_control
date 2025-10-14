@@ -2164,10 +2164,10 @@ if events_data is not None:
                     for i, cat in enumerate(categories):
                         ax_bottom.text(-7.5, y_pos[i], cat, ha='center', va='center', fontsize=11, fontweight='bold')
                     
-                    # Add indicators for selected team and opponents
-                    ax_bottom.text(25, y_pos[0] + 1.2, f'{selected_team}', ha='center', va='center', 
+                    # Add team labels at the ends of the bars
+                    ax_bottom.text(0, y_pos[-1] - 1.0, f'{selected_team}', ha='left', va='center', 
                                   fontsize=11, fontweight='bold', color=home_color)
-                    ax_bottom.text(75, y_pos[0] + 1.2, 'Tegenstanders', ha='center', va='center', 
+                    ax_bottom.text(bar_length, y_pos[-1] - 1.0, 'Tegenstanders', ha='right', va='center', 
                                   fontsize=11, fontweight='bold', color=away_color)
                     
                     plt.tight_layout()
