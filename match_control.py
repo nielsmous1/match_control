@@ -857,7 +857,7 @@ def calculate_game_control_and_domination(data, home_team_override=None, away_te
         for card in sorted_cards:
             card_minute = card['minute']
             card_minute = max(match_start, min(card_minute, match_end - 1e-6))
-        too_close_to_edges = ((card_minute - match_start) < 5) or ((match_end - card_minute) < 5)
+            too_close_to_edges = ((card_minute - match_start) < 5) or ((match_end - card_minute) < 5)
             if not too_close_to_edges:
                 valid_card_minutes.append(card_minute)
         
