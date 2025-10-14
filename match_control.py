@@ -2112,12 +2112,6 @@ if events_data is not None:
                     for i, cat in enumerate(categories):
                         ax_top.text(-7.5, y_pos[i], cat, ha='center', va='center', fontsize=11, fontweight='bold')
                     
-                    # Add indicators for selected team and opponents
-                    ax_top.text(25, y_pos[0] + 1.2, f'{selected_team}', ha='center', va='center', 
-                               fontsize=11, fontweight='bold', color=home_color)
-                    ax_top.text(75, y_pos[0] + 1.2, 'Tegenstanders', ha='center', va='center', 
-                               fontsize=11, fontweight='bold', color=away_color)
-                    
                     # Bottom section: 75+ minutes
                     for_values_75_plus = [stats_75_plus['goals_for'], stats_75_plus['shots_for'], stats_75_plus['xg_for']]
                     against_values_75_plus = [stats_75_plus['goals_against'], stats_75_plus['shots_against'], stats_75_plus['xg_against']]
