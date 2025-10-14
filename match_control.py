@@ -1092,7 +1092,7 @@ if events_data is not None:
             None
         )
 
-        tab1, tab2, tab9, tab3, tab8, tab10, tab5, tab6, tab4 = st.tabs(["Controle & Gevaar", "Schoten", "Multi Match Schoten", "xG Verloop", "Voorzetten", "Multi Match Voorzetten", "Gemiddelde Posities", "Samenvatting", "Eredivisie Tabel"])
+        tab1, tab2, tab9, tab11, tab3, tab8, tab10, tab5, tab6, tab4 = st.tabs(["Controle & Gevaar", "Schoten", "Multi Match Schoten", "Temporary", "xG Verloop", "Voorzetten", "Multi Match Voorzetten", "Gemiddelde Posities", "Samenvatting", "Eredivisie Tabel"])
 
         with tab1:
             st.pyplot(fig)
@@ -1963,6 +1963,129 @@ if events_data is not None:
                     st.pyplot(fig_against)
                 else:
                     st.info("Selecteer minstens één wedstrijd voor multi-match analyse.")
+            else:
+                st.info("Geen wedstrijden beschikbaar voor dit team.")
+
+        # ---------- Temporary Tab ----------
+        with tab11:
+            st.subheader("Temporary Analysis")
+            
+            # Check if we have team_matches
+            try:
+                has_team_matches = team_matches and len(team_matches) > 0
+            except NameError:
+                has_team_matches = False
+            
+            if has_team_matches:
+                match_labels_temp = [info['label'] for info in team_matches]
+                selected_temp_matches = st.multiselect(
+                    "Selecteer wedstrijden voor temporary analyse",
+                    match_labels_temp,
+                    default=match_labels_temp if len(match_labels_temp) <= 5 else match_labels_temp[:5]
+                )
+                
+                if selected_temp_matches and len(selected_temp_matches) > 0:
+                    # Initialize counters for two time periods
+                    stats_0_75 = {
+                        'goals_for': 0, 'goals_against': 0,
+                        'shots_for': 0, 'shots_against': 0,
+                        'xg_for': 0.0, 'xg_against': 0.0
+                    }
+                    stats_75_plus = {
+                        'goals_for': 0, 'goals_against': 0,
+                        'shots_for': 0, 'shots_against': 0,
+                        'xg_for': 0.0, 'xg_against': 0.0
+                    }
+                    
+                    # Process each match
+                    for match_label in selected_temp_matches:
+                        match_info = next((m for m in team_matches if m['label'] == match_label), None)
+                        if match_info:
+                            try:
+                                match_data = load_json_lenient(match_info['path'])
+                                events = match_data.get('data', []) if isinstance(match_data, dict) else []
+                                
+                                # Find all shots
+                                all_shots_temp = find_shot_events(events)
+                                
+                                for shot in all_shots_temp:
+                                    minute = shot.get('time', 0)
+                                    xg = shot.get('xG', 0.0)
+                                    is_goal = shot.get('is_goal', False)
+                                    is_for_team = shot.get('team') == selected_team
+                                    
+                                    if minute < 75:
+                                        # 0-75 minutes
+                                        if is_for_team:
+                                            stats_0_75['shots_for'] += 1
+                                            stats_0_75['xg_for'] += xg
+                                            if is_goal:
+                                                stats_0_75['goals_for'] += 1
+                                        else:
+                                            stats_0_75['shots_against'] += 1
+                                            stats_0_75['xg_against'] += xg
+                                            if is_goal:
+                                                stats_0_75['goals_against'] += 1
+                                    else:
+                                        # 75+ minutes
+                                        if is_for_team:
+                                            stats_75_plus['shots_for'] += 1
+                                            stats_75_plus['xg_for'] += xg
+                                            if is_goal:
+                                                stats_75_plus['goals_for'] += 1
+                                        else:
+                                            stats_75_plus['shots_against'] += 1
+                                            stats_75_plus['xg_against'] += xg
+                                            if is_goal:
+                                                stats_75_plus['goals_against'] += 1
+                                
+                            except Exception as e:
+                                st.warning(f"Error loading {match_label}: {e}")
+                    
+                    # Create the visualization
+                    fig_temp, (ax_top, ax_bottom) = plt.subplots(2, 1, figsize=(14, 8), sharex=True)
+                    
+                    # Top section: 0-75 minutes
+                    categories = ['Doelpunten', 'Schoten', 'xG']
+                    y_pos = np.arange(len(categories))
+                    bar_height = 0.35
+                    
+                    # For vs Against data for 0-75
+                    for_values_0_75 = [stats_0_75['goals_for'], stats_0_75['shots_for'], stats_0_75['xg_for']]
+                    against_values_0_75 = [stats_0_75['goals_against'], stats_0_75['shots_against'], stats_0_75['xg_against']]
+                    
+                    # Plot 0-75 bars
+                    bars_for_top = ax_top.barh(y_pos - bar_height/2, for_values_0_75, bar_height, 
+                                              label='Voor', color=home_color, alpha=0.8)
+                    bars_against_top = ax_top.barh(y_pos + bar_height/2, against_values_0_75, bar_height, 
+                                                   label='Tegen', color=away_color, alpha=0.8)
+                    
+                    ax_top.set_yticks(y_pos)
+                    ax_top.set_yticklabels(categories)
+                    ax_top.set_title("0' - 75'", fontsize=14, fontweight='bold')
+                    ax_top.legend(loc='upper right')
+                    ax_top.set_xlabel('Waarde')
+                    
+                    # Bottom section: 75+ minutes
+                    for_values_75_plus = [stats_75_plus['goals_for'], stats_75_plus['shots_for'], stats_75_plus['xg_for']]
+                    against_values_75_plus = [stats_75_plus['goals_against'], stats_75_plus['shots_against'], stats_75_plus['xg_against']]
+                    
+                    # Plot 75+ bars
+                    bars_for_bottom = ax_bottom.barh(y_pos - bar_height/2, for_values_75_plus, bar_height, 
+                                                    label='Voor', color=home_color, alpha=0.8)
+                    bars_against_bottom = ax_bottom.barh(y_pos + bar_height/2, against_values_75_plus, bar_height, 
+                                                        label='Tegen', color=away_color, alpha=0.8)
+                    
+                    ax_bottom.set_yticks(y_pos)
+                    ax_bottom.set_yticklabels(categories)
+                    ax_bottom.set_title("75'+", fontsize=14, fontweight='bold')
+                    ax_bottom.legend(loc='upper right')
+                    ax_bottom.set_xlabel('Waarde')
+                    
+                    plt.tight_layout()
+                    st.pyplot(fig_temp)
+                else:
+                    st.info("Selecteer minstens één wedstrijd voor temporary analyse.")
             else:
                 st.info("Geen wedstrijden beschikbaar voor dit team.")
 
