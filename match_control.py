@@ -2005,16 +2005,33 @@ if events_data is not None:
                                 match_data = load_json_lenient(match_info['path'])
                                 events = match_data.get('data', []) if isinstance(match_data, dict) else []
                                 
+                                # Find second half start time (accounting for halftime break)
+                                second_half_start_time = 45
+                                for event in events:
+                                    if event.get('baseTypeId') == 14 and event.get('subTypeId') == 1400 and event.get('partId') == 2:
+                                        second_half_start_time = int((event.get('startTimeMs', 0) or 0) / 1000 / 60)
+                                        break
+                                
                                 # Find all shots
                                 all_shots_temp = find_shot_events(events)
                                 
                                 for shot in all_shots_temp:
                                     minute = shot.get('time', 0)
+                                    part_id = shot.get('partId', 1)
                                     xg = shot.get('xG', 0.0)
                                     is_goal = shot.get('is_goal', False)
                                     is_for_team = shot.get('team') == selected_team
                                     
-                                    if minute < 75:
+                                    # Calculate relative minute for second half (like in Multi Match Schoten)
+                                    if part_id == 2:
+                                        relative_minute = minute - second_half_start_time
+                                        # 75+ minutes means 30+ minutes into second half (since first half is 0-45)
+                                        is_75_plus = relative_minute >= 30
+                                    else:
+                                        # First half: 75+ is not possible (max is 45)
+                                        is_75_plus = False
+                                    
+                                    if not is_75_plus:
                                         # 0-75 minutes
                                         if is_for_team:
                                             stats_0_75['shots_for'] += 1
