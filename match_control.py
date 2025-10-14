@@ -923,15 +923,15 @@ def calculate_game_control_and_domination(data, home_team_override=None, away_te
             # Calculate percentage position of each card on the bar
             card_split_positions = []
             for card_minute in filtered_card_minutes:
-            if total_plotted_span_actual <= 0:
+                if total_plotted_span_actual <= 0:
                     split_pct = 50.0
-            else:
-                if (card_minute <= first_half_end) and (hasattr(first_half_minutes, 'size') and first_half_minutes.size > 0):
-                    time_before_card_on_plot = card_minute - first_half_minutes[0]
-                elif hasattr(second_half_minutes, 'size') and second_half_minutes.size > 0:
-                    time_before_card_on_plot = first_half_plotted_duration + (card_minute - second_half_minutes[0])
                 else:
-                    time_before_card_on_plot = 0
+                    if (card_minute <= first_half_end) and (hasattr(first_half_minutes, 'size') and first_half_minutes.size > 0):
+                        time_before_card_on_plot = card_minute - first_half_minutes[0]
+                    elif hasattr(second_half_minutes, 'size') and second_half_minutes.size > 0:
+                        time_before_card_on_plot = first_half_plotted_duration + (card_minute - second_half_minutes[0])
+                    else:
+                        time_before_card_on_plot = 0
                     split_pct = (time_before_card_on_plot / total_plotted_span_actual) * 100.0
                     split_pct = float(np.clip(split_pct, 0.0, 100.0))
                 card_split_positions.append(split_pct)
