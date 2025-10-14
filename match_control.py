@@ -2064,11 +2064,11 @@ if events_data is not None:
                     
                     # Top section: 0-75 minutes
                     categories = ['Doelpunten', 'Schoten', 'xG']
-                    y_pos = np.arange(len(categories))
+                    y_pos = np.arange(len(categories))[::-1]  # Reverse order so Doelpunten is on top
                     bar_height = 0.6
                     bar_length = 100  # All bars same length
                     
-                    # For vs Against data for 0-75
+                    # For vs Against data for 0-75 (reversed order)
                     for_values_0_75 = [stats_0_75['goals_for'], stats_0_75['shots_for'], stats_0_75['xg_for']]
                     against_values_0_75 = [stats_0_75['goals_against'], stats_0_75['shots_against'], stats_0_75['xg_against']]
                     
@@ -2112,19 +2112,13 @@ if events_data is not None:
                     ax_top.set_yticks(y_pos)
                     ax_top.set_yticklabels(categories)
                     ax_top.set_xlim(0, bar_length)
-                    ax_top.set_title("0' - 75'", fontsize=14, fontweight='bold')
+                    ax_top.set_title("Tot de 75e minuut", fontsize=14, fontweight='bold', pad=5)
                     ax_top.axis('off')
                     ax_top.set_ylim(-0.5, len(categories) - 0.5)
                     
-                    # Add y-labels manually
+                    # Add y-labels manually with bold font
                     for i, cat in enumerate(categories):
-                        ax_top.text(-5, y_pos[i], cat, ha='right', va='center', fontsize=11)
-                    
-                    # Create custom legend
-                    from matplotlib.patches import Patch
-                    legend_elements = [Patch(facecolor=home_color, alpha=0.8, label='Voor'),
-                                     Patch(facecolor=away_color, alpha=0.8, label='Tegen')]
-                    ax_top.legend(handles=legend_elements, loc='upper right', frameon=False)
+                        ax_top.text(-5, y_pos[i], cat, ha='right', va='center', fontsize=11, fontweight='bold')
                     
                     # Bottom section: 75+ minutes
                     for_values_75_plus = [stats_75_plus['goals_for'], stats_75_plus['shots_for'], stats_75_plus['xg_for']]
@@ -2170,15 +2164,13 @@ if events_data is not None:
                     ax_bottom.set_yticks(y_pos)
                     ax_bottom.set_yticklabels(categories)
                     ax_bottom.set_xlim(0, bar_length)
-                    ax_bottom.set_title("75'+", fontsize=14, fontweight='bold')
+                    ax_bottom.set_title("Na de 75e minuut", fontsize=14, fontweight='bold', pad=5)
                     ax_bottom.axis('off')
                     ax_bottom.set_ylim(-0.5, len(categories) - 0.5)
                     
-                    # Add y-labels manually
+                    # Add y-labels manually with bold font
                     for i, cat in enumerate(categories):
-                        ax_bottom.text(-5, y_pos[i], cat, ha='right', va='center', fontsize=11)
-                    
-                    ax_bottom.legend(handles=legend_elements, loc='upper right', frameon=False)
+                        ax_bottom.text(-5, y_pos[i], cat, ha='right', va='center', fontsize=11, fontweight='bold')
                     
                     plt.tight_layout()
                     st.pyplot(fig_temp)
