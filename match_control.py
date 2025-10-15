@@ -2558,9 +2558,12 @@ if events_data is not None:
                         continue
                         
                     metadata = match_data.get('metaData', {}) if isinstance(match_data, dict) else {}
-                    # Prefer names parsed from the filename (files_info), fallback to metadata if missing
+                    # Prefer names parsed from the filename for league table keys
                     home_team = file_info.get('home') or metadata.get('homeTeamName') or metadata.get('homeTeam') or metadata.get('home') or 'Home'
                     away_team = file_info.get('away') or metadata.get('awayTeamName') or metadata.get('awayTeam') or metadata.get('away') or 'Away'
+                    # Capture raw metadata team names present in events for correct matching
+                    home_team_meta = metadata.get('homeTeamName') or metadata.get('homeTeam') or metadata.get('home') or home_team
+                    away_team_meta = metadata.get('awayTeamName') or metadata.get('awayTeam') or metadata.get('away') or away_team
                     events = match_data.get('data', []) if isinstance(match_data, dict) else []
                     
                     # Initialize teams if not exists (normalize by filename-derived names)
@@ -2577,11 +2580,13 @@ if events_data is not None:
                     
                     # Get shots and goals for this match
                     all_shots_match = find_shot_events_xg(events)
-                    home_shots_match = [s for s in all_shots_match if s['team'] == home_team]
-                    away_shots_match = [s for s in all_shots_match if s['team'] == away_team]
+                    # Filter using the team names present in the event data (metadata names)
+                    home_shots_match = [s for s in all_shots_match if s['team'] == home_team_meta]
+                    away_shots_match = [s for s in all_shots_match if s['team'] == away_team_meta]
                     
-                    home_own_goals_match = count_own_goals_xg(events, home_team)
-                    away_own_goals_match = count_own_goals_xg(events, away_team)
+                    # Count own goals using event team names
+                    home_own_goals_match = count_own_goals_xg(events, home_team_meta)
+                    away_own_goals_match = count_own_goals_xg(events, away_team_meta)
                     
                     # Calculate goals (including own goals)
                     home_goals_match = len([s for s in home_shots_match if s['is_goal']])
