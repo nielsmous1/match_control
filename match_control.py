@@ -1096,7 +1096,7 @@ if events_data is not None:
             None
         )
 
-        tab1, tab2, tab9, tab11, tab3, tab8, tab10, tab5, tab6, tab4 = st.tabs(["Controle & Gevaar", "Schoten", "Multi Match Schoten", "Temporary", "xG Verloop", "Voorzetten", "Multi Match Voorzetten", "Gemiddelde Posities", "Samenvatting", "Stand"])
+        tab1, tab2, tab9, tab11, tab3, tab8, tab10, tab5, tab6, tab4 = st.tabs(["Controle & Gevaar", "Schoten", "Multi Match Schoten", "Slotfase", "xG Verloop", "Voorzetten", "Multi Match Voorzetten", "Gemiddelde Posities", "Samenvatting", "Stand"])
 
         with tab1:
             st.pyplot(fig)
