@@ -2548,7 +2548,7 @@ if events_data is not None:
             # Initialize league table data structure
             league_data = {}
             
-            # Process all matches to build league table
+            # Process all matches to build league table (use team names from filename to ensure consistency)
             for file_info in files_info:
                 try:
                     with open(file_info['path'], 'r', encoding='utf-8') as f:
@@ -2558,11 +2558,12 @@ if events_data is not None:
                         continue
                         
                     metadata = match_data.get('metaData', {}) if isinstance(match_data, dict) else {}
-                    home_team = metadata.get('homeTeamName') or metadata.get('homeTeam') or metadata.get('home') or 'Home'
-                    away_team = metadata.get('awayTeamName') or metadata.get('awayTeam') or metadata.get('away') or 'Away'
+                    # Prefer names parsed from the filename (files_info), fallback to metadata if missing
+                    home_team = file_info.get('home') or metadata.get('homeTeamName') or metadata.get('homeTeam') or metadata.get('home') or 'Home'
+                    away_team = file_info.get('away') or metadata.get('awayTeamName') or metadata.get('awayTeam') or metadata.get('away') or 'Away'
                     events = match_data.get('data', []) if isinstance(match_data, dict) else []
                     
-                    # Initialize teams if not exists
+                    # Initialize teams if not exists (normalize by filename-derived names)
                     if home_team not in league_data:
                         league_data[home_team] = {
                             'matches_played': 0, 'points': 0, 'expected_points': 0,
