@@ -40,7 +40,11 @@ file_name = None
 
 # Resolve paths relative to this file so it works on Streamlit Cloud
 BASE_DIR = Path(__file__).parent
-match_folder = str((BASE_DIR / "MatchEvents").resolve())
+
+# Competition selector and folder mapping
+competition = st.selectbox("Competitie", ["Eredivisie", "KKD"], index=0)
+_comp_to_dir = {"Eredivisie": "MatchEvents", "KKD": "MatchEventsKKD"}
+match_folder = str((BASE_DIR / _comp_to_dir.get(competition, "MatchEvents")).resolve())
 
 def load_json_lenient(file_path: str):
     try:
@@ -1092,7 +1096,7 @@ if events_data is not None:
             None
         )
 
-        tab1, tab2, tab9, tab11, tab3, tab8, tab10, tab5, tab6, tab4 = st.tabs(["Controle & Gevaar", "Schoten", "Multi Match Schoten", "Temporary", "xG Verloop", "Voorzetten", "Multi Match Voorzetten", "Gemiddelde Posities", "Samenvatting", "Eredivisie Tabel"])
+        tab1, tab2, tab9, tab11, tab3, tab8, tab10, tab5, tab6, tab4 = st.tabs(["Controle & Gevaar", "Schoten", "Multi Match Schoten", "Temporary", "xG Verloop", "Voorzetten", "Multi Match Voorzetten", "Gemiddelde Posities", "Samenvatting", "Stand"])
 
         with tab1:
             st.pyplot(fig)
@@ -2538,7 +2542,8 @@ if events_data is not None:
 
         # ---------- Eredivisie Tabel Tab ----------
         with tab4:
-            st.subheader("Eredivisie 2025/2026 Tabel")
+            league_name = "Eredivisie" if competition == "Eredivisie" else "Keuken Kampioen Divisie"
+            st.subheader(f"{league_name} Stand")
             
             # Initialize league table data structure
             league_data = {}
