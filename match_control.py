@@ -3907,7 +3907,7 @@ if events_data is not None:
                     ax_pitch_for.scatter([legend_x_start + 2*legend_spacing], [legend_y - 0.05], s=100, c='white', alpha=1,
                                         edgecolors='black', linewidths=2, clip_on=False,
                                         transform=ax_pitch_for.transAxes, zorder=20)
-                    ax_pitch_for.text(legend_x_start + 2*legend_spacing + 0.05, legend_y - 0.05, 'Wide', ha='left',
+                    ax_pitch_for.text(legend_x_start + 2*legend_spacing + 0.05, legend_y - 0.05, 'Naast', ha='left',
                                      transform=ax_pitch_for.transAxes, fontsize=9, va='center')
                     
                     # Statistics table (right) - same style as multi match schoten tab
