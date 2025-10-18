@@ -3457,15 +3457,11 @@ if events_data is not None:
                                            fontweight='bold', zorder=12)
                     
                     # Add labels for each half (closer to the pitch)
-                    fig_full.text(0.5, 0.88, f"{team_to_filter} - Voorzetten", fontsize=12, fontweight='bold',
+                    fig_full.text(0.5, 0.88, f"{team_to_filter} - Voorzetten die leiden tot doelpoging", fontsize=12, fontweight='bold',
                                 ha='center', va='center', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
-                    fig_full.text(0.5, 0.85, "Voorzetten die leiden tot doelpoging", fontsize=9, fontstyle='italic',
-                                ha='center', va='center', color='gray')
                     
-                    fig_full.text(0.5, 0.12, f"{team_to_filter} - Voorzetten Tegen", fontsize=12, fontweight='bold',
+                    fig_full.text(0.5, 0.12, f"{team_to_filter} - Voorzetten Tegen die leiden tot doelpoging", fontsize=12, fontweight='bold',
                                 ha='center', va='center', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
-                    fig_full.text(0.5, 0.09, "Voorzetten die leiden tot doelpoging", fontsize=9, fontstyle='italic',
-                                ha='center', va='center', color='gray')
                     
                     st.pyplot(fig_full)
                     
@@ -3566,13 +3562,9 @@ if events_data is not None:
                     # Add labels for each half (closer to the pitch)
                     fig_successful.text(0.5, 0.88, f"{team_to_filter} - Voorzetten die aankomen", fontsize=12, fontweight='bold',
                                 ha='center', va='center', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
-                    fig_successful.text(0.5, 0.85, "Aantal succesvolle voorzetten per zone", fontsize=9, fontstyle='italic',
-                                ha='center', va='center', color='gray')
                     
                     fig_successful.text(0.5, 0.12, f"{team_to_filter} - Voorzetten Tegen die aankomen", fontsize=12, fontweight='bold',
                                 ha='center', va='center', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
-                    fig_successful.text(0.5, 0.09, "Aantal succesvolle voorzetten per zone", fontsize=9, fontstyle='italic',
-                                ha='center', va='center', color='gray')
                     
                     st.pyplot(fig_successful)
                 else:
