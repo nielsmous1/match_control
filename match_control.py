@@ -3783,177 +3783,162 @@ if events_data is not None:
                     # Calculate per-game averages
                     num_matches = len(selected_voorzetten_matches)
                     
-                    # Create shot pitch visualization
-                    st.subheader("🎯 Schoten na Voorzetten")
+                    # Create shot pitch visualization (same style as multi match schoten tab)
+                    st.subheader(f"Schoten na Voorzetten van {team_to_filter}")
                     
-                    # Create layout with statistics on left and pitch on right
-                    col_stats, col_pitch = st.columns([1, 2])
+                    # Get team colors (same as multi match schoten tab)
+                    home_color = '#1f77b4'  # Default blue
+                    away_color = '#ff7f0e'  # Default orange
                     
-                    with col_stats:
-                        # Display statistics tables
-                        st.write("**Eigen Voorzetten:**")
-                        own_total_data = {
-                            'Statistiek': [
-                                'Totaal voorzetten',
-                                'Voorzetten → doelpoging',
-                                'Voorzetten → schot op doel',
-                                'Voorzetten → doelpunt',
-                                'xG van die schoten',
-                                'xGOT van die schoten'
-                            ],
-                            'Waarde': [
-                                own_team_stats['total_crosses'],
-                                own_team_stats['crosses_leading_to_shot'],
-                                own_team_stats['crosses_leading_to_shot_on_target'],
-                                own_team_stats['crosses_leading_to_goal'],
-                                f"{own_team_stats['total_xg']:.2f}",
-                                f"{own_team_stats['total_xgot']:.2f}"
-                            ]
-                        }
-                        st.dataframe(own_total_data, use_container_width=True, hide_index=True)
-                        
-                        st.write("**Per wedstrijd:**")
-                        own_avg_data = {
-                            'Statistiek': [
-                                'Voorzetten per wedstrijd',
-                                'Voorzetten → doelpoging per wedstrijd',
-                                'Voorzetten → schot op doel per wedstrijd',
-                                'Voorzetten → doelpunt per wedstrijd',
-                                'xG per wedstrijd',
-                                'xGOT per wedstrijd'
-                            ],
-                            'Waarde': [
-                                f"{own_team_stats['total_crosses'] / num_matches:.1f}",
-                                f"{own_team_stats['crosses_leading_to_shot'] / num_matches:.1f}",
-                                f"{own_team_stats['crosses_leading_to_shot_on_target'] / num_matches:.1f}",
-                                f"{own_team_stats['crosses_leading_to_goal'] / num_matches:.1f}",
-                                f"{own_team_stats['total_xg'] / num_matches:.2f}",
-                                f"{own_team_stats['total_xgot'] / num_matches:.2f}"
-                            ]
-                        }
-                        st.dataframe(own_avg_data, use_container_width=True, hide_index=True)
-                        
-                        st.write("**Voorzetten Tegen:**")
-                        conceded_total_data = {
-                            'Statistiek': [
-                                'Totaal voorzetten tegen',
-                                'Voorzetten tegen → doelpoging',
-                                'Voorzetten tegen → schot op doel',
-                                'Voorzetten tegen → doelpunt',
-                                'xG van die schoten',
-                                'xGOT van die schoten'
-                            ],
-                            'Waarde': [
-                                conceded_stats['total_crosses'],
-                                conceded_stats['crosses_leading_to_shot'],
-                                conceded_stats['crosses_leading_to_shot_on_target'],
-                                conceded_stats['crosses_leading_to_goal'],
-                                f"{conceded_stats['total_xg']:.2f}",
-                                f"{conceded_stats['total_xgot']:.2f}"
-                            ]
-                        }
-                        st.dataframe(conceded_total_data, use_container_width=True, hide_index=True)
-                        
-                        st.write("**Per wedstrijd:**")
-                        conceded_avg_data = {
-                            'Statistiek': [
-                                'Voorzetten tegen per wedstrijd',
-                                'Voorzetten tegen → doelpoging per wedstrijd',
-                                'Voorzetten tegen → schot op doel per wedstrijd',
-                                'Voorzetten tegen → doelpunt per wedstrijd',
-                                'xG tegen per wedstrijd',
-                                'xGOT tegen per wedstrijd'
-                            ],
-                            'Waarde': [
-                                f"{conceded_stats['total_crosses'] / num_matches:.1f}",
-                                f"{conceded_stats['crosses_leading_to_shot'] / num_matches:.1f}",
-                                f"{conceded_stats['crosses_leading_to_shot_on_target'] / num_matches:.1f}",
-                                f"{conceded_stats['crosses_leading_to_goal'] / num_matches:.1f}",
-                                f"{conceded_stats['total_xg'] / num_matches:.2f}",
-                                f"{conceded_stats['total_xgot'] / num_matches:.2f}"
-                            ]
-                        }
-                        st.dataframe(conceded_avg_data, use_container_width=True, hide_index=True)
+                    fig_for = plt.figure(figsize=(18, 10))
+                    gs_for = gridspec.GridSpec(1, 2, width_ratios=[2.5, 1.2], wspace=0.15)
+                    ax_pitch_for = fig_for.add_subplot(gs_for[0])
+                    ax_stats_for = fig_for.add_subplot(gs_for[1])
                     
-                    with col_pitch:
-                        # Create pitch visualization
-                        fig_pitch = plt.figure(figsize=(12, 16))
-                        gs = gridspec.GridSpec(2, 1, height_ratios=[1, 1], hspace=0.3)
+                    # Draw pitch
+                    pitch = VerticalPitch(pitch_type='impect', pitch_color='white', line_color='gray',
+                                         linewidth=2, half=True, pad_bottom=0)
+                    pitch.draw(ax=ax_pitch_for)
+                    
+                    # Add title
+                    ax_pitch_for.set_title(f"{team_to_filter} - Schoten na Voorzetten", fontsize=14, fontweight='bold', pad=10)
+                    
+                    # Plot shots (same styling as multi match schoten tab)
+                    import math
+                    for shot in shots_from_crosses_for:
+                        sx = shot.get('x', 0.0)
+                        sy = shot.get('y', 0.0)
+                        if sx < 0:
+                            x = -sx
+                            y = -sy
+                        else:
+                            x = sx
+                            y = sy
                         
-                        # Top half: Own team shots
-                        ax_own = fig_pitch.add_subplot(gs[0])
-                        pitch_own = VerticalPitch(pitch_type='impect', pitch_color='white', line_color='gray',
-                                                linewidth=2, half=True, pad_bottom=0)
-                        pitch_own.draw(ax=ax_own)
+                        marker_size = 50 + (shot.get('xG', 0.0) * 500)
                         
-                        # Plot own team shots
-                        for shot in shots_from_crosses_for:
-                            x = shot['x']
-                            y = shot['y']
-                            xg = shot['xG']
-                            is_goal = shot['is_goal']
-                            is_on_target = shot['is_on_target']
-                            
-                            # Size based on xG (same as multi match schoten tab)
-                            size = max(50, xg * 200)
-                            
-                            # Color based on outcome (same as multi match schoten tab)
-                            if is_goal:
-                                color = '#00ff00'  # Green for goals
-                            elif is_on_target:
-                                color = '#ff6b6b'  # Red for on target
+                        if shot.get('is_goal'):
+                            face_color = home_color
+                            edge_color = home_color
+                            alpha = 1.0
+                            edge_width = 2
+                            zorder = 10
+                        else:
+                            face_color = 'white'
+                            edge_color = home_color
+                            alpha = 1.0
+                            edge_width = 2
+                            zorder = 5
+                        
+                        pitch.scatter(x, y, s=marker_size, c=face_color,
+                                     alpha=alpha, edgecolors=edge_color,
+                                     linewidths=edge_width, zorder=zorder, ax=ax_pitch_for)
+                    
+                    # xG scale under pitch (same as multi match schoten tab)
+                    title_axes_y = -0.08
+                    scatter_axes_y = -0.12
+                    scale_xg_values = [0.1, 0.3, 0.5, 0.7, 0.9]
+                    n = len(scale_xg_values)
+                    spacing = 0.15
+                    total_width = spacing * (n - 1)
+                    scale_x_start = 0.5 - total_width / 2.0
+                    
+                    ax_pitch_for.text(0.5, title_axes_y, 'xG Schaal', fontsize=10, fontweight='bold',
+                                     ha='center', transform=ax_pitch_for.transAxes)
+                    
+                    for i, xg in enumerate(scale_xg_values):
+                        scale_marker_size = 50 + (xg * 500)
+                        adjusted_scale_marker_size = scale_marker_size + 20
+                        x_pos = scale_x_start + (i * spacing)
+                        ax_pitch_for.scatter([x_pos], [scatter_axes_y], s=adjusted_scale_marker_size, c='white', alpha=1,
+                                            edgecolors='black', linewidths=2, clip_on=False,
+                                            transform=ax_pitch_for.transAxes, zorder=20)
+                        ax_pitch_for.text(x_pos, scatter_axes_y - 0.06, f'{xg:.1f}', ha='center',
+                                         transform=ax_pitch_for.transAxes, fontsize=8)
+                    
+                    # Statistics table (right) - same style as multi match schoten tab
+                    ax_stats_for.axis('off')
+                    
+                    goals_for = own_team_stats['crosses_leading_to_goal']
+                    shots_for = own_team_stats['crosses_leading_to_shot']
+                    on_target_for = own_team_stats['crosses_leading_to_shot_on_target']
+                    xg_for = own_team_stats['total_xg']
+                    xgot_for = own_team_stats['total_xgot']
+                    
+                    avg_goals = goals_for / num_matches
+                    avg_shots = shots_for / num_matches
+                    avg_on_target = on_target_for / num_matches
+                    avg_xg = xg_for / num_matches
+                    avg_xgot = xgot_for / num_matches
+                    
+                    stats_data = [
+                        ('', '', ''),
+                        ('', 'Totaal', 'Per wedstrijd'),
+                        ('Doelpunten', f'{int(round(goals_for))}', f'{avg_goals:.2f}'),
+                        ('Schoten', f'{shots_for}', f'{avg_shots:.1f}'),
+                        ('Schoten op doel', f'{on_target_for}', f'{avg_on_target:.1f}'),
+                        ("xG", f'{xg_for:.2f}', f'{avg_xg:.2f}'),
+                        ("xGOT", f'{xgot_for:.2f}', f'{avg_xgot:.2f}'),
+                    ]
+                    
+                    table_y = 0.95
+                    table_step = 0.08
+                    for idx, row in enumerate(stats_data):
+                        if len(row) == 3:
+                            if '\n' in row[0]:
+                                parts = row[0].split('\n')
+                                ax_stats_for.text(0.05, table_y, parts[0], ha='left', fontsize=10,
+                                                 transform=ax_stats_for.transAxes, fontweight='normal', va='top')
+                                if len(parts) > 1:
+                                    ax_stats_for.text(0.05, table_y - table_step * 0.4, parts[1], ha='left', fontsize=8,
+                                                     transform=ax_stats_for.transAxes, fontweight='normal', va='top', color='gray')
+                                ax_stats_for.text(0.50, table_y, row[1], ha='center', fontsize=10,
+                                                 transform=ax_stats_for.transAxes, fontweight='bold', va='top')
+                                ax_stats_for.text(0.85, table_y, row[2], ha='center', fontsize=10,
+                                                 transform=ax_stats_for.transAxes, fontweight='bold', va='top')
                             else:
-                                color = '#4ecdc4'  # Teal for off target
-                            
-                            pitch_own.scatter(x, y, s=size, c=color, alpha=0.7, ax=ax_own, zorder=3)
-                        
-                        ax_own.set_title(f"{team_to_filter} - Schoten na Voorzetten", fontsize=14, fontweight='bold', pad=10)
-                        
-                        # Bottom half: Conceded shots (inverted)
-                        ax_against = fig_pitch.add_subplot(gs[1])
-                        pitch_against = VerticalPitch(pitch_type='impect', pitch_color='white', line_color='gray',
-                                                    linewidth=2, half=True, pad_bottom=0)
-                        pitch_against.draw(ax=ax_against)
-                        
-                        # Plot conceded shots (inverted)
-                        for shot in shots_from_crosses_against:
-                            x = shot['x']
-                            y = shot['y']
-                            xg = shot['xG']
-                            is_goal = shot['is_goal']
-                            is_on_target = shot['is_on_target']
-                            
-                            # Invert coordinates for bottom half
-                            x_inv = -x
-                            y_inv = -y
-                            
-                            # Size based on xG
-                            size = max(50, xg * 200)
-                            
-                            # Color based on outcome (inverted meaning for conceded)
-                            if is_goal:
-                                color = '#ff0000'  # Red for goals conceded
-                            elif is_on_target:
-                                color = '#ff6b6b'  # Red for on target conceded
-                            else:
-                                color = '#4ecdc4'  # Teal for off target conceded
-                            
-                            pitch_against.scatter(x_inv, y_inv, s=size, c=color, alpha=0.7, ax=ax_against, zorder=3)
-                        
-                        ax_against.set_title(f"{team_to_filter} - Schoten Tegen na Voorzetten", fontsize=14, fontweight='bold', pad=10)
-                        
-                        # Add legend
-                        legend_elements = [
-                            plt.scatter([], [], s=100, c='#00ff00', alpha=0.7, label='Doelpunt'),
-                            plt.scatter([], [], s=100, c='#ff6b6b', alpha=0.7, label='Op doel'),
-                            plt.scatter([], [], s=100, c='#4ecdc4', alpha=0.7, label='Naast doel'),
-                            plt.scatter([], [], s=50, c='gray', alpha=0.7, label='xG = 0.25'),
-                            plt.scatter([], [], s=100, c='gray', alpha=0.7, label='xG = 0.50'),
-                            plt.scatter([], [], s=150, c='gray', alpha=0.7, label='xG = 0.75')
-                        ]
-                        ax_own.legend(handles=legend_elements, loc='upper right', bbox_to_anchor=(1.3, 1))
-                        
-                        st.pyplot(fig_pitch)
+                                ax_stats_for.text(0.05, table_y, row[0], ha='left', fontsize=10,
+                                                 transform=ax_stats_for.transAxes, fontweight='bold' if row[0] == '' else 'normal')
+                                ax_stats_for.text(0.50, table_y, row[1], ha='center', fontsize=10,
+                                                 transform=ax_stats_for.transAxes, fontweight='bold')
+                                ax_stats_for.text(0.85, table_y, row[2], ha='center', fontsize=10,
+                                                 transform=ax_stats_for.transAxes, fontweight='bold')
+                        table_y -= table_step
+                    
+                    plt.tight_layout()
+                    st.pyplot(fig_for)
+                    
+                    # Add conceded statistics as a separate section
+                    st.subheader(f"Voorzetten Tegen {team_to_filter}")
+                    
+                    # Create a simple statistics display for conceded crosses
+                    col1, col2, col3, col4 = st.columns(4)
+                    
+                    with col1:
+                        st.metric("Totaal Voorzetten Tegen", conceded_stats['total_crosses'])
+                        st.metric("Per Wedstrijd", f"{conceded_stats['total_crosses'] / num_matches:.1f}")
+                    
+                    with col2:
+                        st.metric("Leiden tot Doelpoging", conceded_stats['crosses_leading_to_shot'])
+                        st.metric("Per Wedstrijd", f"{conceded_stats['crosses_leading_to_shot'] / num_matches:.1f}")
+                    
+                    with col3:
+                        st.metric("Leiden tot Schot op Doel", conceded_stats['crosses_leading_to_shot_on_target'])
+                        st.metric("Per Wedstrijd", f"{conceded_stats['crosses_leading_to_shot_on_target'] / num_matches:.1f}")
+                    
+                    with col4:
+                        st.metric("Leiden tot Doelpunt", conceded_stats['crosses_leading_to_goal'])
+                        st.metric("Per Wedstrijd", f"{conceded_stats['crosses_leading_to_goal'] / num_matches:.1f}")
+                    
+                    # xG and xGOT metrics
+                    col5, col6 = st.columns(2)
+                    with col5:
+                        st.metric("xG van die Schoten", f"{conceded_stats['total_xg']:.2f}")
+                        st.metric("xG per Wedstrijd", f"{conceded_stats['total_xg'] / num_matches:.2f}")
+                    
+                    with col6:
+                        st.metric("xGOT van die Schoten", f"{conceded_stats['total_xgot']:.2f}")
+                        st.metric("xGOT per Wedstrijd", f"{conceded_stats['total_xgot'] / num_matches:.2f}")
                     
                         
                 else:
