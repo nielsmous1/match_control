@@ -3578,6 +3578,7 @@ if events_data is not None:
                         'crosses_leading_to_shot': 0,
                         'crosses_leading_to_shot_on_target': 0,
                         'crosses_leading_to_goal': 0,
+                        'crosses_leading_to_grote_kans': 0,  # xG > 0.3
                         'total_xg': 0.0,
                         'total_xgot': 0.0
                     }
@@ -3588,6 +3589,7 @@ if events_data is not None:
                         'crosses_leading_to_shot': 0,
                         'crosses_leading_to_shot_on_target': 0,
                         'crosses_leading_to_goal': 0,
+                        'crosses_leading_to_grote_kans': 0,  # xG > 0.3
                         'total_xg': 0.0,
                         'total_xgot': 0.0
                     }
@@ -3697,6 +3699,10 @@ if events_data is not None:
                                         if is_goal:
                                             own_team_stats['crosses_leading_to_goal'] += 1
                                         
+                                        # Check if shot is a grote kans (xG > 0.3)
+                                        if shot_xg > 0.3:
+                                            own_team_stats['crosses_leading_to_grote_kans'] += 1
+                                        
                                         # Collect shot data for visualization
                                         shot_data = {
                                             'x': shot_event.get('startPosXM', 0.0),
@@ -3704,6 +3710,7 @@ if events_data is not None:
                                             'xG': shot_xg,
                                             'is_goal': is_goal,
                                             'is_on_target': is_on_target,
+                                            'is_grote_kans': shot_xg > 0.3,
                                             'team': cross_team
                                         }
                                         shots_from_crosses_for.append(shot_data)
@@ -3766,6 +3773,10 @@ if events_data is not None:
                                         if is_goal:
                                             conceded_stats['crosses_leading_to_goal'] += 1
                                         
+                                        # Check if shot is a grote kans (xG > 0.3)
+                                        if shot_xg > 0.3:
+                                            conceded_stats['crosses_leading_to_grote_kans'] += 1
+                                        
                                         # Collect shot data for visualization
                                         shot_data = {
                                             'x': shot_event.get('startPosXM', 0.0),
@@ -3773,6 +3784,7 @@ if events_data is not None:
                                             'xG': shot_xg,
                                             'is_goal': is_goal,
                                             'is_on_target': is_on_target,
+                                            'is_grote_kans': shot_xg > 0.3,
                                             'team': cross_team
                                         }
                                         shots_from_crosses_against.append(shot_data)
@@ -3803,7 +3815,7 @@ if events_data is not None:
                     # Add title
                     ax_pitch_for.set_title(f"{team_to_filter} - Schoten na Voorzetten", fontsize=14, fontweight='bold', pad=10)
                     
-                    # Plot shots (same styling as multi match schoten tab)
+                    # Plot shots with improved color scheme
                     import math
                     for shot in shots_from_crosses_for:
                         sx = shot.get('x', 0.0)
@@ -3816,18 +3828,38 @@ if events_data is not None:
                             y = sy
                         
                         marker_size = 50 + (shot.get('xG', 0.0) * 500)
+                        is_goal = shot.get('is_goal', False)
+                        is_on_target = shot.get('is_on_target', False)
+                        is_grote_kans = shot.get('is_grote_kans', False)
                         
-                        if shot.get('is_goal'):
-                            face_color = home_color
-                            edge_color = home_color
+                        # Improved color scheme
+                        if is_goal:
+                            # Goals: Green with gold edge
+                            face_color = '#2E8B57'  # Sea green
+                            edge_color = '#FFD700'  # Gold
                             alpha = 1.0
-                            edge_width = 2
+                            edge_width = 3
                             zorder = 10
-                        else:
-                            face_color = 'white'
-                            edge_color = home_color
-                            alpha = 1.0
+                        elif is_on_target:
+                            # On target: Blue with white edge
+                            face_color = '#4169E1'  # Royal blue
+                            edge_color = 'white'
+                            alpha = 0.9
                             edge_width = 2
+                            zorder = 8
+                        elif is_grote_kans:
+                            # Grote kans (xG > 0.3): Orange with dark edge
+                            face_color = '#FF8C00'  # Dark orange
+                            edge_color = '#8B4513'  # Saddle brown
+                            alpha = 0.8
+                            edge_width = 2
+                            zorder = 7
+                        else:
+                            # Wide shots: Light gray with dark edge
+                            face_color = '#D3D3D3'  # Light gray
+                            edge_color = '#696969'  # Dim gray
+                            alpha = 0.6
+                            edge_width = 1
                             zorder = 5
                         
                         pitch.scatter(x, y, s=marker_size, c=face_color,
@@ -3862,23 +3894,26 @@ if events_data is not None:
                     goals_for = own_team_stats['crosses_leading_to_goal']
                     shots_for = own_team_stats['crosses_leading_to_shot']
                     on_target_for = own_team_stats['crosses_leading_to_shot_on_target']
+                    grote_kans_for = own_team_stats['crosses_leading_to_grote_kans']
                     xg_for = own_team_stats['total_xg']
                     xgot_for = own_team_stats['total_xgot']
                     
                     avg_goals = goals_for / num_matches
                     avg_shots = shots_for / num_matches
                     avg_on_target = on_target_for / num_matches
+                    avg_grote_kans = grote_kans_for / num_matches
                     avg_xg = xg_for / num_matches
                     avg_xgot = xgot_for / num_matches
                     
                     stats_data = [
                         ('', '', ''),
                         ('', 'Totaal', 'Per wedstrijd'),
-                        ('Doelpunten', f'{int(round(goals_for))}', f'{avg_goals:.2f}'),
-                        ('Schoten', f'{shots_for}', f'{avg_shots:.1f}'),
-                        ('Schoten op doel', f'{on_target_for}', f'{avg_on_target:.1f}'),
-                        ("xG", f'{xg_for:.2f}', f'{avg_xg:.2f}'),
-                        ("xGOT", f'{xgot_for:.2f}', f'{avg_xgot:.2f}'),
+                        ('Doelpunten uit voorzet', f'{int(round(goals_for))}', f'{avg_goals:.2f}'),
+                        ('Schoten uit voorzet', f'{shots_for}', f'{avg_shots:.1f}'),
+                        ('Schoten op doel uit voorzet', f'{on_target_for}', f'{avg_on_target:.1f}'),
+                        ('Grote kans uit voorzet', f'{grote_kans_for}', f'{avg_grote_kans:.1f}'),
+                        ("xG uit voorzet", f'{xg_for:.2f}', f'{avg_xg:.2f}'),
+                        ("xGOT uit voorzet", f'{xgot_for:.2f}', f'{avg_xgot:.2f}'),
                     ]
                     
                     table_y = 0.95
@@ -3930,15 +3965,25 @@ if events_data is not None:
                         st.metric("Leiden tot Doelpunt", conceded_stats['crosses_leading_to_goal'])
                         st.metric("Per Wedstrijd", f"{conceded_stats['crosses_leading_to_goal'] / num_matches:.1f}")
                     
-                    # xG and xGOT metrics
+                    # Additional metrics
                     col5, col6 = st.columns(2)
                     with col5:
-                        st.metric("xG van die Schoten", f"{conceded_stats['total_xg']:.2f}")
-                        st.metric("xG per Wedstrijd", f"{conceded_stats['total_xg'] / num_matches:.2f}")
+                        st.metric("Grote Kans uit Voorzet", conceded_stats['crosses_leading_to_grote_kans'])
+                        st.metric("Per Wedstrijd", f"{conceded_stats['crosses_leading_to_grote_kans'] / num_matches:.1f}")
                     
                     with col6:
-                        st.metric("xGOT van die Schoten", f"{conceded_stats['total_xgot']:.2f}")
+                        st.metric("xG uit Voorzet", f"{conceded_stats['total_xg']:.2f}")
+                        st.metric("xG per Wedstrijd", f"{conceded_stats['total_xg'] / num_matches:.2f}")
+                    
+                    # xGOT metrics
+                    col7, col8 = st.columns(2)
+                    with col7:
+                        st.metric("xGOT uit Voorzet", f"{conceded_stats['total_xgot']:.2f}")
                         st.metric("xGOT per Wedstrijd", f"{conceded_stats['total_xgot'] / num_matches:.2f}")
+                    
+                    with col8:
+                        # Empty column for spacing
+                        pass
                     
                         
                 else:
