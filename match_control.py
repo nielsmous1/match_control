@@ -3665,17 +3665,21 @@ if events_data is not None:
                             shot_xg = 0.0
                             shot_xgot = 0.0
                             
-                            for label in labels:
-                                if label.get('label') == 101:  # xG label
-                                    shot_xg = label.get('value', 0.0) or 0.0
-                                elif label.get('label') == 102:  # xGOT label
-                                    shot_xgot = label.get('value', 0.0) or 0.0
+                            if labels and isinstance(labels, list):
+                                for label in labels:
+                                    if isinstance(label, dict):
+                                        if label.get('label') == 101:  # xG label
+                                            shot_xg = label.get('value', 0.0) or 0.0
+                                        elif label.get('label') == 102:  # xGOT label
+                                            shot_xgot = label.get('value', 0.0) or 0.0
                             
                             own_team_stats['total_xg'] += shot_xg
                             own_team_stats['total_xgot'] += shot_xgot
                             
                             # Check if shot is on target (label 129)
-                            is_on_target = any(label.get('label') == 129 for label in labels)
+                            is_on_target = False
+                            if labels and isinstance(labels, list):
+                                is_on_target = any(isinstance(label, dict) and label.get('label') == 129 for label in labels)
                             if is_on_target:
                                 own_team_stats['crosses_leading_to_shot_on_target'] += 1
                             
@@ -3743,17 +3747,21 @@ if events_data is not None:
                             shot_xg = 0.0
                             shot_xgot = 0.0
                             
-                            for label in labels:
-                                if label.get('label') == 101:  # xG label
-                                    shot_xg = label.get('value', 0.0) or 0.0
-                                elif label.get('label') == 102:  # xGOT label
-                                    shot_xgot = label.get('value', 0.0) or 0.0
+                            if labels and isinstance(labels, list):
+                                for label in labels:
+                                    if isinstance(label, dict):
+                                        if label.get('label') == 101:  # xG label
+                                            shot_xg = label.get('value', 0.0) or 0.0
+                                        elif label.get('label') == 102:  # xGOT label
+                                            shot_xgot = label.get('value', 0.0) or 0.0
                             
                             conceded_stats['total_xg'] += shot_xg
                             conceded_stats['total_xgot'] += shot_xgot
                             
                             # Check if shot is on target (label 129)
-                            is_on_target = any(label.get('label') == 129 for label in labels)
+                            is_on_target = False
+                            if labels and isinstance(labels, list):
+                                is_on_target = any(isinstance(label, dict) and label.get('label') == 129 for label in labels)
                             if is_on_target:
                                 conceded_stats['crosses_leading_to_shot_on_target'] += 1
                             
