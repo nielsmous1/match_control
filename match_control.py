@@ -3567,6 +3567,266 @@ if events_data is not None:
                                 ha='center', va='center', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
                     
                     st.pyplot(fig_successful)
+                    
+                    # Statistics tables for crosses that lead to shots
+                    st.subheader("📊 Statistieken Voorzetten die leiden tot doelpoging")
+                    
+                    # Calculate detailed statistics for crosses that lead to shots
+                    def calculate_cross_shot_statistics(cross_events, events, team_name):
+                        """Calculate statistics for crosses that lead to shots"""
+                        total_crosses = len(cross_events)
+                        crosses_leading_to_shot = 0
+                        crosses_leading_to_shot_on_target = 0
+                        crosses_leading_to_goal = 0
+                        total_xg = 0.0
+                        total_xgot = 0.0
+                        
+                        for cross_event in cross_events:
+                            if not cross_event.get('is_successful_cross', False):  # Use strict definition
+                                continue
+                                
+                            cross_team = cross_event.get('teamName')
+                            if not cross_team:
+                                continue
+                            
+                            # Find the index of this cross in the events list
+                            cross_id = cross_event.get('eventId')
+                            if not cross_id:
+                                continue
+                            
+                            cross_idx = None
+                            for idx, evt in enumerate(events):
+                                if evt.get('eventId') == cross_id:
+                                    cross_idx = idx
+                                    break
+                            
+                            if cross_idx is None or cross_idx >= len(events) - 1:
+                                continue
+                            
+                            # Check if next event is a shot by the same team
+                            next_event = events[cross_idx + 1]
+                            if (next_event.get('baseTypeId') == SHOT_BASE_TYPE_ID and
+                                next_event.get('teamName') == cross_team):
+                                
+                                crosses_leading_to_shot += 1
+                                
+                                # Get shot statistics
+                                shot_xg = next_event.get('expectedGoals', 0.0) or 0.0
+                                shot_xgot = next_event.get('expectedGoalsOnTarget', 0.0) or 0.0
+                                shot_result = next_event.get('resultId', 0)
+                                
+                                total_xg += shot_xg
+                                total_xgot += shot_xgot
+                                
+                                # Check if shot is on target (resultId 1 = on target, 2 = goal)
+                                if shot_result in [1, 2]:
+                                    crosses_leading_to_shot_on_target += 1
+                                
+                                # Check if shot is a goal (resultId 2 = goal)
+                                if shot_result == 2:
+                                    crosses_leading_to_goal += 1
+                            
+                            # Check if next two events are defensive duels and then a shot
+                            elif cross_idx + 3 < len(events):
+                                next_event_2 = events[cross_idx + 2]
+                                next_event_3 = events[cross_idx + 3]
+                                
+                                if (next_event.get('baseTypeName') == 'DEFENSIVE_DUEL' and
+                                    next_event_2.get('baseTypeName') == 'DEFENSIVE_DUEL' and
+                                    next_event_3.get('baseTypeId') == SHOT_BASE_TYPE_ID and
+                                    next_event_3.get('teamName') == cross_team):
+                                    
+                                    crosses_leading_to_shot += 1
+                                    
+                                    # Get shot statistics
+                                    shot_xg = next_event_3.get('expectedGoals', 0.0) or 0.0
+                                    shot_xgot = next_event_3.get('expectedGoalsOnTarget', 0.0) or 0.0
+                                    shot_result = next_event_3.get('resultId', 0)
+                                    
+                                    total_xg += shot_xg
+                                    total_xgot += shot_xgot
+                                    
+                                    # Check if shot is on target (resultId 1 = on target, 2 = goal)
+                                    if shot_result in [1, 2]:
+                                        crosses_leading_to_shot_on_target += 1
+                                    
+                                    # Check if shot is a goal (resultId 2 = goal)
+                                    if shot_result == 2:
+                                        crosses_leading_to_goal += 1
+                        
+                        return {
+                            'total_crosses': total_crosses,
+                            'crosses_leading_to_shot': crosses_leading_to_shot,
+                            'crosses_leading_to_shot_on_target': crosses_leading_to_shot_on_target,
+                            'crosses_leading_to_goal': crosses_leading_to_goal,
+                            'total_xg': total_xg,
+                            'total_xgot': total_xgot
+                        }
+                    
+                    # Calculate statistics for own team
+                    own_team_stats = {
+                        'total_crosses': 0,
+                        'crosses_leading_to_shot': 0,
+                        'crosses_leading_to_shot_on_target': 0,
+                        'crosses_leading_to_goal': 0,
+                        'total_xg': 0.0,
+                        'total_xgot': 0.0
+                    }
+                    
+                    # Calculate statistics for conceded crosses
+                    conceded_stats = {
+                        'total_crosses': 0,
+                        'crosses_leading_to_shot': 0,
+                        'crosses_leading_to_shot_on_target': 0,
+                        'crosses_leading_to_goal': 0,
+                        'total_xg': 0.0,
+                        'total_xgot': 0.0
+                    }
+                    
+                    # Process each selected match
+                    for match_label in selected_voorzetten_matches:
+                        match_info = next((m for m in team_matches if m['label'] == match_label), None)
+                        if match_info:
+                            try:
+                                match_data = load_json_lenient(match_info['path'])
+                                events = match_data.get('data', []) if isinstance(match_data, dict) else []
+                                
+                                # Get crosses for own team
+                                cross_events_for = [
+                                    event for event in events
+                                    if event.get('teamName') == team_to_filter and
+                                    event.get('baseTypeId') == PASS_BASE_TYPE_ID and
+                                    (event.get('subTypeId') == CROSS_SUB_TYPE_ID or 
+                                     event.get('subTypeId') == CUTBACK_SUB_TYPE_ID or 
+                                     event.get('subTypeId') == CROSS_LOW_SUB_TYPE_ID)
+                                ]
+                                
+                                # Get crosses against selected team
+                                cross_events_against = [
+                                    event for event in events
+                                    if event.get('teamName') != team_to_filter and
+                                    event.get('baseTypeId') == PASS_BASE_TYPE_ID and
+                                    (event.get('subTypeId') == CROSS_SUB_TYPE_ID or 
+                                     event.get('subTypeId') == CUTBACK_SUB_TYPE_ID or 
+                                     event.get('subTypeId') == CROSS_LOW_SUB_TYPE_ID)
+                                ]
+                                
+                                # Calculate statistics for this match
+                                match_own_stats = calculate_cross_shot_statistics(cross_events_for, events, team_to_filter)
+                                match_conceded_stats = calculate_cross_shot_statistics(cross_events_against, events, team_to_filter)
+                                
+                                # Add to totals
+                                for key in own_team_stats:
+                                    if key in ['total_xg', 'total_xgot']:
+                                        own_team_stats[key] += match_own_stats[key]
+                                        conceded_stats[key] += match_conceded_stats[key]
+                                    else:
+                                        own_team_stats[key] += match_own_stats[key]
+                                        conceded_stats[key] += match_conceded_stats[key]
+                                        
+                            except Exception as e:
+                                st.warning(f"Error processing {match_label}: {e}")
+                    
+                    # Calculate per-game averages
+                    num_matches = len(selected_voorzetten_matches)
+                    
+                    # Create tables
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        st.subheader(f"🏠 {team_to_filter} - Eigen Voorzetten")
+                        
+                        # Total statistics
+                        st.write("**Totaal over alle wedstrijden:**")
+                        own_total_data = {
+                            'Statistiek': [
+                                'Totaal voorzetten',
+                                'Voorzetten die leiden tot doelpoging',
+                                'Voorzetten die leiden tot schot op doel',
+                                'Voorzetten die leiden tot doelpunt',
+                                'xG van die schoten',
+                                'xGOT van die schoten'
+                            ],
+                            'Waarde': [
+                                own_team_stats['total_crosses'],
+                                own_team_stats['crosses_leading_to_shot'],
+                                own_team_stats['crosses_leading_to_shot_on_target'],
+                                own_team_stats['crosses_leading_to_goal'],
+                                f"{own_team_stats['total_xg']:.2f}",
+                                f"{own_team_stats['total_xgot']:.2f}"
+                            ]
+                        }
+                        st.dataframe(own_total_data, use_container_width=True, hide_index=True)
+                        
+                        # Per-game averages
+                        st.write("**Gemiddelde per wedstrijd:**")
+                        own_avg_data = {
+                            'Statistiek': [
+                                'Voorzetten per wedstrijd',
+                                'Voorzetten → doelpoging per wedstrijd',
+                                'Voorzetten → schot op doel per wedstrijd',
+                                'Voorzetten → doelpunt per wedstrijd',
+                                'xG per wedstrijd',
+                                'xGOT per wedstrijd'
+                            ],
+                            'Waarde': [
+                                f"{own_team_stats['total_crosses'] / num_matches:.1f}",
+                                f"{own_team_stats['crosses_leading_to_shot'] / num_matches:.1f}",
+                                f"{own_team_stats['crosses_leading_to_shot_on_target'] / num_matches:.1f}",
+                                f"{own_team_stats['crosses_leading_to_goal'] / num_matches:.1f}",
+                                f"{own_team_stats['total_xg'] / num_matches:.2f}",
+                                f"{own_team_stats['total_xgot'] / num_matches:.2f}"
+                            ]
+                        }
+                        st.dataframe(own_avg_data, use_container_width=True, hide_index=True)
+                    
+                    with col2:
+                        st.subheader(f"⚔️ {team_to_filter} - Voorzetten Tegen")
+                        
+                        # Total statistics
+                        st.write("**Totaal over alle wedstrijden:**")
+                        conceded_total_data = {
+                            'Statistiek': [
+                                'Totaal voorzetten tegen',
+                                'Voorzetten tegen die leiden tot doelpoging',
+                                'Voorzetten tegen die leiden tot schot op doel',
+                                'Voorzetten tegen die leiden tot doelpunt',
+                                'xG van die schoten',
+                                'xGOT van die schoten'
+                            ],
+                            'Waarde': [
+                                conceded_stats['total_crosses'],
+                                conceded_stats['crosses_leading_to_shot'],
+                                conceded_stats['crosses_leading_to_shot_on_target'],
+                                conceded_stats['crosses_leading_to_goal'],
+                                f"{conceded_stats['total_xg']:.2f}",
+                                f"{conceded_stats['total_xgot']:.2f}"
+                            ]
+                        }
+                        st.dataframe(conceded_total_data, use_container_width=True, hide_index=True)
+                        
+                        # Per-game averages
+                        st.write("**Gemiddelde per wedstrijd:**")
+                        conceded_avg_data = {
+                            'Statistiek': [
+                                'Voorzetten tegen per wedstrijd',
+                                'Voorzetten tegen → doelpoging per wedstrijd',
+                                'Voorzetten tegen → schot op doel per wedstrijd',
+                                'Voorzetten tegen → doelpunt per wedstrijd',
+                                'xG tegen per wedstrijd',
+                                'xGOT tegen per wedstrijd'
+                            ],
+                            'Waarde': [
+                                f"{conceded_stats['total_crosses'] / num_matches:.1f}",
+                                f"{conceded_stats['crosses_leading_to_shot'] / num_matches:.1f}",
+                                f"{conceded_stats['crosses_leading_to_shot_on_target'] / num_matches:.1f}",
+                                f"{conceded_stats['crosses_leading_to_goal'] / num_matches:.1f}",
+                                f"{conceded_stats['total_xg'] / num_matches:.2f}",
+                                f"{conceded_stats['total_xgot'] / num_matches:.2f}"
+                            ]
+                        }
+                        st.dataframe(conceded_avg_data, use_container_width=True, hide_index=True)
+                        
                 else:
                     st.info("Selecteer minstens één wedstrijd voor voorzetten analyse.")
             else:
