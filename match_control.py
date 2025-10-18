@@ -3571,97 +3571,6 @@ if events_data is not None:
                     # Statistics tables for crosses that lead to shots
                     st.subheader("📊 Statistieken Voorzetten die leiden tot doelpoging")
                     
-                    # Calculate detailed statistics for crosses that lead to shots
-                    def calculate_cross_shot_statistics(cross_events, events, team_name):
-                        """Calculate statistics for crosses that lead to shots"""
-                        total_crosses = len(cross_events)
-                        crosses_leading_to_shot = 0
-                        crosses_leading_to_shot_on_target = 0
-                        crosses_leading_to_goal = 0
-                        total_xg = 0.0
-                        total_xgot = 0.0
-                        
-                        for cross_event in cross_events:
-                            if not cross_event.get('is_successful_cross', False):  # Use strict definition
-                                continue
-                                
-                            cross_team = cross_event.get('teamName')
-                            if not cross_team:
-                                continue
-                            
-                            # Find the index of this cross in the events list
-                            cross_id = cross_event.get('eventId')
-                            if not cross_id:
-                                continue
-                            
-                            cross_idx = None
-                            for idx, evt in enumerate(events):
-                                if evt.get('eventId') == cross_id:
-                                    cross_idx = idx
-                                    break
-                            
-                            if cross_idx is None or cross_idx >= len(events) - 1:
-                                continue
-                            
-                            # Check if next event is a shot by the same team
-                            next_event = events[cross_idx + 1]
-                            if (next_event.get('baseTypeId') == SHOT_BASE_TYPE_ID and
-                                next_event.get('teamName') == cross_team):
-                                
-                                crosses_leading_to_shot += 1
-                                
-                                # Get shot statistics
-                                shot_xg = next_event.get('expectedGoals', 0.0) or 0.0
-                                shot_xgot = next_event.get('expectedGoalsOnTarget', 0.0) or 0.0
-                                shot_result = next_event.get('resultId', 0)
-                                
-                                total_xg += shot_xg
-                                total_xgot += shot_xgot
-                                
-                                # Check if shot is on target (resultId 1 = on target, 2 = goal)
-                                if shot_result in [1, 2]:
-                                    crosses_leading_to_shot_on_target += 1
-                                
-                                # Check if shot is a goal (resultId 2 = goal)
-                                if shot_result == 2:
-                                    crosses_leading_to_goal += 1
-                            
-                            # Check if next two events are defensive duels and then a shot
-                            elif cross_idx + 3 < len(events):
-                                next_event_2 = events[cross_idx + 2]
-                                next_event_3 = events[cross_idx + 3]
-                                
-                                if (next_event.get('baseTypeName') == 'DEFENSIVE_DUEL' and
-                                    next_event_2.get('baseTypeName') == 'DEFENSIVE_DUEL' and
-                                    next_event_3.get('baseTypeId') == SHOT_BASE_TYPE_ID and
-                                    next_event_3.get('teamName') == cross_team):
-                                    
-                                    crosses_leading_to_shot += 1
-                                    
-                                    # Get shot statistics
-                                    shot_xg = next_event_3.get('expectedGoals', 0.0) or 0.0
-                                    shot_xgot = next_event_3.get('expectedGoalsOnTarget', 0.0) or 0.0
-                                    shot_result = next_event_3.get('resultId', 0)
-                                    
-                                    total_xg += shot_xg
-                                    total_xgot += shot_xgot
-                                    
-                                    # Check if shot is on target (resultId 1 = on target, 2 = goal)
-                                    if shot_result in [1, 2]:
-                                        crosses_leading_to_shot_on_target += 1
-                                    
-                                    # Check if shot is a goal (resultId 2 = goal)
-                                    if shot_result == 2:
-                                        crosses_leading_to_goal += 1
-                        
-                        return {
-                            'total_crosses': total_crosses,
-                            'crosses_leading_to_shot': crosses_leading_to_shot,
-                            'crosses_leading_to_shot_on_target': crosses_leading_to_shot_on_target,
-                            'crosses_leading_to_goal': crosses_leading_to_goal,
-                            'total_xg': total_xg,
-                            'total_xgot': total_xgot
-                        }
                     
                     # Calculate statistics for own team
                     own_team_stats = {
@@ -3683,49 +3592,178 @@ if events_data is not None:
                         'total_xgot': 0.0
                     }
                     
-                    # Process each selected match
+                    # Use the already processed cross events and calculate statistics
+                    # We need to get the events for each match to find the shot details
+                    match_events = {}
                     for match_label in selected_voorzetten_matches:
                         match_info = next((m for m in team_matches if m['label'] == match_label), None)
                         if match_info:
                             try:
                                 match_data = load_json_lenient(match_info['path'])
                                 events = match_data.get('data', []) if isinstance(match_data, dict) else []
-                                
-                                # Get crosses for own team
-                                cross_events_for = [
-                                    event for event in events
-                                    if event.get('teamName') == team_to_filter and
-                                    event.get('baseTypeId') == PASS_BASE_TYPE_ID and
-                                    (event.get('subTypeId') == CROSS_SUB_TYPE_ID or 
-                                     event.get('subTypeId') == CUTBACK_SUB_TYPE_ID or 
-                                     event.get('subTypeId') == CROSS_LOW_SUB_TYPE_ID)
-                                ]
-                                
-                                # Get crosses against selected team
-                                cross_events_against = [
-                                    event for event in events
-                                    if event.get('teamName') != team_to_filter and
-                                    event.get('baseTypeId') == PASS_BASE_TYPE_ID and
-                                    (event.get('subTypeId') == CROSS_SUB_TYPE_ID or 
-                                     event.get('subTypeId') == CUTBACK_SUB_TYPE_ID or 
-                                     event.get('subTypeId') == CROSS_LOW_SUB_TYPE_ID)
-                                ]
-                                
-                                # Calculate statistics for this match
-                                match_own_stats = calculate_cross_shot_statistics(cross_events_for, events, team_to_filter)
-                                match_conceded_stats = calculate_cross_shot_statistics(cross_events_against, events, team_to_filter)
-                                
-                                # Add to totals
-                                for key in own_team_stats:
-                                    if key in ['total_xg', 'total_xgot']:
-                                        own_team_stats[key] += match_own_stats[key]
-                                        conceded_stats[key] += match_conceded_stats[key]
-                                    else:
-                                        own_team_stats[key] += match_own_stats[key]
-                                        conceded_stats[key] += match_conceded_stats[key]
-                                        
+                                match_events[match_label] = events
                             except Exception as e:
-                                st.warning(f"Error processing {match_label}: {e}")
+                                st.warning(f"Error loading {match_label}: {e}")
+                    
+                    # Calculate statistics using already processed cross events
+                    for cross_event in all_cross_events_for:
+                        if not cross_event.get('is_successful_cross', False):
+                            continue
+                            
+                        # Find which match this cross belongs to
+                        cross_match = None
+                        cross_events = None
+                        for match_label, events in match_events.items():
+                            for event in events:
+                                if event.get('eventId') == cross_event.get('eventId'):
+                                    cross_match = match_label
+                                    cross_events = events
+                                    break
+                            if cross_match:
+                                break
+                        
+                        if not cross_events:
+                            continue
+                            
+                        # Find the shot event
+                        cross_team = cross_event.get('teamName')
+                        cross_id = cross_event.get('eventId')
+                        
+                        cross_idx = None
+                        for idx, evt in enumerate(cross_events):
+                            if evt.get('eventId') == cross_id:
+                                cross_idx = idx
+                                break
+                        
+                        if cross_idx is None or cross_idx >= len(cross_events) - 1:
+                            continue
+                        
+                        shot_event = None
+                        
+                        # Check if next event is a shot by the same team
+                        next_event = cross_events[cross_idx + 1]
+                        if (next_event.get('baseTypeId') == SHOT_BASE_TYPE_ID and
+                            next_event.get('teamName') == cross_team):
+                            shot_event = next_event
+                        
+                        # Check if next two events are defensive duels and then a shot
+                        elif cross_idx + 3 < len(cross_events):
+                            next_event_2 = cross_events[cross_idx + 2]
+                            next_event_3 = cross_events[cross_idx + 3]
+                            
+                            if (next_event.get('baseTypeName') == 'DEFENSIVE_DUEL' and
+                                next_event_2.get('baseTypeName') == 'DEFENSIVE_DUEL' and
+                                next_event_3.get('baseTypeId') == SHOT_BASE_TYPE_ID and
+                                next_event_3.get('teamName') == cross_team):
+                                shot_event = next_event_3
+                        
+                        if shot_event:
+                            own_team_stats['crosses_leading_to_shot'] += 1
+                            
+                            # Get shot statistics from labels
+                            labels = shot_event.get('labels', [])
+                            shot_xg = 0.0
+                            shot_xgot = 0.0
+                            
+                            for label in labels:
+                                if label.get('label') == 101:  # xG label
+                                    shot_xg = label.get('value', 0.0) or 0.0
+                                elif label.get('label') == 102:  # xGOT label
+                                    shot_xgot = label.get('value', 0.0) or 0.0
+                            
+                            own_team_stats['total_xg'] += shot_xg
+                            own_team_stats['total_xgot'] += shot_xgot
+                            
+                            # Check if shot is on target (label 129)
+                            is_on_target = any(label.get('label') == 129 for label in labels)
+                            if is_on_target:
+                                own_team_stats['crosses_leading_to_shot_on_target'] += 1
+                            
+                            # Check if shot is a goal (resultId 1 = goal)
+                            if shot_event.get('resultId') == 1:
+                                own_team_stats['crosses_leading_to_goal'] += 1
+                    
+                    # Calculate statistics for conceded crosses
+                    for cross_event in all_cross_events_against:
+                        if not cross_event.get('is_successful_cross', False):
+                            continue
+                            
+                        # Find which match this cross belongs to
+                        cross_match = None
+                        cross_events = None
+                        for match_label, events in match_events.items():
+                            for event in events:
+                                if event.get('eventId') == cross_event.get('eventId'):
+                                    cross_match = match_label
+                                    cross_events = events
+                                    break
+                            if cross_match:
+                                break
+                        
+                        if not cross_events:
+                            continue
+                            
+                        # Find the shot event
+                        cross_team = cross_event.get('teamName')
+                        cross_id = cross_event.get('eventId')
+                        
+                        cross_idx = None
+                        for idx, evt in enumerate(cross_events):
+                            if evt.get('eventId') == cross_id:
+                                cross_idx = idx
+                                break
+                        
+                        if cross_idx is None or cross_idx >= len(cross_events) - 1:
+                            continue
+                        
+                        shot_event = None
+                        
+                        # Check if next event is a shot by the same team
+                        next_event = cross_events[cross_idx + 1]
+                        if (next_event.get('baseTypeId') == SHOT_BASE_TYPE_ID and
+                            next_event.get('teamName') == cross_team):
+                            shot_event = next_event
+                        
+                        # Check if next two events are defensive duels and then a shot
+                        elif cross_idx + 3 < len(cross_events):
+                            next_event_2 = cross_events[cross_idx + 2]
+                            next_event_3 = cross_events[cross_idx + 3]
+                            
+                            if (next_event.get('baseTypeName') == 'DEFENSIVE_DUEL' and
+                                next_event_2.get('baseTypeName') == 'DEFENSIVE_DUEL' and
+                                next_event_3.get('baseTypeId') == SHOT_BASE_TYPE_ID and
+                                next_event_3.get('teamName') == cross_team):
+                                shot_event = next_event_3
+                        
+                        if shot_event:
+                            conceded_stats['crosses_leading_to_shot'] += 1
+                            
+                            # Get shot statistics from labels
+                            labels = shot_event.get('labels', [])
+                            shot_xg = 0.0
+                            shot_xgot = 0.0
+                            
+                            for label in labels:
+                                if label.get('label') == 101:  # xG label
+                                    shot_xg = label.get('value', 0.0) or 0.0
+                                elif label.get('label') == 102:  # xGOT label
+                                    shot_xgot = label.get('value', 0.0) or 0.0
+                            
+                            conceded_stats['total_xg'] += shot_xg
+                            conceded_stats['total_xgot'] += shot_xgot
+                            
+                            # Check if shot is on target (label 129)
+                            is_on_target = any(label.get('label') == 129 for label in labels)
+                            if is_on_target:
+                                conceded_stats['crosses_leading_to_shot_on_target'] += 1
+                            
+                            # Check if shot is a goal (resultId 1 = goal)
+                            if shot_event.get('resultId') == 1:
+                                conceded_stats['crosses_leading_to_goal'] += 1
+                    
+                    # Set total crosses from already processed events
+                    own_team_stats['total_crosses'] = len(all_cross_events_for)
+                    conceded_stats['total_crosses'] = len(all_cross_events_against)
                     
                     # Calculate per-game averages
                     num_matches = len(selected_voorzetten_matches)
