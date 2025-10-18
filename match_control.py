@@ -3294,8 +3294,9 @@ if events_data is not None:
                                     if start_x is not None and start_y is not None and end_x is not None and end_y is not None:
                                         distance = np.sqrt((end_x - start_x)**2 + (end_y - start_y)**2)
                                         if distance >= 0:
-                                            # Add success flag to the event
-                                            event['is_successful_cross'] = is_cross_successful(event, events)
+                                            # Add both success flags to the event
+                                            event['is_successful_cross'] = is_cross_successful(event, events)  # Strict definition
+                                            event['is_successful_cross_simple'] = event.get('resultId') == SUCCESSFUL_RESULT_ID  # Simple definition
                                             all_cross_events_for.append(event)
                                 
                                 for event in cross_events_against:
@@ -3306,8 +3307,9 @@ if events_data is not None:
                                     if start_x is not None and start_y is not None and end_x is not None and end_y is not None:
                                         distance = np.sqrt((end_x - start_x)**2 + (end_y - start_y)**2)
                                         if distance >= 0:
-                                            # Add success flag to the event
-                                            event['is_successful_cross'] = is_cross_successful(event, events)
+                                            # Add both success flags to the event
+                                            event['is_successful_cross'] = is_cross_successful(event, events)  # Strict definition
+                                            event['is_successful_cross_simple'] = event.get('resultId') == SUCCESSFUL_RESULT_ID  # Simple definition
                                             all_cross_events_against.append(event)
                             except Exception as e:
                                 st.warning(f"Error loading {match_label}: {e}")
@@ -3328,13 +3330,14 @@ if events_data is not None:
                     }
                     
                     # Count crosses per zone for both teams
-                    zone_stats_for = {zone_name: {'total': 0, 'successful': 0} for zone_name in zones}
-                    zone_stats_against = {zone_name: {'total': 0, 'successful': 0} for zone_name in zones}
+                    zone_stats_for = {zone_name: {'total': 0, 'successful': 0, 'successful_simple': 0} for zone_name in zones}
+                    zone_stats_against = {zone_name: {'total': 0, 'successful': 0, 'successful_simple': 0} for zone_name in zones}
                     
                     for event in all_cross_events_for:
                         start_x = event.get('startPosXM')
                         start_y = event.get('startPosYM')
                         is_successful = event.get('is_successful_cross', False)
+                        is_successful_simple = event.get('is_successful_cross_simple', False)
                         if start_x is not None and start_y is not None:
                             for zone_name, coords in zones.items():
                                 if (coords['x_min'] <= start_x < coords['x_max'] and
@@ -3342,12 +3345,15 @@ if events_data is not None:
                                     zone_stats_for[zone_name]['total'] += 1
                                     if is_successful:
                                         zone_stats_for[zone_name]['successful'] += 1
+                                    if is_successful_simple:
+                                        zone_stats_for[zone_name]['successful_simple'] += 1
                                     break
                     
                     for event in all_cross_events_against:
                         start_x = event.get('startPosXM')
                         start_y = event.get('startPosYM')
                         is_successful = event.get('is_successful_cross', False)
+                        is_successful_simple = event.get('is_successful_cross_simple', False)
                         if start_x is not None and start_y is not None:
                             for zone_name, coords in zones.items():
                                 if (coords['x_min'] <= start_x < coords['x_max'] and
@@ -3355,6 +3361,8 @@ if events_data is not None:
                                     zone_stats_against[zone_name]['total'] += 1
                                     if is_successful:
                                         zone_stats_against[zone_name]['successful'] += 1
+                                    if is_successful_simple:
+                                        zone_stats_against[zone_name]['successful_simple'] += 1
                                     break
                     
                     # Draw full vertical pitch (both halves)
@@ -3471,7 +3479,7 @@ if events_data is not None:
                     # Draw zones for selected team's successful crosses (top half)
                     for zone_name, coords in zones.items():
                         total = zone_stats_for[zone_name]['total']
-                        successful = zone_stats_for[zone_name]['successful']
+                        successful = zone_stats_for[zone_name]['successful_simple']  # Use simple definition
                         percentage = (successful / total * 100) if total > 0 else 0
 
                         if total > 0 and percentage == 0:
@@ -3511,7 +3519,7 @@ if events_data is not None:
                     # Draw zones for conceded successful crosses (bottom half, inverted)
                     for zone_name, coords in zones.items():
                         total = zone_stats_against[zone_name]['total']
-                        successful = zone_stats_against[zone_name]['successful']
+                        successful = zone_stats_against[zone_name]['successful_simple']  # Use simple definition
                         percentage = (successful / total * 100) if total > 0 else 0
 
                         # Inverse color scheme: green for safe (low %), red for dangerous (high %)
