@@ -3606,6 +3606,10 @@ if events_data is not None:
                         if cross_event.get('is_successful_cross', False):
                             conceded_stats['crosses_leading_to_shot'] += 1
                     
+                    # Collect shot data for visualization
+                    shots_from_crosses_for = []
+                    shots_from_crosses_against = []
+                    
                     # Now find the actual shot events to get detailed statistics
                     # We need to reload the match data to find the shot details
                     for match_label in selected_voorzetten_matches:
@@ -3676,24 +3680,33 @@ if events_data is not None:
                                         # Get xG from metrics (same as find_shot_events)
                                         shot_xg = shot_event.get('metrics', {}).get('xG', 0.0)
                                         
-                                        # Get xGOT from labels
-                                        shot_xgot = 0.0
-                                        for label in event_labels:
-                                            if isinstance(label, dict) and label.get('label') == 102:
-                                                shot_xgot = label.get('value', 0.0) or 0.0
-                                                break
+                                        # Get xGOT from metrics (PSxG)
+                                        shot_xgot = shot_event.get('metrics', {}).get('PSxG', 0.0)
                                         
                                         own_team_stats['total_xg'] += shot_xg
                                         own_team_stats['total_xgot'] += shot_xgot
                                         
                                         # Check if shot is on target (label 129)
-                                        if 129 in event_labels:
+                                        is_on_target = 129 in event_labels
+                                        if is_on_target:
                                             own_team_stats['crosses_leading_to_shot_on_target'] += 1
                                         
                                         # Check if shot is a goal (using same logic as find_shot_events)
                                         GOAL_LABELS = [146, 147, 148, 149, 150, 151]
-                                        if any(label in event_labels for label in GOAL_LABELS):
+                                        is_goal = any(label in event_labels for label in GOAL_LABELS)
+                                        if is_goal:
                                             own_team_stats['crosses_leading_to_goal'] += 1
+                                        
+                                        # Collect shot data for visualization
+                                        shot_data = {
+                                            'x': shot_event.get('startPosXM', 0.0),
+                                            'y': shot_event.get('startPosYM', 0.0),
+                                            'xG': shot_xg,
+                                            'is_goal': is_goal,
+                                            'is_on_target': is_on_target,
+                                            'team': cross_team
+                                        }
+                                        shots_from_crosses_for.append(shot_data)
                                 
                                 # Same for conceded crosses
                                 for cross_event, cross_event_in_match in successful_crosses_against:
@@ -3736,24 +3749,33 @@ if events_data is not None:
                                         # Get xG from metrics (same as find_shot_events)
                                         shot_xg = shot_event.get('metrics', {}).get('xG', 0.0)
                                         
-                                        # Get xGOT from labels
-                                        shot_xgot = 0.0
-                                        for label in event_labels:
-                                            if isinstance(label, dict) and label.get('label') == 102:
-                                                shot_xgot = label.get('value', 0.0) or 0.0
-                                                break
+                                        # Get xGOT from metrics (PSxG)
+                                        shot_xgot = shot_event.get('metrics', {}).get('PSxG', 0.0)
                                         
                                         conceded_stats['total_xg'] += shot_xg
                                         conceded_stats['total_xgot'] += shot_xgot
                                         
                                         # Check if shot is on target (label 129)
-                                        if 129 in event_labels:
+                                        is_on_target = 129 in event_labels
+                                        if is_on_target:
                                             conceded_stats['crosses_leading_to_shot_on_target'] += 1
                                         
                                         # Check if shot is a goal (using same logic as find_shot_events)
                                         GOAL_LABELS = [146, 147, 148, 149, 150, 151]
-                                        if any(label in event_labels for label in GOAL_LABELS):
+                                        is_goal = any(label in event_labels for label in GOAL_LABELS)
+                                        if is_goal:
                                             conceded_stats['crosses_leading_to_goal'] += 1
+                                        
+                                        # Collect shot data for visualization
+                                        shot_data = {
+                                            'x': shot_event.get('startPosXM', 0.0),
+                                            'y': shot_event.get('startPosYM', 0.0),
+                                            'xG': shot_xg,
+                                            'is_goal': is_goal,
+                                            'is_on_target': is_on_target,
+                                            'team': cross_team
+                                        }
+                                        shots_from_crosses_against.append(shot_data)
                                         
                             except Exception as e:
                                 st.warning(f"Error processing {match_label}: {e}")
@@ -3761,20 +3783,21 @@ if events_data is not None:
                     # Calculate per-game averages
                     num_matches = len(selected_voorzetten_matches)
                     
-                    # Create tables
-                    col1, col2 = st.columns(2)
+                    # Create shot pitch visualization
+                    st.subheader("🎯 Schoten na Voorzetten")
                     
-                    with col1:
-                        st.subheader(f"🏠 {team_to_filter} - Eigen Voorzetten")
-                        
-                        # Total statistics
-                        st.write("**Totaal over alle wedstrijden:**")
+                    # Create layout with statistics on left and pitch on right
+                    col_stats, col_pitch = st.columns([1, 2])
+                    
+                    with col_stats:
+                        # Display statistics tables
+                        st.write("**Eigen Voorzetten:**")
                         own_total_data = {
                             'Statistiek': [
                                 'Totaal voorzetten',
-                                'Voorzetten die leiden tot doelpoging',
-                                'Voorzetten die leiden tot schot op doel',
-                                'Voorzetten die leiden tot doelpunt',
+                                'Voorzetten → doelpoging',
+                                'Voorzetten → schot op doel',
+                                'Voorzetten → doelpunt',
                                 'xG van die schoten',
                                 'xGOT van die schoten'
                             ],
@@ -3789,8 +3812,7 @@ if events_data is not None:
                         }
                         st.dataframe(own_total_data, use_container_width=True, hide_index=True)
                         
-                        # Per-game averages
-                        st.write("**Gemiddelde per wedstrijd:**")
+                        st.write("**Per wedstrijd:**")
                         own_avg_data = {
                             'Statistiek': [
                                 'Voorzetten per wedstrijd',
@@ -3810,18 +3832,14 @@ if events_data is not None:
                             ]
                         }
                         st.dataframe(own_avg_data, use_container_width=True, hide_index=True)
-                    
-                    with col2:
-                        st.subheader(f"⚔️ {team_to_filter} - Voorzetten Tegen")
                         
-                        # Total statistics
-                        st.write("**Totaal over alle wedstrijden:**")
+                        st.write("**Voorzetten Tegen:**")
                         conceded_total_data = {
                             'Statistiek': [
                                 'Totaal voorzetten tegen',
-                                'Voorzetten tegen die leiden tot doelpoging',
-                                'Voorzetten tegen die leiden tot schot op doel',
-                                'Voorzetten tegen die leiden tot doelpunt',
+                                'Voorzetten tegen → doelpoging',
+                                'Voorzetten tegen → schot op doel',
+                                'Voorzetten tegen → doelpunt',
                                 'xG van die schoten',
                                 'xGOT van die schoten'
                             ],
@@ -3836,8 +3854,7 @@ if events_data is not None:
                         }
                         st.dataframe(conceded_total_data, use_container_width=True, hide_index=True)
                         
-                        # Per-game averages
-                        st.write("**Gemiddelde per wedstrijd:**")
+                        st.write("**Per wedstrijd:**")
                         conceded_avg_data = {
                             'Statistiek': [
                                 'Voorzetten tegen per wedstrijd',
@@ -3857,6 +3874,87 @@ if events_data is not None:
                             ]
                         }
                         st.dataframe(conceded_avg_data, use_container_width=True, hide_index=True)
+                    
+                    with col_pitch:
+                        # Create pitch visualization
+                        fig_pitch = plt.figure(figsize=(12, 16))
+                        gs = gridspec.GridSpec(2, 1, height_ratios=[1, 1], hspace=0.3)
+                        
+                        # Top half: Own team shots
+                        ax_own = fig_pitch.add_subplot(gs[0])
+                        pitch_own = VerticalPitch(pitch_type='impect', pitch_color='white', line_color='gray',
+                                                linewidth=2, half=True, pad_bottom=0)
+                        pitch_own.draw(ax=ax_own)
+                        
+                        # Plot own team shots
+                        for shot in shots_from_crosses_for:
+                            x = shot['x']
+                            y = shot['y']
+                            xg = shot['xG']
+                            is_goal = shot['is_goal']
+                            is_on_target = shot['is_on_target']
+                            
+                            # Size based on xG (same as multi match schoten tab)
+                            size = max(50, xg * 200)
+                            
+                            # Color based on outcome (same as multi match schoten tab)
+                            if is_goal:
+                                color = '#00ff00'  # Green for goals
+                            elif is_on_target:
+                                color = '#ff6b6b'  # Red for on target
+                            else:
+                                color = '#4ecdc4'  # Teal for off target
+                            
+                            pitch_own.scatter(x, y, s=size, c=color, alpha=0.7, ax=ax_own, zorder=3)
+                        
+                        ax_own.set_title(f"{team_to_filter} - Schoten na Voorzetten", fontsize=14, fontweight='bold', pad=10)
+                        
+                        # Bottom half: Conceded shots (inverted)
+                        ax_against = fig_pitch.add_subplot(gs[1])
+                        pitch_against = VerticalPitch(pitch_type='impect', pitch_color='white', line_color='gray',
+                                                    linewidth=2, half=True, pad_bottom=0)
+                        pitch_against.draw(ax=ax_against)
+                        
+                        # Plot conceded shots (inverted)
+                        for shot in shots_from_crosses_against:
+                            x = shot['x']
+                            y = shot['y']
+                            xg = shot['xG']
+                            is_goal = shot['is_goal']
+                            is_on_target = shot['is_on_target']
+                            
+                            # Invert coordinates for bottom half
+                            x_inv = -x
+                            y_inv = -y
+                            
+                            # Size based on xG
+                            size = max(50, xg * 200)
+                            
+                            # Color based on outcome (inverted meaning for conceded)
+                            if is_goal:
+                                color = '#ff0000'  # Red for goals conceded
+                            elif is_on_target:
+                                color = '#ff6b6b'  # Red for on target conceded
+                            else:
+                                color = '#4ecdc4'  # Teal for off target conceded
+                            
+                            pitch_against.scatter(x_inv, y_inv, s=size, c=color, alpha=0.7, ax=ax_against, zorder=3)
+                        
+                        ax_against.set_title(f"{team_to_filter} - Schoten Tegen na Voorzetten", fontsize=14, fontweight='bold', pad=10)
+                        
+                        # Add legend
+                        legend_elements = [
+                            plt.scatter([], [], s=100, c='#00ff00', alpha=0.7, label='Doelpunt'),
+                            plt.scatter([], [], s=100, c='#ff6b6b', alpha=0.7, label='Op doel'),
+                            plt.scatter([], [], s=100, c='#4ecdc4', alpha=0.7, label='Naast doel'),
+                            plt.scatter([], [], s=50, c='gray', alpha=0.7, label='xG = 0.25'),
+                            plt.scatter([], [], s=100, c='gray', alpha=0.7, label='xG = 0.50'),
+                            plt.scatter([], [], s=150, c='gray', alpha=0.7, label='xG = 0.75')
+                        ]
+                        ax_own.legend(handles=legend_elements, loc='upper right', bbox_to_anchor=(1.3, 1))
+                        
+                        st.pyplot(fig_pitch)
+                    
                         
                 else:
                     st.info("Selecteer minstens één wedstrijd voor voorzetten analyse.")
