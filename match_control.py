@@ -3815,7 +3815,7 @@ if events_data is not None:
                     # Add title
                     ax_pitch_for.set_title(f"{team_to_filter} - Schoten na Voorzetten", fontsize=14, fontweight='bold', pad=10)
                     
-                    # Plot shots with improved color scheme
+                    # Plot shots with previous color scheme
                     import math
                     for shot in shots_from_crosses_for:
                         sx = shot.get('x', 0.0)
@@ -3830,36 +3830,28 @@ if events_data is not None:
                         marker_size = 50 + (shot.get('xG', 0.0) * 500)
                         is_goal = shot.get('is_goal', False)
                         is_on_target = shot.get('is_on_target', False)
-                        is_grote_kans = shot.get('is_grote_kans', False)
                         
-                        # Improved color scheme
+                        # Previous color scheme
                         if is_goal:
-                            # Goals: Green with gold edge
-                            face_color = '#2E8B57'  # Sea green
-                            edge_color = '#FFD700'  # Gold
+                            # Goals: Team color filling and border
+                            face_color = home_color
+                            edge_color = home_color
                             alpha = 1.0
-                            edge_width = 3
+                            edge_width = 2
                             zorder = 10
                         elif is_on_target:
-                            # On target: Blue with white edge
-                            face_color = '#4169E1'  # Royal blue
-                            edge_color = 'white'
-                            alpha = 0.9
+                            # On target: White filling with team color border
+                            face_color = 'white'
+                            edge_color = home_color
+                            alpha = 1.0
                             edge_width = 2
-                            zorder = 8
-                        elif is_grote_kans:
-                            # Grote kans (xG > 0.3): Orange with dark edge
-                            face_color = '#FF8C00'  # Dark orange
-                            edge_color = '#8B4513'  # Saddle brown
-                            alpha = 0.8
-                            edge_width = 2
-                            zorder = 7
+                            zorder = 5
                         else:
-                            # Wide shots: Light gray with dark edge
-                            face_color = '#D3D3D3'  # Light gray
-                            edge_color = '#696969'  # Dim gray
-                            alpha = 0.6
-                            edge_width = 1
+                            # Wide shots: White filling with black border
+                            face_color = 'white'
+                            edge_color = 'black'
+                            alpha = 1.0
+                            edge_width = 2
                             zorder = 5
                         
                         pitch.scatter(x, y, s=marker_size, c=face_color,
@@ -3887,6 +3879,36 @@ if events_data is not None:
                                             transform=ax_pitch_for.transAxes, zorder=20)
                         ax_pitch_for.text(x_pos, scatter_axes_y - 0.06, f'{xg:.1f}', ha='center',
                                          transform=ax_pitch_for.transAxes, fontsize=8)
+                    
+                    # Add legend for shot types
+                    legend_y = -0.20
+                    legend_x_start = 0.1
+                    legend_spacing = 0.25
+                    
+                    # Legend title
+                    ax_pitch_for.text(0.5, legend_y, 'Legenda', fontsize=10, fontweight='bold',
+                                     ha='center', transform=ax_pitch_for.transAxes)
+                    
+                    # Goal legend
+                    ax_pitch_for.scatter([legend_x_start], [legend_y - 0.05], s=100, c=home_color, alpha=1,
+                                        edgecolors=home_color, linewidths=2, clip_on=False,
+                                        transform=ax_pitch_for.transAxes, zorder=20)
+                    ax_pitch_for.text(legend_x_start + 0.05, legend_y - 0.05, 'Doelpunt', ha='left',
+                                     transform=ax_pitch_for.transAxes, fontsize=9, va='center')
+                    
+                    # On target legend
+                    ax_pitch_for.scatter([legend_x_start + legend_spacing], [legend_y - 0.05], s=100, c='white', alpha=1,
+                                        edgecolors=home_color, linewidths=2, clip_on=False,
+                                        transform=ax_pitch_for.transAxes, zorder=20)
+                    ax_pitch_for.text(legend_x_start + legend_spacing + 0.05, legend_y - 0.05, 'Op doel', ha='left',
+                                     transform=ax_pitch_for.transAxes, fontsize=9, va='center')
+                    
+                    # Wide shot legend
+                    ax_pitch_for.scatter([legend_x_start + 2*legend_spacing], [legend_y - 0.05], s=100, c='white', alpha=1,
+                                        edgecolors='black', linewidths=2, clip_on=False,
+                                        transform=ax_pitch_for.transAxes, zorder=20)
+                    ax_pitch_for.text(legend_x_start + 2*legend_spacing + 0.05, legend_y - 0.05, 'Wide', ha='left',
+                                     transform=ax_pitch_for.transAxes, fontsize=9, va='center')
                     
                     # Statistics table (right) - same style as multi match schoten tab
                     ax_stats_for.axis('off')
@@ -3922,17 +3944,17 @@ if events_data is not None:
                         if len(row) == 3:
                             if '\n' in row[0]:
                                 parts = row[0].split('\n')
-                                ax_stats_for.text(0.05, table_y, parts[0], ha='left', fontsize=10,
+                                ax_stats_for.text(0.02, table_y, parts[0], ha='left', fontsize=10,
                                                  transform=ax_stats_for.transAxes, fontweight='normal', va='top')
                                 if len(parts) > 1:
-                                    ax_stats_for.text(0.05, table_y - table_step * 0.4, parts[1], ha='left', fontsize=8,
+                                    ax_stats_for.text(0.02, table_y - table_step * 0.4, parts[1], ha='left', fontsize=8,
                                                      transform=ax_stats_for.transAxes, fontweight='normal', va='top', color='gray')
                                 ax_stats_for.text(0.50, table_y, row[1], ha='center', fontsize=10,
                                                  transform=ax_stats_for.transAxes, fontweight='bold', va='top')
                                 ax_stats_for.text(0.85, table_y, row[2], ha='center', fontsize=10,
                                                  transform=ax_stats_for.transAxes, fontweight='bold', va='top')
                             else:
-                                ax_stats_for.text(0.05, table_y, row[0], ha='left', fontsize=10,
+                                ax_stats_for.text(0.02, table_y, row[0], ha='left', fontsize=10,
                                                  transform=ax_stats_for.transAxes, fontweight='bold' if row[0] == '' else 'normal')
                                 ax_stats_for.text(0.50, table_y, row[1], ha='center', fontsize=10,
                                                  transform=ax_stats_for.transAxes, fontweight='bold')
