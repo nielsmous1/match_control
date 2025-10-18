@@ -3460,6 +3460,113 @@ if events_data is not None:
                                 ha='center', va='center', color='gray')
                     
                     st.pyplot(fig_full)
+                    
+                    # Second pitch: Show only successful crosses
+                    st.subheader("Voorzetten die aankomen")
+                    
+                    # Draw second full vertical pitch for successful crosses only
+                    pitch_successful = VerticalPitch(half=False, pitch_type='impect')
+                    fig_successful, ax_successful = pitch_successful.draw(figsize=(8, 16))
+                    
+                    # Draw zones for selected team's successful crosses (top half)
+                    for zone_name, coords in zones.items():
+                        total = zone_stats_for[zone_name]['total']
+                        successful = zone_stats_for[zone_name]['successful']
+                        percentage = (successful / total * 100) if total > 0 else 0
+
+                        if total > 0 and percentage == 0:
+                            facecolor = '#f8d7da'
+                        elif percentage > 0 and percentage < 30:
+                            facecolor = '#ffd8a8'
+                        elif percentage >= 30 and percentage < 60:
+                            facecolor = '#fff3bf'
+                        elif percentage >= 60:
+                            facecolor = '#d3f9d8'
+                        else:
+                            facecolor = 'none'
+
+                        # Draw zone rectangle (top half, normal coords)
+                        rect = patches.Rectangle((coords['y_min'], coords['x_min']),
+                                                 coords['y_max'] - coords['y_min'],
+                                                 coords['x_max'] - coords['x_min'],
+                                                 linewidth=1.5, edgecolor='black', facecolor=facecolor, alpha=0.85, zorder=1)
+                        ax_successful.add_patch(rect)
+
+                        # Zone name
+                        ul_x = coords['x_min'] + 1.2
+                        ul_y = coords['y_max'] - 0.4
+                        zone_title = zone_name.split('(')[0].strip()
+                        pitch_successful.annotate(zone_title, (ul_x, ul_y), ax=ax_successful,
+                                           ha='left', va='top', fontsize=6, color='black',
+                                           zorder=11)
+
+                        # Centered stats text - show successful/total
+                        center_x = (coords['x_min'] + coords['x_max']) / 2
+                        center_y = (coords['y_min'] + coords['y_max']) / 2
+                        text_string = f"{successful}/{total}\n{percentage:.0f}%"
+                        pitch_successful.annotate(text_string, (center_x, center_y), ax=ax_successful,
+                                           ha='center', va='center', fontsize=8, color='black',
+                                           fontweight='bold', zorder=12)
+                    
+                    # Draw zones for conceded successful crosses (bottom half, inverted)
+                    for zone_name, coords in zones.items():
+                        total = zone_stats_against[zone_name]['total']
+                        successful = zone_stats_against[zone_name]['successful']
+                        percentage = (successful / total * 100) if total > 0 else 0
+
+                        # Inverse color scheme: green for safe (low %), red for dangerous (high %)
+                        if total > 0 and percentage == 0:
+                            facecolor = '#d3f9d8'  # Green - safe, no successful crosses
+                        elif percentage > 0 and percentage < 30:
+                            facecolor = '#fff3bf'  # Yellow - relatively safe
+                        elif percentage >= 30 and percentage < 60:
+                            facecolor = '#ffd8a8'  # Orange - moderate danger
+                        elif percentage >= 60:
+                            facecolor = '#f8d7da'  # Red - dangerous, high success rate
+                        else:
+                            facecolor = 'none'
+
+                        # Invert coordinates for bottom half: x -> -x, y -> -y
+                        inverted_y_min = -coords['y_max']
+                        inverted_y_max = -coords['y_min']
+                        inverted_x_min = -coords['x_max']
+                        inverted_x_max = -coords['x_min']
+                        
+                        # Draw zone rectangle (bottom half, inverted)
+                        rect = patches.Rectangle((inverted_y_min, inverted_x_min),
+                                                 inverted_y_max - inverted_y_min,
+                                                 inverted_x_max - inverted_x_min,
+                                                 linewidth=1.5, edgecolor='black', facecolor=facecolor, alpha=0.85, zorder=1)
+                        ax_successful.add_patch(rect)
+
+                        # Zone name (inverted position) - use zone_name not zone_title from previous loop
+                        zone_title_inv = zone_name.split('(')[0].strip()
+                        ul_x_inv = inverted_x_min + 1.2
+                        ul_y_inv = inverted_y_max - 0.4
+                        pitch_successful.annotate(zone_title_inv, (ul_x_inv, ul_y_inv), ax=ax_successful,
+                                           ha='left', va='top', fontsize=6, color='black',
+                                           zorder=11)
+
+                        # Centered stats text (inverted) - show successful/total
+                        center_x_inv = (inverted_x_min + inverted_x_max) / 2
+                        center_y_inv = (inverted_y_min + inverted_y_max) / 2
+                        text_string = f"{successful}/{total}\n{percentage:.0f}%"
+                        pitch_successful.annotate(text_string, (center_x_inv, center_y_inv), ax=ax_successful,
+                                           ha='center', va='center', fontsize=8, color='black',
+                                           fontweight='bold', zorder=12)
+                    
+                    # Add labels for each half (closer to the pitch)
+                    fig_successful.text(0.5, 0.88, f"{team_to_filter} - Voorzetten die aankomen", fontsize=12, fontweight='bold',
+                                ha='center', va='center', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+                    fig_successful.text(0.5, 0.85, "Aantal succesvolle voorzetten per zone", fontsize=9, fontstyle='italic',
+                                ha='center', va='center', color='gray')
+                    
+                    fig_successful.text(0.5, 0.12, f"{team_to_filter} - Voorzetten Tegen die aankomen", fontsize=12, fontweight='bold',
+                                ha='center', va='center', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+                    fig_successful.text(0.5, 0.09, "Aantal succesvolle voorzetten per zone", fontsize=9, fontstyle='italic',
+                                ha='center', va='center', color='gray')
+                    
+                    st.pyplot(fig_successful)
                 else:
                     st.info("Selecteer minstens één wedstrijd voor voorzetten analyse.")
             else:
