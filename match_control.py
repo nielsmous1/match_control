@@ -1527,9 +1527,9 @@ if events_data is not None:
                                             ha='center', va='center', color='white', 
                                             fontweight='bold', fontsize=9)
                     else:
-                        # Vertical text if not enough space
-                        ax_home_bars_imp.text(bar_width + 0.1, bar_y, f'{xg_val:.2f} xG', 
-                                            ha='left', va='center', color='black', 
+                        # Vertical text if not enough space - white text inside bar
+                        ax_home_bars_imp.text(bar_width / 2, bar_y, f'{xg_val:.2f} xG', 
+                                            ha='center', va='center', color='white', 
                                             fontweight='bold', fontsize=8, rotation=90)
 
             away_bars = ax_away_bars_imp.barh(y_pos, away_shot_intervals, bar_height, color=away_color, alpha=1)
@@ -1560,9 +1560,9 @@ if events_data is not None:
                                             ha='center', va='center', color='white', 
                                             fontweight='bold', fontsize=9)
                     else:
-                        # Vertical text if not enough space
-                        ax_away_bars_imp.text(bar_width + 0.1, bar_y, f'{xg_val:.2f} xG', 
-                                            ha='left', va='center', color='black', 
+                        # Vertical text if not enough space - white text inside bar
+                        ax_away_bars_imp.text(bar_width / 2, bar_y, f'{xg_val:.2f} xG', 
+                                            ha='center', va='center', color='white', 
                                             fontweight='bold', fontsize=8, rotation=90)
 
             # xG scale guide (position relative to current pitch limits)
