@@ -1521,14 +1521,14 @@ if events_data is not None:
                 if xg_val > 0:
                     bar_width = bar.get_width()
                     bar_y = bar.get_y() + bar.get_height() / 2
-                    # Check if there's space for horizontal text (bar width > 0.5)
-                    if bar_width > 0.5:
-                        ax_home_bars_imp.text(bar_width / 2, bar_y, f'{xg_val:.2f}', 
+                    # Check if there's space for horizontal text (bar width > 2.0 for "x.xx xG")
+                    if bar_width > 2.0:
+                        ax_home_bars_imp.text(bar_width / 2, bar_y, f'{xg_val:.2f} xG', 
                                             ha='center', va='center', color='white', 
                                             fontweight='bold', fontsize=9)
                     else:
                         # Vertical text if not enough space
-                        ax_home_bars_imp.text(bar_width + 0.1, bar_y, f'{xg_val:.2f}', 
+                        ax_home_bars_imp.text(bar_width + 0.1, bar_y, f'{xg_val:.2f} xG', 
                                             ha='left', va='center', color='black', 
                                             fontweight='bold', fontsize=8, rotation=90)
 
@@ -1554,14 +1554,14 @@ if events_data is not None:
                 if xg_val > 0:
                     bar_width = bar.get_width()
                     bar_y = bar.get_y() + bar.get_height() / 2
-                    # Check if there's space for horizontal text (bar width > 0.5)
-                    if bar_width > 0.5:
-                        ax_away_bars_imp.text(bar_width / 2, bar_y, f'{xg_val:.2f}', 
+                    # Check if there's space for horizontal text (bar width > 2.0 for "x.xx xG")
+                    if bar_width > 2.0:
+                        ax_away_bars_imp.text(bar_width / 2, bar_y, f'{xg_val:.2f} xG', 
                                             ha='center', va='center', color='white', 
                                             fontweight='bold', fontsize=9)
                     else:
                         # Vertical text if not enough space
-                        ax_away_bars_imp.text(bar_width + 0.1, bar_y, f'{xg_val:.2f}', 
+                        ax_away_bars_imp.text(bar_width + 0.1, bar_y, f'{xg_val:.2f} xG', 
                                             ha='left', va='center', color='black', 
                                             fontweight='bold', fontsize=8, rotation=90)
 
