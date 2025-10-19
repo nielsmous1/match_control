@@ -1688,8 +1688,17 @@ if events_data is not None:
                     
                     max_shots_for = max(for_intervals) if for_intervals else 0
                     n_intervals = 4
-                    step = max(1, int(math.ceil((max_shots_for + 1) / float(n_intervals))))
-                    last_tick = n_intervals * step
+                    # Ensure we always get round numbers for ticks
+                    if max_shots_for == 0:
+                        step = 1
+                        last_tick = 4
+                    else:
+                        # Calculate step to get nice round numbers
+                        step = max(1, round(max_shots_for / n_intervals))
+                        # Adjust step to ensure we have at least 4 intervals with round numbers
+                        while (max_shots_for / step) > n_intervals:
+                            step += 1
+                        last_tick = step * n_intervals
                     xticks = np.arange(0, last_tick + 1, step)
                     ax_bars_for.set_xlim(0, last_tick)
                     ax_bars_for.set_xticks(xticks)
@@ -1861,8 +1870,17 @@ if events_data is not None:
                     ax_bars_against.tick_params(axis='y', which='major', pad=10)
                     
                     max_shots_against = max(against_intervals) if against_intervals else 0
-                    step_against = max(1, int(math.ceil((max_shots_against + 1) / float(n_intervals))))
-                    last_tick_against = n_intervals * step_against
+                    # Ensure we always get round numbers for ticks
+                    if max_shots_against == 0:
+                        step_against = 1
+                        last_tick_against = 4
+                    else:
+                        # Calculate step to get nice round numbers
+                        step_against = max(1, round(max_shots_against / n_intervals))
+                        # Adjust step to ensure we have at least 4 intervals with round numbers
+                        while (max_shots_against / step_against) > n_intervals:
+                            step_against += 1
+                        last_tick_against = step_against * n_intervals
                     xticks_against = np.arange(0, last_tick_against + 1, step_against)
                     ax_bars_against.set_xlim(0, last_tick_against)
                     ax_bars_against.set_xticks(xticks_against)
