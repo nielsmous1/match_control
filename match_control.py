@@ -1333,9 +1333,10 @@ if events_data is not None:
             home_shots = [s for s in all_shots if s['team'] == home_team]
             away_shots = [s for s in all_shots if s['team'] == away_team]
 
-            # Calculate shot intervals (duplicate from Schoten tab)
+            # Calculate shot intervals and xG intervals
             def calculate_shot_intervals_imp(shots):
                 intervals = [0] * 6
+                xg_intervals = [0.0] * 6
                 second_half_start_time = 45
                 for event in events:
                     if event.get('baseTypeId') == 14 and event.get('subTypeId') == 1400 and event.get('partId') == 2:
@@ -1344,25 +1345,33 @@ if events_data is not None:
                 for shot in shots:
                     minute = shot['time']
                     part_id = shot['partId']
+                    # Get xG value from shot data
+                    xg_value = float(shot.get('xG', 0) or 0)
                     if part_id == 1:
                         if minute < 15:
                             intervals[0] += 1
+                            xg_intervals[0] += xg_value
                         elif minute < 30:
                             intervals[1] += 1
+                            xg_intervals[1] += xg_value
                         else:
                             intervals[2] += 1
+                            xg_intervals[2] += xg_value
                     elif part_id == 2:
                         relative_minute = minute - second_half_start_time
                         if relative_minute < 15:
                             intervals[3] += 1
+                            xg_intervals[3] += xg_value
                         elif relative_minute < 30:
                             intervals[4] += 1
+                            xg_intervals[4] += xg_value
                         else:
                             intervals[5] += 1
-                return intervals
+                            xg_intervals[5] += xg_value
+                return intervals, xg_intervals
 
-            home_shot_intervals = calculate_shot_intervals_imp(home_shots)
-            away_shot_intervals = calculate_shot_intervals_imp(away_shots)
+            home_shot_intervals, home_xg_intervals = calculate_shot_intervals_imp(home_shots)
+            away_shot_intervals, away_xg_intervals = calculate_shot_intervals_imp(away_shots)
             max_shots = max(max(home_shot_intervals) if home_shot_intervals else 0,
                             max(away_shot_intervals) if away_shot_intervals else 0)
 
@@ -1477,7 +1486,7 @@ if events_data is not None:
             # Side bar charts
             y_pos = np.arange(6)
             bar_height = 0.6
-            ax_home_bars_imp.barh(y_pos, home_shot_intervals, bar_height, color=home_color, alpha=1)
+            home_bars = ax_home_bars_imp.barh(y_pos, home_shot_intervals, bar_height, color=home_color, alpha=1)
             ax_home_bars_imp.set_yticks(y_pos)
             ax_home_bars_imp.set_yticklabels(["0-15'", "15-30'", "30-45+'", "45-60'", "60-75'", "75-90+'"]) 
             ax_home_bars_imp.invert_xaxis()
@@ -1486,15 +1495,44 @@ if events_data is not None:
                 ax_home_bars_imp.spines[spine].set_visible(False)
             ax_home_bars_imp.yaxis.tick_right()
             ax_home_bars_imp.tick_params(axis='y', which='major', pad=10)
-            ax_home_bars_imp.set_xlim(max_shots + 0.5, 0)
-            # Dashed guides at every tick (same logic as original)
-            xticks = ax_home_bars_imp.get_xticks()
+            # Set explicit whole number ticks
+            n_intervals = 4
+            if max_shots == 0:
+                step = 1
+                last_tick = 4
+            else:
+                step = max(1, round(max_shots / n_intervals))
+                while (max_shots / step) > n_intervals:
+                    step += 1
+                last_tick = step * n_intervals
+            xticks = np.arange(0, last_tick + 1, step)
+            ax_home_bars_imp.set_xlim(max(last_tick, max_shots) + 0.5, 0)
+            ax_home_bars_imp.set_xticks(xticks)
+            ax_home_bars_imp.set_xticklabels([str(int(t)) for t in xticks])
+            
+            # Dashed guides at every tick
             ymin = y_pos[0] - bar_height * 0.6
             ymax = y_pos[-1] + bar_height * 1.2
             for tx in xticks:
                 ax_home_bars_imp.vlines(x=tx, ymin=ymin, ymax=ymax, linestyles='--', colors='gray', linewidth=0.7, zorder=0, alpha=0.55)
 
-            ax_away_bars_imp.barh(y_pos, away_shot_intervals, bar_height, color=away_color, alpha=1)
+            # Add xG text to home bars
+            for i, (bar, xg_val) in enumerate(zip(home_bars, home_xg_intervals)):
+                if xg_val > 0:
+                    bar_width = bar.get_width()
+                    bar_y = bar.get_y() + bar.get_height() / 2
+                    # Check if there's space for horizontal text (bar width > 0.5)
+                    if bar_width > 0.5:
+                        ax_home_bars_imp.text(bar_width / 2, bar_y, f'{xg_val:.2f}', 
+                                            ha='center', va='center', color='white', 
+                                            fontweight='bold', fontsize=9)
+                    else:
+                        # Vertical text if not enough space
+                        ax_home_bars_imp.text(bar_width + 0.1, bar_y, f'{xg_val:.2f}', 
+                                            ha='left', va='center', color='black', 
+                                            fontweight='bold', fontsize=8, rotation=90)
+
+            away_bars = ax_away_bars_imp.barh(y_pos, away_shot_intervals, bar_height, color=away_color, alpha=1)
             ax_away_bars_imp.set_yticks(y_pos)
             ax_away_bars_imp.set_yticklabels(["0-15'", "15-30'", "30-45+'", "45-60'", "60-75'", "75-90+'"]) 
             ax_away_bars_imp.set_xlabel("Aantal schoten")
@@ -1502,13 +1540,30 @@ if events_data is not None:
                 ax_away_bars_imp.spines[spine].set_visible(False)
             ax_away_bars_imp.yaxis.tick_left()
             ax_away_bars_imp.tick_params(axis='y', which='major', pad=10)
-            ax_away_bars_imp.set_xlim(0, max_shots + 0.5)
-            # Dashed guides at every tick (same logic as original)
-            xticks = ax_away_bars_imp.get_xticks()
-            ymin = y_pos[0] - bar_height * 0.6
-            ymax = y_pos[-1] + bar_height * 1.2
+            # Set explicit whole number ticks
+            ax_away_bars_imp.set_xlim(0, max(last_tick, max_shots) + 0.5)
+            ax_away_bars_imp.set_xticks(xticks)
+            ax_away_bars_imp.set_xticklabels([str(int(t)) for t in xticks])
+            
+            # Dashed guides at every tick
             for tx in xticks:
                 ax_away_bars_imp.vlines(x=tx, ymin=ymin, ymax=ymax, linestyles='--', colors='gray', linewidth=0.7, zorder=0, alpha=0.55)
+
+            # Add xG text to away bars
+            for i, (bar, xg_val) in enumerate(zip(away_bars, away_xg_intervals)):
+                if xg_val > 0:
+                    bar_width = bar.get_width()
+                    bar_y = bar.get_y() + bar.get_height() / 2
+                    # Check if there's space for horizontal text (bar width > 0.5)
+                    if bar_width > 0.5:
+                        ax_away_bars_imp.text(bar_width / 2, bar_y, f'{xg_val:.2f}', 
+                                            ha='center', va='center', color='white', 
+                                            fontweight='bold', fontsize=9)
+                    else:
+                        # Vertical text if not enough space
+                        ax_away_bars_imp.text(bar_width + 0.1, bar_y, f'{xg_val:.2f}', 
+                                            ha='left', va='center', color='black', 
+                                            fontweight='bold', fontsize=8, rotation=90)
 
             # xG scale guide (position relative to current pitch limits)
             # Ensure there is space below the pitch for xG scale
