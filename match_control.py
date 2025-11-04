@@ -4095,15 +4095,20 @@ if events_data is not None:
             
             with st.spinner("Laden van alle wedstrijden..."):
                 # Process all match files
+                matches_processed = 0
+                matches_skipped = 0
+                
                 for info in files_info:
                     try:
                         match_data = load_json_lenient(info['path'])
                     except Exception:
+                        matches_skipped += 1
                         continue
                     
                     events = match_data.get('data', []) if isinstance(match_data, dict) else []
                     
                     if not events:
+                        matches_skipped += 1
                         continue
                     
                     # Get team names
@@ -4116,7 +4121,10 @@ if events_data is not None:
                         away_team = away_team or metadata.get('awayTeamName') or metadata.get('awayTeam')
                     
                     if not home_team or not away_team:
+                        matches_skipped += 1
                         continue
+                    
+                    matches_processed += 1
                     
                     # Initialize team data if not exists
                     for team in [home_team, away_team]:
@@ -4182,8 +4190,8 @@ if events_data is not None:
                                         is_box_entry = True
                                         entry_type = 'pass_dribble'
                         
-                        # Box entry via cross (subtype 200 or 204, from outside box to inside)
-                        if base_type_id == 1 and sub_type_id in [200, 204]:  # CROSS subtypes
+                        # Box entry via cross (baseTypeId 2, subtype 200 or 204, from outside box to inside)
+                        if base_type_id == 2 and sub_type_id in [200, 204]:  # CROSS baseTypeId 2, subtypes 200/204
                             if result_id == 1:  # SUCCESSFUL
                                 if start_x is not None and end_x is not None and end_y is not None:
                                     # Start outside box, end inside box
@@ -4269,6 +4277,9 @@ if events_data is not None:
                                 all_teams_data[opposing_team]['box_entries_allowed'] += 1
                                 if shot_in_box_after:
                                     all_teams_data[opposing_team]['shots_after_allowed'] += 1
+                
+                # Show processing summary
+                st.info(f"Wedstrijden verwerkt: {matches_processed}, overgeslagen: {matches_skipped}, Totaal beschikbaar: {len(files_info)}")
                 
                 # Calculate ratios
                 for team in all_teams_data:
