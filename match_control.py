@@ -1096,7 +1096,7 @@ if events_data is not None:
             None
         )
 
-        tab1, tab2, tab9, tab11, tab3, tab8, tab10, tab5, tab6, tab4 = st.tabs(["Controle & Gevaar", "Schoten", "Multi Match Schoten", "Slotfase", "xG Verloop", "Voorzetten", "Multi Match Voorzetten", "Gemiddelde Posities", "Samenvatting", "Stand"])
+        tab1, tab2, tab9, tab11, tab3, tab8, tab10, tab5, tab6, tab4, tab12 = st.tabs(["Controle & Gevaar", "Schoten", "Multi Match Schoten", "Slotfase", "xG Verloop", "Voorzetten", "Multi Match Voorzetten", "Gemiddelde Posities", "Samenvatting", "Stand", "Box Entries"])
 
         with tab1:
             st.pyplot(fig)
@@ -4085,5 +4085,289 @@ if events_data is not None:
                     st.info("Selecteer minstens één wedstrijd voor voorzetten analyse.")
             else:
                 st.info("Geen wedstrijden beschikbaar voor dit team.")
+        
+        # ---------- Box Entries Tab ----------
+        with tab12:
+            st.subheader("📊 Box Entries Analyse")
+            
+            # Get all teams and their matches
+            all_teams_data = {}
+            
+            with st.spinner("Laden van alle wedstrijden..."):
+                # Process all match files
+                for info in files_info:
+                    try:
+                        match_data = load_json_lenient(info['path'])
+                    except Exception:
+                        continue
+                    
+                    events = match_data.get('data', []) if isinstance(match_data, dict) else []
+                    
+                    if not events:
+                        continue
+                    
+                    # Get team names
+                    home_team = info.get('home')
+                    away_team = info.get('away')
+                    
+                    if not home_team or not away_team:
+                        metadata = match_data.get('metaData', {}) if isinstance(match_data, dict) else {}
+                        home_team = home_team or metadata.get('homeTeamName') or metadata.get('homeTeam')
+                        away_team = away_team or metadata.get('awayTeamName') or metadata.get('awayTeam')
+                    
+                    if not home_team or not away_team:
+                        continue
+                    
+                    # Initialize team data if not exists
+                    for team in [home_team, away_team]:
+                        if team not in all_teams_data:
+                            all_teams_data[team] = {
+                                'box_entries_pass_dribble': 0,
+                                'box_entries_cross': 0,
+                                'box_entries_total': 0,
+                                'shots_after_pass_dribble': 0,
+                                'shots_after_cross': 0,
+                                'shots_after_total': 0,
+                                'ratio_pass_dribble': 0.0,
+                                'ratio_cross': 0.0,
+                                'ratio_total': 0.0,
+                                'box_entries_allowed': 0,
+                                'shots_after_allowed': 0,
+                                'ratio_allowed': 0.0,
+                                'box_entries_allowed_pass_dribble': 0,
+                                'box_entries_allowed_cross': 0,
+                                'shots_after_allowed_pass_dribble': 0,
+                                'shots_after_allowed_cross': 0,
+                                'ratio_allowed_pass_dribble': 0.0,
+                                'ratio_allowed_cross': 0.0
+                            }
+                    
+                    # Process events for box entries
+                    # Process each event
+                    for idx, event in enumerate(events):
+                        team_field = event.get('teamName') or event.get('team') or event.get('team_name')
+                        if not team_field:
+                            continue
+                        
+                        base_type_id = event.get('baseTypeId')
+                        sub_type_id = event.get('subTypeId')
+                        result_id = event.get('resultId')
+                        labels = event.get('labels', []) or []
+                        
+                        start_x = event.get('startPosXM')
+                        end_x = event.get('endPosXM')
+                        start_y = event.get('startPosYM')
+                        end_y = event.get('endPosYM')
+                        
+                        sequence_id = event.get('sequenceId')
+                        
+                        # Check if this is a box entry
+                        is_box_entry = False
+                        entry_type = None  # 'pass_dribble' or 'cross'
+                        
+                        # Box entry via pass (same as Controle & Gevaar definition)
+                        if base_type_id == 1 and result_id == 1:  # PASS and SUCCESSFUL
+                            if start_x is not None and end_x is not None and end_y is not None:
+                                to_box = (start_x < 36) and (end_x > 36) and (abs(end_y) < 20.15)
+                                if to_box:
+                                    is_box_entry = True
+                                    entry_type = 'pass_dribble'
+                        
+                        # Box entry via dribble (label 125, successful)
+                        if base_type_id == 2 and result_id == 1:  # DRIBBLE and SUCCESSFUL
+                            if 125 in labels:
+                                if start_x is not None and end_x is not None and end_y is not None:
+                                    to_box = (start_x < 36) and (end_x > 36) and (abs(end_y) < 20.15)
+                                    if to_box:
+                                        is_box_entry = True
+                                        entry_type = 'pass_dribble'
+                        
+                        # Box entry via cross (subtype 200 or 204, from outside box to inside)
+                        if base_type_id == 1 and sub_type_id in [200, 204]:  # CROSS subtypes
+                            if result_id == 1:  # SUCCESSFUL
+                                if start_x is not None and end_x is not None and end_y is not None:
+                                    # Start outside box, end inside box
+                                    start_outside = start_x < 36 or abs(start_y or 0) >= 20.15
+                                    end_inside = end_x > 36 and abs(end_y) < 20.15
+                                    if start_outside and end_inside:
+                                        is_box_entry = True
+                                        entry_type = 'cross'
+                        
+                        if is_box_entry and entry_type:
+                            # Determine if this is offensive or defensive stat
+                            # Check which team made this entry
+                            team_made_entry = team_field
+                            
+                            # Find shots in the same sequence after this box entry
+                            shot_in_box_after = False
+                            if sequence_id:
+                                # Check all subsequent events in the same sequence
+                                for check_idx in range(idx + 1, len(events)):
+                                    check_event = events[check_idx]
+                                    check_sequence_id = check_event.get('sequenceId')
+                                    
+                                    # If we've moved to a different sequence, stop looking
+                                    if check_sequence_id != sequence_id:
+                                        break
+                                    
+                                    check_team = check_event.get('teamName') or check_event.get('team')
+                                    if check_team == team_made_entry:
+                                        # Check if it's a shot inside the box
+                                        check_base_type = check_event.get('baseTypeId')
+                                        check_start_x = check_event.get('startPosXM')
+                                        check_start_y = check_event.get('startPosYM')
+                                        
+                                        # Check if it's a shot
+                                        is_shot = False
+                                        if check_base_type == 6:  # SHOT
+                                            is_shot = True
+                                        elif 'shot' in str(check_event.get('baseTypeName', '')).lower():
+                                            is_shot = True
+                                        else:
+                                            check_labels = check_event.get('labels', []) or []
+                                            SHOT_LABELS = [128, 143, 144, 142]
+                                            if any(label in check_labels for label in SHOT_LABELS):
+                                                is_shot = True
+                                        
+                                        if is_shot and check_start_x is not None and check_start_y is not None:
+                                            # Check if shot is inside box
+                                            if check_start_x >= 36 and abs(check_start_y) < 20.15:
+                                                shot_in_box_after = True
+                                                break
+                                    
+                                    # If we found a shot, no need to continue
+                                    if shot_in_box_after:
+                                        break
+                            
+                            # Update offensive stats for the team that made the entry
+                            if team_made_entry in all_teams_data:
+                                if entry_type == 'pass_dribble':
+                                    all_teams_data[team_made_entry]['box_entries_pass_dribble'] += 1
+                                    if shot_in_box_after:
+                                        all_teams_data[team_made_entry]['shots_after_pass_dribble'] += 1
+                                elif entry_type == 'cross':
+                                    all_teams_data[team_made_entry]['box_entries_cross'] += 1
+                                    if shot_in_box_after:
+                                        all_teams_data[team_made_entry]['shots_after_cross'] += 1
+                                
+                                all_teams_data[team_made_entry]['box_entries_total'] += 1
+                                if shot_in_box_after:
+                                    all_teams_data[team_made_entry]['shots_after_total'] += 1
+                            
+                            # Update defensive stats for the opposing team
+                            opposing_team = away_team if team_made_entry == home_team else home_team
+                            if opposing_team in all_teams_data:
+                                if entry_type == 'pass_dribble':
+                                    all_teams_data[opposing_team]['box_entries_allowed_pass_dribble'] += 1
+                                    if shot_in_box_after:
+                                        all_teams_data[opposing_team]['shots_after_allowed_pass_dribble'] += 1
+                                elif entry_type == 'cross':
+                                    all_teams_data[opposing_team]['box_entries_allowed_cross'] += 1
+                                    if shot_in_box_after:
+                                        all_teams_data[opposing_team]['shots_after_allowed_cross'] += 1
+                                
+                                all_teams_data[opposing_team]['box_entries_allowed'] += 1
+                                if shot_in_box_after:
+                                    all_teams_data[opposing_team]['shots_after_allowed'] += 1
+                
+                # Calculate ratios
+                for team in all_teams_data:
+                    data = all_teams_data[team]
+                    
+                    # Offensive ratios
+                    if data['box_entries_pass_dribble'] > 0:
+                        data['ratio_pass_dribble'] = data['shots_after_pass_dribble'] / data['box_entries_pass_dribble']
+                    if data['box_entries_cross'] > 0:
+                        data['ratio_cross'] = data['shots_after_cross'] / data['box_entries_cross']
+                    if data['box_entries_total'] > 0:
+                        data['ratio_total'] = data['shots_after_total'] / data['box_entries_total']
+                    
+                    # Defensive ratios
+                    if data['box_entries_allowed'] > 0:
+                        data['ratio_allowed'] = data['shots_after_allowed'] / data['box_entries_allowed']
+                    if data['box_entries_allowed_pass_dribble'] > 0:
+                        data['ratio_allowed_pass_dribble'] = data['shots_after_allowed_pass_dribble'] / data['box_entries_allowed_pass_dribble']
+                    if data['box_entries_allowed_cross'] > 0:
+                        data['ratio_allowed_cross'] = data['shots_after_allowed_cross'] / data['box_entries_allowed_cross']
+            
+            # Display results in a table
+            if all_teams_data:
+                # Create DataFrame
+                import pandas as pd
+                
+                team_list = []
+                for team, data in sorted(all_teams_data.items(), key=lambda x: x[0].lower()):
+                    team_list.append({
+                        'Team': team,
+                        'Box Entries (Pass/Dribble)': data['box_entries_pass_dribble'],
+                        'Box Entries (Cross)': data['box_entries_cross'],
+                        'Box Entries (Total)': data['box_entries_total'],
+                        'Shots After (Pass/Dribble)': data['shots_after_pass_dribble'],
+                        'Shots After (Cross)': data['shots_after_cross'],
+                        'Shots After (Total)': data['shots_after_total'],
+                        'Ratio (Pass/Dribble)': f"{data['ratio_pass_dribble']:.3f}",
+                        'Ratio (Cross)': f"{data['ratio_cross']:.3f}",
+                        'Ratio (Total)': f"{data['ratio_total']:.3f}",
+                        'Box Entries Allowed': data['box_entries_allowed'],
+                        'Box Entries Allowed (Pass/Dribble)': data['box_entries_allowed_pass_dribble'],
+                        'Box Entries Allowed (Cross)': data['box_entries_allowed_cross'],
+                        'Shots After Allowed': data['shots_after_allowed'],
+                        'Shots After Allowed (Pass/Dribble)': data['shots_after_allowed_pass_dribble'],
+                        'Shots After Allowed (Cross)': data['shots_after_allowed_cross'],
+                        'Ratio Allowed': f"{data['ratio_allowed']:.3f}",
+                        'Ratio Allowed (Pass/Dribble)': f"{data['ratio_allowed_pass_dribble']:.3f}",
+                        'Ratio Allowed (Cross)': f"{data['ratio_allowed_cross']:.3f}"
+                    })
+                
+                df = pd.DataFrame(team_list)
+                
+                # Display with tabs for offensive and defensive
+                tab_offensive, tab_defensive = st.tabs(["Offensief", "Defensief"])
+                
+                with tab_offensive:
+                    st.subheader("Offensieve Box Entries Statistieken")
+                    st.dataframe(
+                        df[['Team', 'Box Entries (Pass/Dribble)', 'Box Entries (Cross)', 'Box Entries (Total)',
+                            'Shots After (Pass/Dribble)', 'Shots After (Cross)', 'Shots After (Total)',
+                            'Ratio (Pass/Dribble)', 'Ratio (Cross)', 'Ratio (Total)']],
+                        use_container_width=True,
+                        hide_index=True
+                    )
+                
+                with tab_defensive:
+                    st.subheader("Defensieve Box Entries Statistieken")
+                    st.dataframe(
+                        df[['Team', 'Box Entries Allowed', 'Box Entries Allowed (Pass/Dribble)', 'Box Entries Allowed (Cross)',
+                            'Shots After Allowed', 'Shots After Allowed (Pass/Dribble)', 'Shots After Allowed (Cross)',
+                            'Ratio Allowed', 'Ratio Allowed (Pass/Dribble)', 'Ratio Allowed (Cross)']],
+                        use_container_width=True,
+                        hide_index=True
+                    )
+                
+                # Option to sort by different metrics
+                st.subheader("Sorteer Teams")
+                sort_options = {
+                    'Box Entries (Total)': 'Box Entries (Total)',
+                    'Ratio (Total)': 'Ratio (Total)',
+                    'Shots After (Total)': 'Shots After (Total)',
+                    'Box Entries Allowed': 'Box Entries Allowed',
+                    'Ratio Allowed': 'Ratio Allowed'
+                }
+                sort_by = st.selectbox("Sorteer op:", list(sort_options.keys()))
+                
+                if sort_by:
+                    sort_column = sort_options[sort_by]
+                    if 'Ratio' in sort_by:
+                        # For ratios, convert to float and sort descending
+                        df_sorted = df.copy()
+                        # Extract numeric value from string format
+                        df_sorted[sort_column] = df_sorted[sort_column].astype(str).str.replace('nan', '0').astype(float)
+                        df_sorted = df_sorted.sort_values(sort_column, ascending=False)
+                        st.dataframe(df_sorted, use_container_width=True, hide_index=True)
+                    else:
+                        df_sorted = df.sort_values(sort_column, ascending=False)
+                        st.dataframe(df_sorted, use_container_width=True, hide_index=True)
+            else:
+                st.info("Geen data beschikbaar voor box entries analyse.")
 else:
     st.info("Please select a team and match on the main screen to begin analysis.")
