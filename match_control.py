@@ -4355,29 +4355,135 @@ if events_data is not None:
                         hide_index=True
                     )
                 
-                # Option to sort by different metrics
-                st.subheader("Sorteer Teams")
-                sort_options = {
-                    'Box Entries (Total)': 'Box Entries (Total)',
-                    'Ratio (Total)': 'Ratio (Total)',
-                    'Shots After (Total)': 'Shots After (Total)',
-                    'Box Entries Allowed': 'Box Entries Allowed',
-                    'Ratio Allowed': 'Ratio Allowed'
-                }
-                sort_by = st.selectbox("Sorteer op:", list(sort_options.keys()))
+                # Scatterplot option
+                st.subheader("📊 Scatterplot Analyse")
                 
-                if sort_by:
-                    sort_column = sort_options[sort_by]
-                    if 'Ratio' in sort_by:
-                        # For ratios, convert to float and sort descending
-                        df_sorted = df.copy()
-                        # Extract numeric value from string format
-                        df_sorted[sort_column] = df_sorted[sort_column].astype(str).str.replace('nan', '0').astype(float)
-                        df_sorted = df_sorted.sort_values(sort_column, ascending=False)
-                        st.dataframe(df_sorted, use_container_width=True, hide_index=True)
-                    else:
-                        df_sorted = df.sort_values(sort_column, ascending=False)
-                        st.dataframe(df_sorted, use_container_width=True, hide_index=True)
+                # Create a copy of df with numeric values for plotting
+                df_plot = df.copy()
+                
+                # Convert ratio columns to numeric for plotting
+                ratio_columns = [col for col in df_plot.columns if 'Ratio' in col]
+                for col in ratio_columns:
+                    df_plot[col] = df_plot[col].astype(str).str.replace('nan', '0').astype(float)
+                
+                # Get all numeric columns (excluding Team)
+                # Try to convert all columns to numeric, keeping only those that succeed
+                numeric_columns = []
+                for col in df_plot.columns:
+                    if col != 'Team':
+                        # Check if already numeric
+                        if df_plot[col].dtype in ['int64', 'float64', 'int32', 'float32']:
+                            numeric_columns.append(col)
+                        else:
+                            # Try to convert to numeric
+                            try:
+                                pd.to_numeric(df_plot[col], errors='coerce')
+                                numeric_columns.append(col)
+                            except:
+                                pass
+                
+                if len(numeric_columns) >= 2:
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        x_stat = st.selectbox("Selecteer X-as statistiek:", numeric_columns, key="x_stat_box_entries")
+                    
+                    with col2:
+                        y_stat = st.selectbox("Selecteer Y-as statistiek:", numeric_columns, key="y_stat_box_entries")
+                    
+                    if x_stat and y_stat:
+                        # Create scatterplot with logos
+                        fig, ax = plt.subplots(figsize=(12, 10))
+                        
+                        # Ensure columns are numeric
+                        df_plot[x_stat] = pd.to_numeric(df_plot[x_stat], errors='coerce')
+                        df_plot[y_stat] = pd.to_numeric(df_plot[y_stat], errors='coerce')
+                        
+                        # Get the data for plotting
+                        x_values = df_plot[x_stat].values
+                        y_values = df_plot[y_stat].values
+                        teams = df_plot['Team'].values
+                        
+                        # Set logo size
+                        logo_size = 0.08  # Relative size of logos
+                        
+                        # Plot each team with its logo
+                        for i, team in enumerate(teams):
+                            x_pos = x_values[i]
+                            y_pos = y_values[i]
+                            
+                            # Skip if data is NaN
+                            if pd.isna(x_pos) or pd.isna(y_pos):
+                                continue
+                            
+                            # Load team logo
+                            logo = load_team_logo(team)
+                            
+                            if logo is not None:
+                                # Calculate logo extent
+                                logo_extent_size = (max(x_values) - min(x_values)) * logo_size if max(x_values) != min(x_values) else 1
+                                
+                                # Get axis limits
+                                x_range = max(x_values) - min(x_values) if max(x_values) != min(x_values) else 1
+                                y_range = max(y_values) - min(y_values) if max(y_values) != min(y_values) else 1
+                                
+                                logo_width = x_range * logo_size
+                                logo_height = y_range * logo_size
+                                
+                                # Calculate logo position (centered on point)
+                                logo_x = x_pos - logo_width / 2
+                                logo_y = y_pos - logo_height / 2
+                                
+                                # Display logo
+                                ax.imshow(logo, extent=[logo_x, logo_x + logo_width, 
+                                                        logo_y, logo_y + logo_height], 
+                                         aspect='auto', zorder=3)
+                            else:
+                                # Fallback to circle if logo not found
+                                ax.scatter(x_pos, y_pos, s=100, alpha=0.6, zorder=2)
+                                ax.text(x_pos, y_pos, team[:3], fontsize=8, ha='center', va='center', zorder=4)
+                        
+                        # Add team labels
+                        for i, team in enumerate(teams):
+                            x_pos = x_values[i]
+                            y_pos = y_values[i]
+                            
+                            if pd.isna(x_pos) or pd.isna(y_pos):
+                                continue
+                            
+                            # Add label below logo
+                            y_range = max(y_values) - min(y_values) if max(y_values) != min(y_values) else 1
+                            label_offset = y_range * logo_size * 0.6
+                            ax.text(x_pos, y_pos - label_offset, team, fontsize=9, 
+                                   ha='center', va='top', zorder=5, 
+                                   bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.7, edgecolor='gray'))
+                        
+                        # Set labels and title
+                        ax.set_xlabel(x_stat, fontsize=12, fontweight='bold')
+                        ax.set_ylabel(y_stat, fontsize=12, fontweight='bold')
+                        ax.set_title(f"Team Rankings: {x_stat} vs {y_stat}", fontsize=14, fontweight='bold', pad=20)
+                        
+                        # Add grid
+                        ax.grid(True, alpha=0.3, linestyle='--')
+                        
+                        # Improve layout
+                        plt.tight_layout()
+                        
+                        # Display plot
+                        st.pyplot(fig)
+                        plt.close(fig)
+                        
+                        # Show data table sorted by distance from origin (optional ranking)
+                        st.subheader("Team Rankings")
+                        df_ranking = df_plot[['Team', x_stat, y_stat]].copy()
+                        df_ranking = df_ranking.dropna()
+                        if len(df_ranking) > 0:
+                            # Calculate distance from origin (optional metric)
+                            df_ranking['Distance'] = np.sqrt(df_ranking[x_stat]**2 + df_ranking[y_stat]**2)
+                            df_ranking = df_ranking.sort_values('Distance', ascending=False)
+                            st.dataframe(df_ranking[['Team', x_stat, y_stat]], use_container_width=True, hide_index=True)
+                else:
+                    st.info("Niet genoeg numerieke statistieken beschikbaar voor scatterplot.")
             else:
                 st.info("Geen data beschikbaar voor box entries analyse.")
 else:
