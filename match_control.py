@@ -4092,6 +4092,9 @@ if events_data is not None:
             
             # Get all teams and their matches
             all_teams_data = {}
+            # Collect per-match stats per team
+            from collections import defaultdict
+            per_match_stats = defaultdict(list)
             
             with st.spinner("Laden van alle wedstrijden..."):
                 # Process all match files
@@ -4150,6 +4153,38 @@ if events_data is not None:
                                 'ratio_allowed_cross': 0.0
                             }
                     
+                    # Prepare per-match accumulators for both teams
+                    match_team_stats = {
+                        home_team: {
+                            'box_entries_pass_dribble': 0,
+                            'box_entries_cross': 0,
+                            'box_entries_total': 0,
+                            'shots_after_pass_dribble': 0,
+                            'shots_after_cross': 0,
+                            'shots_after_total': 0,
+                            'box_entries_allowed': 0,
+                            'shots_after_allowed': 0,
+                            'box_entries_allowed_pass_dribble': 0,
+                            'box_entries_allowed_cross': 0,
+                            'shots_after_allowed_pass_dribble': 0,
+                            'shots_after_allowed_cross': 0
+                        },
+                        away_team: {
+                            'box_entries_pass_dribble': 0,
+                            'box_entries_cross': 0,
+                            'box_entries_total': 0,
+                            'shots_after_pass_dribble': 0,
+                            'shots_after_cross': 0,
+                            'shots_after_total': 0,
+                            'box_entries_allowed': 0,
+                            'shots_after_allowed': 0,
+                            'box_entries_allowed_pass_dribble': 0,
+                            'box_entries_allowed_cross': 0,
+                            'shots_after_allowed_pass_dribble': 0,
+                            'shots_after_allowed_cross': 0
+                        }
+                    }
+
                     # Process events for box entries
                     # Process each event
                     for idx, event in enumerate(events):
@@ -4261,6 +4296,20 @@ if events_data is not None:
                                 all_teams_data[team_made_entry]['box_entries_total'] += 1
                                 if shot_in_box_after:
                                     all_teams_data[team_made_entry]['shots_after_total'] += 1
+
+                            # Update per-match offensive stats
+                            if team_made_entry in match_team_stats:
+                                if entry_type == 'pass_dribble':
+                                    match_team_stats[team_made_entry]['box_entries_pass_dribble'] += 1
+                                    if shot_in_box_after:
+                                        match_team_stats[team_made_entry]['shots_after_pass_dribble'] += 1
+                                elif entry_type == 'cross':
+                                    match_team_stats[team_made_entry]['box_entries_cross'] += 1
+                                    if shot_in_box_after:
+                                        match_team_stats[team_made_entry]['shots_after_cross'] += 1
+                                match_team_stats[team_made_entry]['box_entries_total'] += 1
+                                if shot_in_box_after:
+                                    match_team_stats[team_made_entry]['shots_after_total'] += 1
                             
                             # Update defensive stats for the opposing team
                             opposing_team = away_team if team_made_entry == home_team else home_team
@@ -4277,6 +4326,51 @@ if events_data is not None:
                                 all_teams_data[opposing_team]['box_entries_allowed'] += 1
                                 if shot_in_box_after:
                                     all_teams_data[opposing_team]['shots_after_allowed'] += 1
+
+                            # Update per-match defensive stats
+                            if opposing_team in match_team_stats:
+                                if entry_type == 'pass_dribble':
+                                    match_team_stats[opposing_team]['box_entries_allowed_pass_dribble'] += 1
+                                    if shot_in_box_after:
+                                        match_team_stats[opposing_team]['shots_after_allowed_pass_dribble'] += 1
+                                elif entry_type == 'cross':
+                                    match_team_stats[opposing_team]['box_entries_allowed_cross'] += 1
+                                    if shot_in_box_after:
+                                        match_team_stats[opposing_team]['shots_after_allowed_cross'] += 1
+                                match_team_stats[opposing_team]['box_entries_allowed'] += 1
+                                if shot_in_box_after:
+                                    match_team_stats[opposing_team]['shots_after_allowed'] += 1
+
+                    # After processing one match, store per-match results for each team
+                    yyyymmdd = info.get('date')
+                    if yyyymmdd and len(str(yyyymmdd)) == 8:
+                        yyyy = str(yyyymmdd)[0:4]
+                        mm = str(yyyymmdd)[4:6]
+                        dd = str(yyyymmdd)[6:8]
+                        date_iso = f"{yyyy}-{mm}-{dd}"
+                    else:
+                        date_iso = None
+
+                    # Append stats for both teams with opponent name
+                    for team in [home_team, away_team]:
+                        opponent = away_team if team == home_team else home_team
+                        stats = match_team_stats.get(team, {})
+                        per_match_stats[team].append({
+                            'Date': date_iso,
+                            'Opponent': opponent,
+                            'Box Entries (Pass/Dribble)': stats.get('box_entries_pass_dribble', 0),
+                            'Box Entries (Cross)': stats.get('box_entries_cross', 0),
+                            'Box Entries (Total)': stats.get('box_entries_total', 0),
+                            'Shots After (Pass/Dribble)': stats.get('shots_after_pass_dribble', 0),
+                            'Shots After (Cross)': stats.get('shots_after_cross', 0),
+                            'Shots After (Total)': stats.get('shots_after_total', 0),
+                            'Box Entries Allowed': stats.get('box_entries_allowed', 0),
+                            'Box Entries Allowed (Pass/Dribble)': stats.get('box_entries_allowed_pass_dribble', 0),
+                            'Box Entries Allowed (Cross)': stats.get('box_entries_allowed_cross', 0),
+                            'Shots After Allowed': stats.get('shots_after_allowed', 0),
+                            'Shots After Allowed (Pass/Dribble)': stats.get('shots_after_allowed_pass_dribble', 0),
+                            'Shots After Allowed (Cross)': stats.get('shots_after_allowed_cross', 0)
+                        })
                 
                 # Show processing summary
                 st.info(f"Wedstrijden verwerkt: {matches_processed}, overgeslagen: {matches_skipped}, Totaal beschikbaar: {len(files_info)}")
@@ -4355,6 +4449,35 @@ if events_data is not None:
                         hide_index=True
                     )
                 
+                # Per-match stats table for selected team
+                st.subheader("Per-wedstrijd statistieken (geselecteerd team)")
+                team_for_table = selected_team
+                if not team_for_table:
+                    # Fallback: allow user to choose a team if none selected globally
+                    team_for_table = st.selectbox("Kies een team", sorted(list(per_match_stats.keys()))) if per_match_stats else None
+                
+                if team_for_table and team_for_table in per_match_stats and len(per_match_stats[team_for_table]) > 0:
+                    import pandas as pd
+                    df_match = pd.DataFrame(per_match_stats[team_for_table])
+                    # Ensure Date sorts correctly
+                    if 'Date' in df_match.columns:
+                        df_match['Date'] = pd.to_datetime(df_match['Date'], errors='coerce')
+                    # Sort newest first by date if available
+                    if 'Date' in df_match.columns:
+                        df_match = df_match.sort_values('Date', ascending=False)
+                    
+                    display_cols = [
+                        'Date', 'Opponent',
+                        'Box Entries (Pass/Dribble)', 'Box Entries (Cross)', 'Box Entries (Total)',
+                        'Shots After (Pass/Dribble)', 'Shots After (Cross)', 'Shots After (Total)',
+                        'Box Entries Allowed', 'Box Entries Allowed (Pass/Dribble)', 'Box Entries Allowed (Cross)',
+                        'Shots After Allowed', 'Shots After Allowed (Pass/Dribble)', 'Shots After Allowed (Cross)'
+                    ]
+                    existing_cols = [c for c in display_cols if c in df_match.columns]
+                    st.dataframe(df_match[existing_cols], use_container_width=True, hide_index=True)
+                else:
+                    st.info("Geen per-wedstrijd data gevonden voor het geselecteerde team.")
+
                 # Scatterplot option
                 st.subheader("📊 Scatterplot Analyse")
                 
