@@ -4551,6 +4551,12 @@ if events_data is not None:
                             'Possession Time in Box Allowed (Pass/Dribble)': stats.get('possession_time_in_box_allowed_pass_dribble', 0.0),
                             'Possession Time in Box Allowed (Cross)': stats.get('possession_time_in_box_allowed_cross', 0.0),
                             'Possession Time in Box Allowed (Total)': stats.get('possession_time_in_box_allowed', 0.0),
+                            'Time in Box Per Entry (Pass/Dribble)': (stats.get('possession_time_in_box_pass_dribble', 0.0) / stats.get('box_entries_pass_dribble', 1)) if stats.get('box_entries_pass_dribble', 0) > 0 else 0.0,
+                            'Time in Box Per Entry (Cross)': (stats.get('possession_time_in_box_cross', 0.0) / stats.get('box_entries_cross', 1)) if stats.get('box_entries_cross', 0) > 0 else 0.0,
+                            'Time in Box Per Entry (Total)': (stats.get('possession_time_in_box', 0.0) / stats.get('box_entries_total', 1)) if stats.get('box_entries_total', 0) > 0 else 0.0,
+                            'Time in Box Per Entry Allowed (Pass/Dribble)': (stats.get('possession_time_in_box_allowed_pass_dribble', 0.0) / stats.get('box_entries_allowed_pass_dribble', 1)) if stats.get('box_entries_allowed_pass_dribble', 0) > 0 else 0.0,
+                            'Time in Box Per Entry Allowed (Cross)': (stats.get('possession_time_in_box_allowed_cross', 0.0) / stats.get('box_entries_allowed_cross', 1)) if stats.get('box_entries_allowed_cross', 0) > 0 else 0.0,
+                            'Time in Box Per Entry Allowed (Total)': (stats.get('possession_time_in_box_allowed', 0.0) / stats.get('box_entries_allowed', 1)) if stats.get('box_entries_allowed', 0) > 0 else 0.0,
                             'xG Allowed Per Entry (Pass/Dribble)': (stats.get('xg_after_allowed_pass_dribble', 0.0) / stats.get('box_entries_allowed_pass_dribble', 1)) if stats.get('box_entries_allowed_pass_dribble', 0) > 0 else 0.0,
                             'xG Allowed Per Entry (Cross)': (stats.get('xg_after_allowed_cross', 0.0) / stats.get('box_entries_allowed_cross', 1)) if stats.get('box_entries_allowed_cross', 0) > 0 else 0.0,
                             'xG Allowed Per Entry (Total)': (stats.get('xg_after_allowed', 0.0) / stats.get('box_entries_allowed', 1)) if stats.get('box_entries_allowed', 0) > 0 else 0.0
@@ -4627,6 +4633,9 @@ if events_data is not None:
                         'Possession Time in Box Allowed (Pass/Dribble)': float(data.get('possession_time_in_box_allowed_pass_dribble', 0.0) or 0.0),
                         'Possession Time in Box Allowed (Cross)': float(data.get('possession_time_in_box_allowed_cross', 0.0) or 0.0),
                         'Possession Time in Box Allowed (Total)': float(data.get('possession_time_in_box_allowed', 0.0) or 0.0),
+                        'Time in Box Per Entry Allowed (Pass/Dribble)': f"{(data.get('time_per_entry_allowed_pass_dribble', 0.0) or 0.0):.3f}",
+                        'Time in Box Per Entry Allowed (Cross)': f"{(data.get('time_per_entry_allowed_cross', 0.0) or 0.0):.3f}",
+                        'Time in Box Per Entry Allowed (Total)': f"{(data.get('time_per_entry_allowed', 0.0) or 0.0):.3f}",
                         'xG Allowed Per Entry (Pass/Dribble)': f"{(data.get('xg_per_entry_allowed_pass_dribble', 0.0) or 0.0):.3f}",
                         'xG Allowed Per Entry (Cross)': f"{(data.get('xg_per_entry_allowed_cross', 0.0) or 0.0):.3f}",
                         'xG Allowed Per Entry (Total)': f"{(data.get('xg_per_entry_allowed', 0.0) or 0.0):.3f}",
@@ -4647,6 +4656,7 @@ if events_data is not None:
                             'Shots After (Pass/Dribble)', 'Shots After (Cross)', 'Shots After (Total)',
                             'xG After (Pass/Dribble)', 'xG After (Cross)', 'xG After (Total)',
                             'Possession Time in Box (Pass/Dribble)', 'Possession Time in Box (Cross)', 'Possession Time in Box (Total)',
+                            'Time in Box Per Entry (Pass/Dribble)', 'Time in Box Per Entry (Cross)', 'Time in Box Per Entry (Total)',
                             'Ratio (Pass/Dribble)', 'Ratio (Cross)', 'Ratio (Total)']],
                         use_container_width=True,
                         hide_index=True
@@ -4659,6 +4669,7 @@ if events_data is not None:
                             'Shots After Allowed', 'Shots After Allowed (Pass/Dribble)', 'Shots After Allowed (Cross)',
                             'xG After Allowed (Pass/Dribble)', 'xG After Allowed (Cross)', 'xG After Allowed (Total)',
                             'Possession Time in Box Allowed (Pass/Dribble)', 'Possession Time in Box Allowed (Cross)', 'Possession Time in Box Allowed (Total)',
+                            'Time in Box Per Entry Allowed (Pass/Dribble)', 'Time in Box Per Entry Allowed (Cross)', 'Time in Box Per Entry Allowed (Total)',
                             'xG Allowed Per Entry (Pass/Dribble)', 'xG Allowed Per Entry (Cross)', 'xG Allowed Per Entry (Total)',
                             'Ratio Allowed', 'Ratio Allowed (Pass/Dribble)', 'Ratio Allowed (Cross)']],
                         use_container_width=True,
@@ -4687,9 +4698,13 @@ if events_data is not None:
                         'Box Entries (Pass/Dribble)', 'Box Entries (Cross)', 'Box Entries (Total)',
                         'Shots After (Pass/Dribble)', 'Shots After (Cross)', 'Shots After (Total)',
                         'xG After (Pass/Dribble)', 'xG After (Cross)', 'xG After (Total)',
+                        'Possession Time in Box (Pass/Dribble)', 'Possession Time in Box (Cross)', 'Possession Time in Box (Total)',
+                        'Time in Box Per Entry (Pass/Dribble)', 'Time in Box Per Entry (Cross)', 'Time in Box Per Entry (Total)',
                         'Box Entries Allowed', 'Box Entries Allowed (Pass/Dribble)', 'Box Entries Allowed (Cross)',
                         'Shots After Allowed', 'Shots After Allowed (Pass/Dribble)', 'Shots After Allowed (Cross)',
                         'xG After Allowed (Pass/Dribble)', 'xG After Allowed (Cross)', 'xG After Allowed (Total)',
+                        'Possession Time in Box Allowed (Pass/Dribble)', 'Possession Time in Box Allowed (Cross)', 'Possession Time in Box Allowed (Total)',
+                        'Time in Box Per Entry Allowed (Pass/Dribble)', 'Time in Box Per Entry Allowed (Cross)', 'Time in Box Per Entry Allowed (Total)',
                         'xG Allowed Per Entry (Pass/Dribble)', 'xG Allowed Per Entry (Cross)', 'xG Allowed Per Entry (Total)'
                     ]
                     existing_cols = [c for c in display_cols if c in df_match.columns]
