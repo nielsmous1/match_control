@@ -4566,21 +4566,27 @@ if events_data is not None:
                     # Offensive ratios
                     if data['box_entries_pass_dribble'] > 0:
                         data['ratio_pass_dribble'] = data['shots_after_pass_dribble'] / data['box_entries_pass_dribble']
+                        data['time_per_entry_pass_dribble'] = (data.get('possession_time_in_box_pass_dribble', 0.0) or 0.0) / data['box_entries_pass_dribble']
                     if data['box_entries_cross'] > 0:
                         data['ratio_cross'] = data['shots_after_cross'] / data['box_entries_cross']
+                        data['time_per_entry_cross'] = (data.get('possession_time_in_box_cross', 0.0) or 0.0) / data['box_entries_cross']
                     if data['box_entries_total'] > 0:
                         data['ratio_total'] = data['shots_after_total'] / data['box_entries_total']
+                        data['time_per_entry_total'] = (data.get('possession_time_in_box', 0.0) or 0.0) / data['box_entries_total']
                     
                     # Defensive ratios
                     if data['box_entries_allowed'] > 0:
                         data['ratio_allowed'] = data['shots_after_allowed'] / data['box_entries_allowed']
                         data['xg_per_entry_allowed'] = (data.get('xg_after_allowed', 0.0) or 0.0) / data['box_entries_allowed']
+                        data['time_per_entry_allowed'] = (data.get('possession_time_in_box_allowed', 0.0) or 0.0) / data['box_entries_allowed']
                     if data['box_entries_allowed_pass_dribble'] > 0:
                         data['ratio_allowed_pass_dribble'] = data['shots_after_allowed_pass_dribble'] / data['box_entries_allowed_pass_dribble']
                         data['xg_per_entry_allowed_pass_dribble'] = (data.get('xg_after_allowed_pass_dribble', 0.0) or 0.0) / data['box_entries_allowed_pass_dribble']
+                        data['time_per_entry_allowed_pass_dribble'] = (data.get('possession_time_in_box_allowed_pass_dribble', 0.0) or 0.0) / data['box_entries_allowed_pass_dribble']
                     if data['box_entries_allowed_cross'] > 0:
                         data['ratio_allowed_cross'] = data['shots_after_allowed_cross'] / data['box_entries_allowed_cross']
                         data['xg_per_entry_allowed_cross'] = (data.get('xg_after_allowed_cross', 0.0) or 0.0) / data['box_entries_allowed_cross']
+                        data['time_per_entry_allowed_cross'] = (data.get('possession_time_in_box_allowed_cross', 0.0) or 0.0) / data['box_entries_allowed_cross']
             
             # Display results in a table
             if all_teams_data:
@@ -4603,6 +4609,9 @@ if events_data is not None:
                         'Possession Time in Box (Pass/Dribble)': float(data.get('possession_time_in_box_pass_dribble', 0.0) or 0.0),
                         'Possession Time in Box (Cross)': float(data.get('possession_time_in_box_cross', 0.0) or 0.0),
                         'Possession Time in Box (Total)': float(data.get('possession_time_in_box', 0.0) or 0.0),
+                        'Time in Box Per Entry (Pass/Dribble)': f"{(data.get('time_per_entry_pass_dribble', 0.0) or 0.0):.3f}",
+                        'Time in Box Per Entry (Cross)': f"{(data.get('time_per_entry_cross', 0.0) or 0.0):.3f}",
+                        'Time in Box Per Entry (Total)': f"{(data.get('time_per_entry_total', 0.0) or 0.0):.3f}",
                         'Ratio (Pass/Dribble)': f"{data['ratio_pass_dribble']:.3f}",
                         'Ratio (Cross)': f"{data['ratio_cross']:.3f}",
                         'Ratio (Total)': f"{data['ratio_total']:.3f}",
