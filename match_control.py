@@ -4156,7 +4156,13 @@ if events_data is not None:
                                 'xg_after_total': 0.0,
                                 'xg_after_allowed': 0.0,
                                 'xg_after_allowed_pass_dribble': 0.0,
-                                'xg_after_allowed_cross': 0.0
+                                'xg_after_allowed_cross': 0.0,
+                                'possession_time_in_box': 0.0,
+                                'possession_time_in_box_pass_dribble': 0.0,
+                                'possession_time_in_box_cross': 0.0,
+                                'possession_time_in_box_allowed': 0.0,
+                                'possession_time_in_box_allowed_pass_dribble': 0.0,
+                                'possession_time_in_box_allowed_cross': 0.0
                             }
                     
                     # Prepare per-match accumulators for both teams
@@ -4168,12 +4174,18 @@ if events_data is not None:
                             'shots_after_pass_dribble': 0,
                             'shots_after_cross': 0,
                             'shots_after_total': 0,
+                            'possession_time_in_box_pass_dribble': 0.0,
+                            'possession_time_in_box_cross': 0.0,
+                            'possession_time_in_box': 0.0,
                             'box_entries_allowed': 0,
                             'shots_after_allowed': 0,
                             'box_entries_allowed_pass_dribble': 0,
                             'box_entries_allowed_cross': 0,
                             'shots_after_allowed_pass_dribble': 0,
-                            'shots_after_allowed_cross': 0
+                            'shots_after_allowed_cross': 0,
+                            'possession_time_in_box_allowed_pass_dribble': 0.0,
+                            'possession_time_in_box_allowed_cross': 0.0,
+                            'possession_time_in_box_allowed': 0.0
                         },
                         away_team: {
                             'box_entries_pass_dribble': 0,
@@ -4182,12 +4194,18 @@ if events_data is not None:
                             'shots_after_pass_dribble': 0,
                             'shots_after_cross': 0,
                             'shots_after_total': 0,
+                            'possession_time_in_box_pass_dribble': 0.0,
+                            'possession_time_in_box_cross': 0.0,
+                            'possession_time_in_box': 0.0,
                             'box_entries_allowed': 0,
                             'shots_after_allowed': 0,
                             'box_entries_allowed_pass_dribble': 0,
                             'box_entries_allowed_cross': 0,
                             'shots_after_allowed_pass_dribble': 0,
-                            'shots_after_allowed_cross': 0
+                            'shots_after_allowed_cross': 0,
+                            'possession_time_in_box_allowed_pass_dribble': 0.0,
+                            'possession_time_in_box_allowed_cross': 0.0,
+                            'possession_time_in_box_allowed': 0.0
                         }
                     }
 
@@ -4246,6 +4264,99 @@ if events_data is not None:
                             # Determine if this is offensive or defensive stat
                             # Check which team made this entry
                             team_made_entry = team_field
+                            
+                            # Calculate box possession time
+                            possession_time_ms = 0.0
+                            entry_start_time = event.get('startTimeMs')
+                            
+                            if entry_start_time is not None and sequence_id is not None:
+                                # Helper function to check if location is in box
+                                def is_in_box(x, y):
+                                    if x is None or y is None:
+                                        return False
+                                    return x >= 36 and abs(y) < 20.15
+                                
+                                # Find sequence end event
+                                sequence_end_idx = None
+                                sequence_end_time = None
+                                
+                                # First, find all events in the same sequence
+                                sequence_events = []
+                                for seq_idx in range(idx, len(events)):
+                                    seq_event = events[seq_idx]
+                                    seq_event_sequence_id = seq_event.get('sequenceId')
+                                    
+                                    # Normalize sequence IDs
+                                    try:
+                                        base_seq_val = int(sequence_id)
+                                    except Exception:
+                                        base_seq_val = -1
+                                    try:
+                                        seq_val = int(seq_event_sequence_id) if seq_event_sequence_id is not None else -1
+                                    except Exception:
+                                        seq_val = -1
+                                    
+                                    # Stop if we've moved to a later sequence
+                                    if seq_val > base_seq_val:
+                                        break
+                                    
+                                    # Check if this is the sequence end
+                                    if seq_event.get('sequenceEnd') == 1:
+                                        sequence_end_idx = seq_idx
+                                        sequence_end_time = seq_event.get('startTimeMs')
+                                    
+                                    # Collect events in same sequence
+                                    if seq_val == base_seq_val:
+                                        sequence_events.append((seq_idx, seq_event))
+                                
+                                # Now find the last event where ball is still in box
+                                possession_end_time = None
+                                
+                                # Check events in sequence from entry onwards
+                                for seq_idx, seq_event in sequence_events:
+                                    if seq_idx < idx:
+                                        continue
+                                    
+                                    seq_start_x = seq_event.get('startPosXM')
+                                    seq_start_y = seq_event.get('startPosYM')
+                                    seq_end_x = seq_event.get('endPosXM')
+                                    seq_end_y = seq_event.get('endPosYM')
+                                    
+                                    # Check if end location is outside box
+                                    end_in_box = is_in_box(seq_end_x, seq_end_y)
+                                    
+                                    if not end_in_box:
+                                        # End is outside box, check if start is in box
+                                        start_in_box = is_in_box(seq_start_x, seq_start_y)
+                                        
+                                        if start_in_box:
+                                            # This is the event where ball leaves box
+                                            # Use startTimeMs of this event as end time
+                                            possession_end_time = seq_event.get('startTimeMs')
+                                            break
+                                        else:
+                                            # Start is already outside, go back one event
+                                            if seq_idx > idx:
+                                                prev_idx = seq_idx - 1
+                                                # Find previous event in sequence
+                                                for prev_seq_idx, prev_seq_event in sequence_events:
+                                                    if prev_seq_idx == prev_idx:
+                                                        possession_end_time = prev_seq_event.get('startTimeMs')
+                                                        break
+                                            break
+                                
+                                # If all events have end location in box, use sequence end time
+                                if possession_end_time is None and sequence_end_time is not None:
+                                    possession_end_time = sequence_end_time
+                                elif possession_end_time is None:
+                                    # Fallback: use end time of last event in sequence
+                                    if sequence_events:
+                                        last_idx, last_event = sequence_events[-1]
+                                        possession_end_time = last_event.get('endTimeMs') or last_event.get('startTimeMs')
+                                
+                                # Calculate possession time in milliseconds
+                                if possession_end_time is not None and entry_start_time is not None:
+                                    possession_time_ms = max(0, possession_end_time - entry_start_time) / 1000.0  # Convert to seconds
                             
                             # Find shots in the same sequence after this box entry
                             shot_in_box_after = False
@@ -4308,18 +4419,21 @@ if events_data is not None:
                             if team_made_entry in all_teams_data:
                                 if entry_type == 'pass_dribble':
                                     all_teams_data[team_made_entry]['box_entries_pass_dribble'] += 1
+                                    all_teams_data[team_made_entry]['possession_time_in_box_pass_dribble'] += possession_time_ms
                                     if shot_in_box_after:
                                         all_teams_data[team_made_entry]['shots_after_pass_dribble'] += 1
                                         all_teams_data[team_made_entry].setdefault('xg_after_pass_dribble', 0.0)
                                         all_teams_data[team_made_entry]['xg_after_pass_dribble'] += shot_xg_sum
                                 elif entry_type == 'cross':
                                     all_teams_data[team_made_entry]['box_entries_cross'] += 1
+                                    all_teams_data[team_made_entry]['possession_time_in_box_cross'] += possession_time_ms
                                     if shot_in_box_after:
                                         all_teams_data[team_made_entry]['shots_after_cross'] += 1
                                         all_teams_data[team_made_entry].setdefault('xg_after_cross', 0.0)
                                         all_teams_data[team_made_entry]['xg_after_cross'] += shot_xg_sum
                                 
                                 all_teams_data[team_made_entry]['box_entries_total'] += 1
+                                all_teams_data[team_made_entry]['possession_time_in_box'] += possession_time_ms
                                 if shot_in_box_after:
                                     all_teams_data[team_made_entry]['shots_after_total'] += 1
                                     all_teams_data[team_made_entry].setdefault('xg_after_total', 0.0)
@@ -4329,17 +4443,20 @@ if events_data is not None:
                             if team_made_entry in match_team_stats:
                                 if entry_type == 'pass_dribble':
                                     match_team_stats[team_made_entry]['box_entries_pass_dribble'] += 1
+                                    match_team_stats[team_made_entry]['possession_time_in_box_pass_dribble'] += possession_time_ms
                                     if shot_in_box_after:
                                         match_team_stats[team_made_entry]['shots_after_pass_dribble'] += 1
                                         match_team_stats[team_made_entry].setdefault('xg_after_pass_dribble', 0.0)
                                         match_team_stats[team_made_entry]['xg_after_pass_dribble'] += shot_xg_sum
                                 elif entry_type == 'cross':
                                     match_team_stats[team_made_entry]['box_entries_cross'] += 1
+                                    match_team_stats[team_made_entry]['possession_time_in_box_cross'] += possession_time_ms
                                     if shot_in_box_after:
                                         match_team_stats[team_made_entry]['shots_after_cross'] += 1
                                         match_team_stats[team_made_entry].setdefault('xg_after_cross', 0.0)
                                         match_team_stats[team_made_entry]['xg_after_cross'] += shot_xg_sum
                                 match_team_stats[team_made_entry]['box_entries_total'] += 1
+                                match_team_stats[team_made_entry]['possession_time_in_box'] += possession_time_ms
                                 if shot_in_box_after:
                                     match_team_stats[team_made_entry]['shots_after_total'] += 1
                                     match_team_stats[team_made_entry].setdefault('xg_after_total', 0.0)
@@ -4350,18 +4467,21 @@ if events_data is not None:
                             if opposing_team in all_teams_data:
                                 if entry_type == 'pass_dribble':
                                     all_teams_data[opposing_team]['box_entries_allowed_pass_dribble'] += 1
+                                    all_teams_data[opposing_team]['possession_time_in_box_allowed_pass_dribble'] += possession_time_ms
                                     if shot_in_box_after:
                                         all_teams_data[opposing_team]['shots_after_allowed_pass_dribble'] += 1
                                         all_teams_data[opposing_team].setdefault('xg_after_allowed_pass_dribble', 0.0)
                                         all_teams_data[opposing_team]['xg_after_allowed_pass_dribble'] += shot_xg_sum
                                 elif entry_type == 'cross':
                                     all_teams_data[opposing_team]['box_entries_allowed_cross'] += 1
+                                    all_teams_data[opposing_team]['possession_time_in_box_allowed_cross'] += possession_time_ms
                                     if shot_in_box_after:
                                         all_teams_data[opposing_team]['shots_after_allowed_cross'] += 1
                                         all_teams_data[opposing_team].setdefault('xg_after_allowed_cross', 0.0)
                                         all_teams_data[opposing_team]['xg_after_allowed_cross'] += shot_xg_sum
                                 
                                 all_teams_data[opposing_team]['box_entries_allowed'] += 1
+                                all_teams_data[opposing_team]['possession_time_in_box_allowed'] += possession_time_ms
                                 if shot_in_box_after:
                                     all_teams_data[opposing_team]['shots_after_allowed'] += 1
                                     all_teams_data[opposing_team].setdefault('xg_after_allowed', 0.0)
@@ -4371,17 +4491,20 @@ if events_data is not None:
                             if opposing_team in match_team_stats:
                                 if entry_type == 'pass_dribble':
                                     match_team_stats[opposing_team]['box_entries_allowed_pass_dribble'] += 1
+                                    match_team_stats[opposing_team]['possession_time_in_box_allowed_pass_dribble'] += possession_time_ms
                                     if shot_in_box_after:
                                         match_team_stats[opposing_team]['shots_after_allowed_pass_dribble'] += 1
                                         match_team_stats[opposing_team].setdefault('xg_after_allowed_pass_dribble', 0.0)
                                         match_team_stats[opposing_team]['xg_after_allowed_pass_dribble'] += shot_xg_sum
                                 elif entry_type == 'cross':
                                     match_team_stats[opposing_team]['box_entries_allowed_cross'] += 1
+                                    match_team_stats[opposing_team]['possession_time_in_box_allowed_cross'] += possession_time_ms
                                     if shot_in_box_after:
                                         match_team_stats[opposing_team]['shots_after_allowed_cross'] += 1
                                         match_team_stats[opposing_team].setdefault('xg_after_allowed_cross', 0.0)
                                         match_team_stats[opposing_team]['xg_after_allowed_cross'] += shot_xg_sum
                                 match_team_stats[opposing_team]['box_entries_allowed'] += 1
+                                match_team_stats[opposing_team]['possession_time_in_box_allowed'] += possession_time_ms
                                 if shot_in_box_after:
                                     match_team_stats[opposing_team]['shots_after_allowed'] += 1
                                     match_team_stats[opposing_team].setdefault('xg_after_allowed', 0.0)
@@ -4413,6 +4536,9 @@ if events_data is not None:
                             'xG After (Pass/Dribble)': stats.get('xg_after_pass_dribble', 0.0),
                             'xG After (Cross)': stats.get('xg_after_cross', 0.0),
                             'xG After (Total)': stats.get('xg_after_total', 0.0),
+                            'Possession Time in Box (Pass/Dribble)': stats.get('possession_time_in_box_pass_dribble', 0.0),
+                            'Possession Time in Box (Cross)': stats.get('possession_time_in_box_cross', 0.0),
+                            'Possession Time in Box (Total)': stats.get('possession_time_in_box', 0.0),
                             'Box Entries Allowed': stats.get('box_entries_allowed', 0),
                             'Box Entries Allowed (Pass/Dribble)': stats.get('box_entries_allowed_pass_dribble', 0),
                             'Box Entries Allowed (Cross)': stats.get('box_entries_allowed_cross', 0),
@@ -4422,6 +4548,9 @@ if events_data is not None:
                             'xG After Allowed (Pass/Dribble)': stats.get('xg_after_allowed_pass_dribble', 0.0),
                             'xG After Allowed (Cross)': stats.get('xg_after_allowed_cross', 0.0),
                             'xG After Allowed (Total)': stats.get('xg_after_allowed', 0.0),
+                            'Possession Time in Box Allowed (Pass/Dribble)': stats.get('possession_time_in_box_allowed_pass_dribble', 0.0),
+                            'Possession Time in Box Allowed (Cross)': stats.get('possession_time_in_box_allowed_cross', 0.0),
+                            'Possession Time in Box Allowed (Total)': stats.get('possession_time_in_box_allowed', 0.0),
                             'xG Allowed Per Entry (Pass/Dribble)': (stats.get('xg_after_allowed_pass_dribble', 0.0) / stats.get('box_entries_allowed_pass_dribble', 1)) if stats.get('box_entries_allowed_pass_dribble', 0) > 0 else 0.0,
                             'xG Allowed Per Entry (Cross)': (stats.get('xg_after_allowed_cross', 0.0) / stats.get('box_entries_allowed_cross', 1)) if stats.get('box_entries_allowed_cross', 0) > 0 else 0.0,
                             'xG Allowed Per Entry (Total)': (stats.get('xg_after_allowed', 0.0) / stats.get('box_entries_allowed', 1)) if stats.get('box_entries_allowed', 0) > 0 else 0.0
@@ -4471,6 +4600,9 @@ if events_data is not None:
                         'xG After (Pass/Dribble)': float(data.get('xg_after_pass_dribble', 0.0) or 0.0),
                         'xG After (Cross)': float(data.get('xg_after_cross', 0.0) or 0.0),
                         'xG After (Total)': float(data.get('xg_after_total', 0.0) or 0.0),
+                        'Possession Time in Box (Pass/Dribble)': float(data.get('possession_time_in_box_pass_dribble', 0.0) or 0.0),
+                        'Possession Time in Box (Cross)': float(data.get('possession_time_in_box_cross', 0.0) or 0.0),
+                        'Possession Time in Box (Total)': float(data.get('possession_time_in_box', 0.0) or 0.0),
                         'Ratio (Pass/Dribble)': f"{data['ratio_pass_dribble']:.3f}",
                         'Ratio (Cross)': f"{data['ratio_cross']:.3f}",
                         'Ratio (Total)': f"{data['ratio_total']:.3f}",
@@ -4483,6 +4615,9 @@ if events_data is not None:
                         'xG After Allowed (Pass/Dribble)': float(data.get('xg_after_allowed_pass_dribble', 0.0) or 0.0),
                         'xG After Allowed (Cross)': float(data.get('xg_after_allowed_cross', 0.0) or 0.0),
                         'xG After Allowed (Total)': float(data.get('xg_after_allowed', 0.0) or 0.0),
+                        'Possession Time in Box Allowed (Pass/Dribble)': float(data.get('possession_time_in_box_allowed_pass_dribble', 0.0) or 0.0),
+                        'Possession Time in Box Allowed (Cross)': float(data.get('possession_time_in_box_allowed_cross', 0.0) or 0.0),
+                        'Possession Time in Box Allowed (Total)': float(data.get('possession_time_in_box_allowed', 0.0) or 0.0),
                         'xG Allowed Per Entry (Pass/Dribble)': f"{(data.get('xg_per_entry_allowed_pass_dribble', 0.0) or 0.0):.3f}",
                         'xG Allowed Per Entry (Cross)': f"{(data.get('xg_per_entry_allowed_cross', 0.0) or 0.0):.3f}",
                         'xG Allowed Per Entry (Total)': f"{(data.get('xg_per_entry_allowed', 0.0) or 0.0):.3f}",
@@ -4502,6 +4637,7 @@ if events_data is not None:
                         df[['Team', 'Box Entries (Pass/Dribble)', 'Box Entries (Cross)', 'Box Entries (Total)',
                             'Shots After (Pass/Dribble)', 'Shots After (Cross)', 'Shots After (Total)',
                             'xG After (Pass/Dribble)', 'xG After (Cross)', 'xG After (Total)',
+                            'Possession Time in Box (Pass/Dribble)', 'Possession Time in Box (Cross)', 'Possession Time in Box (Total)',
                             'Ratio (Pass/Dribble)', 'Ratio (Cross)', 'Ratio (Total)']],
                         use_container_width=True,
                         hide_index=True
@@ -4513,6 +4649,7 @@ if events_data is not None:
                         df[['Team', 'Box Entries Allowed', 'Box Entries Allowed (Pass/Dribble)', 'Box Entries Allowed (Cross)',
                             'Shots After Allowed', 'Shots After Allowed (Pass/Dribble)', 'Shots After Allowed (Cross)',
                             'xG After Allowed (Pass/Dribble)', 'xG After Allowed (Cross)', 'xG After Allowed (Total)',
+                            'Possession Time in Box Allowed (Pass/Dribble)', 'Possession Time in Box Allowed (Cross)', 'Possession Time in Box Allowed (Total)',
                             'xG Allowed Per Entry (Pass/Dribble)', 'xG Allowed Per Entry (Cross)', 'xG Allowed Per Entry (Total)',
                             'Ratio Allowed', 'Ratio Allowed (Pass/Dribble)', 'Ratio Allowed (Cross)']],
                         use_container_width=True,
