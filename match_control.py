@@ -4289,16 +4289,16 @@ if events_data is not None:
                                             if any(label in check_labels for label in SHOT_LABELS):
                                                 is_shot = True
                                         
-                                    if is_shot and check_start_x is not None and check_start_y is not None:
-                                        # Check if shot is inside box
-                                        if check_start_x >= 36 and abs(check_start_y) < 20.15:
-                                            shot_in_box_after = True
-                                            # accumulate xG if present
-                                            try:
-                                                shot_xg = float((check_event.get('metrics') or {}).get('xG', 0.0) or 0.0)
-                                            except Exception:
-                                                shot_xg = 0.0
-                                            shot_xg_sum += shot_xg
+                                        if is_shot and check_start_x is not None and check_start_y is not None:
+                                            # Check if shot is inside box
+                                            if check_start_x >= 36 and abs(check_start_y) < 20.15:
+                                                shot_in_box_after = True
+                                                # accumulate xG if present
+                                                try:
+                                                    shot_xg = float((check_event.get('metrics') or {}).get('xG', 0.0) or 0.0)
+                                                except Exception:
+                                                    shot_xg = 0.0
+                                                shot_xg_sum += shot_xg
                                     
                                     # If we found a shot, no need to continue
                                     if shot_in_box_after:
@@ -4421,7 +4421,10 @@ if events_data is not None:
                             'Shots After Allowed (Cross)': stats.get('shots_after_allowed_cross', 0),
                             'xG After Allowed (Pass/Dribble)': stats.get('xg_after_allowed_pass_dribble', 0.0),
                             'xG After Allowed (Cross)': stats.get('xg_after_allowed_cross', 0.0),
-                            'xG After Allowed (Total)': stats.get('xg_after_allowed', 0.0)
+                            'xG After Allowed (Total)': stats.get('xg_after_allowed', 0.0),
+                            'xG Allowed Per Entry (Pass/Dribble)': (stats.get('xg_after_allowed_pass_dribble', 0.0) / stats.get('box_entries_allowed_pass_dribble', 1)) if stats.get('box_entries_allowed_pass_dribble', 0) > 0 else 0.0,
+                            'xG Allowed Per Entry (Cross)': (stats.get('xg_after_allowed_cross', 0.0) / stats.get('box_entries_allowed_cross', 1)) if stats.get('box_entries_allowed_cross', 0) > 0 else 0.0,
+                            'xG Allowed Per Entry (Total)': (stats.get('xg_after_allowed', 0.0) / stats.get('box_entries_allowed', 1)) if stats.get('box_entries_allowed', 0) > 0 else 0.0
                         })
                 
                 # Show processing summary
@@ -4442,10 +4445,13 @@ if events_data is not None:
                     # Defensive ratios
                     if data['box_entries_allowed'] > 0:
                         data['ratio_allowed'] = data['shots_after_allowed'] / data['box_entries_allowed']
+                        data['xg_per_entry_allowed'] = (data.get('xg_after_allowed', 0.0) or 0.0) / data['box_entries_allowed']
                     if data['box_entries_allowed_pass_dribble'] > 0:
                         data['ratio_allowed_pass_dribble'] = data['shots_after_allowed_pass_dribble'] / data['box_entries_allowed_pass_dribble']
+                        data['xg_per_entry_allowed_pass_dribble'] = (data.get('xg_after_allowed_pass_dribble', 0.0) or 0.0) / data['box_entries_allowed_pass_dribble']
                     if data['box_entries_allowed_cross'] > 0:
                         data['ratio_allowed_cross'] = data['shots_after_allowed_cross'] / data['box_entries_allowed_cross']
+                        data['xg_per_entry_allowed_cross'] = (data.get('xg_after_allowed_cross', 0.0) or 0.0) / data['box_entries_allowed_cross']
             
             # Display results in a table
             if all_teams_data:
@@ -4477,6 +4483,9 @@ if events_data is not None:
                         'xG After Allowed (Pass/Dribble)': float(data.get('xg_after_allowed_pass_dribble', 0.0) or 0.0),
                         'xG After Allowed (Cross)': float(data.get('xg_after_allowed_cross', 0.0) or 0.0),
                         'xG After Allowed (Total)': float(data.get('xg_after_allowed', 0.0) or 0.0),
+                        'xG Allowed Per Entry (Pass/Dribble)': f"{(data.get('xg_per_entry_allowed_pass_dribble', 0.0) or 0.0):.3f}",
+                        'xG Allowed Per Entry (Cross)': f"{(data.get('xg_per_entry_allowed_cross', 0.0) or 0.0):.3f}",
+                        'xG Allowed Per Entry (Total)': f"{(data.get('xg_per_entry_allowed', 0.0) or 0.0):.3f}",
                         'Ratio Allowed': f"{data['ratio_allowed']:.3f}",
                         'Ratio Allowed (Pass/Dribble)': f"{data['ratio_allowed_pass_dribble']:.3f}",
                         'Ratio Allowed (Cross)': f"{data['ratio_allowed_cross']:.3f}"
@@ -4504,6 +4513,7 @@ if events_data is not None:
                         df[['Team', 'Box Entries Allowed', 'Box Entries Allowed (Pass/Dribble)', 'Box Entries Allowed (Cross)',
                             'Shots After Allowed', 'Shots After Allowed (Pass/Dribble)', 'Shots After Allowed (Cross)',
                             'xG After Allowed (Pass/Dribble)', 'xG After Allowed (Cross)', 'xG After Allowed (Total)',
+                            'xG Allowed Per Entry (Pass/Dribble)', 'xG Allowed Per Entry (Cross)', 'xG Allowed Per Entry (Total)',
                             'Ratio Allowed', 'Ratio Allowed (Pass/Dribble)', 'Ratio Allowed (Cross)']],
                         use_container_width=True,
                         hide_index=True
@@ -4532,12 +4542,10 @@ if events_data is not None:
                         'Shots After (Pass/Dribble)', 'Shots After (Cross)', 'Shots After (Total)',
                         'xG After (Pass/Dribble)', 'xG After (Cross)', 'xG After (Total)',
                         'Box Entries Allowed', 'Box Entries Allowed (Pass/Dribble)', 'Box Entries Allowed (Cross)',
-                        'Shots After Allowed', 'Shots After Allowed (Pass/Dribble)', 'Shots After Allowed (Cross)'
+                        'Shots After Allowed', 'Shots After Allowed (Pass/Dribble)', 'Shots After Allowed (Cross)',
+                        'xG After Allowed (Pass/Dribble)', 'xG After Allowed (Cross)', 'xG After Allowed (Total)',
+                        'xG Allowed Per Entry (Pass/Dribble)', 'xG Allowed Per Entry (Cross)', 'xG Allowed Per Entry (Total)'
                     ]
-                    # Include xG allowed columns if present
-                    for extra_col in ['xG After Allowed (Pass/Dribble)', 'xG After Allowed (Cross)', 'xG After Allowed (Total)']:
-                        if extra_col not in display_cols:
-                            display_cols.append(extra_col)
                     existing_cols = [c for c in display_cols if c in df_match.columns]
                     st.dataframe(df_match[existing_cols], use_container_width=True, hide_index=True)
                 else:
