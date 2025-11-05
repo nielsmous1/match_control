@@ -4243,14 +4243,24 @@ if events_data is not None:
                             
                             # Find shots in the same sequence after this box entry
                             shot_in_box_after = False
-                            if sequence_id:
-                                # Check all subsequent events in the same sequence
+                            if sequence_id is not None:
+                                # Check all subsequent events; stop only when sequenceId increases beyond the entry's sequenceId
                                 for check_idx in range(idx + 1, len(events)):
                                     check_event = events[check_idx]
                                     check_sequence_id = check_event.get('sequenceId')
                                     
-                                    # If we've moved to a different sequence, stop looking
-                                    if check_sequence_id != sequence_id:
+                                    # Normalize sequence IDs for comparison (treat None as -1)
+                                    try:
+                                        base_seq_val = int(sequence_id)
+                                    except Exception:
+                                        base_seq_val = -1
+                                    try:
+                                        next_seq_val = int(check_sequence_id) if check_sequence_id is not None else -1
+                                    except Exception:
+                                        next_seq_val = -1
+                                    
+                                    # Stop only if we have clearly moved to a later sequence
+                                    if next_seq_val > base_seq_val:
                                         break
                                     
                                     check_team = check_event.get('teamName') or check_event.get('team')
