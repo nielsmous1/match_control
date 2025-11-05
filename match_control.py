@@ -4150,7 +4150,13 @@ if events_data is not None:
                                 'shots_after_allowed_pass_dribble': 0,
                                 'shots_after_allowed_cross': 0,
                                 'ratio_allowed_pass_dribble': 0.0,
-                                'ratio_allowed_cross': 0.0
+                                'ratio_allowed_cross': 0.0,
+                                'xg_after_pass_dribble': 0.0,
+                                'xg_after_cross': 0.0,
+                                'xg_after_total': 0.0,
+                                'xg_after_allowed': 0.0,
+                                'xg_after_allowed_pass_dribble': 0.0,
+                                'xg_after_allowed_cross': 0.0
                             }
                     
                     # Prepare per-match accumulators for both teams
@@ -4243,6 +4249,7 @@ if events_data is not None:
                             
                             # Find shots in the same sequence after this box entry
                             shot_in_box_after = False
+                            shot_xg_sum = 0.0
                             if sequence_id is not None:
                                 # Check all subsequent events; stop only when sequenceId increases beyond the entry's sequenceId
                                 for check_idx in range(idx + 1, len(events)):
@@ -4282,11 +4289,16 @@ if events_data is not None:
                                             if any(label in check_labels for label in SHOT_LABELS):
                                                 is_shot = True
                                         
-                                        if is_shot and check_start_x is not None and check_start_y is not None:
-                                            # Check if shot is inside box
-                                            if check_start_x >= 36 and abs(check_start_y) < 20.15:
-                                                shot_in_box_after = True
-                                                break
+                                    if is_shot and check_start_x is not None and check_start_y is not None:
+                                        # Check if shot is inside box
+                                        if check_start_x >= 36 and abs(check_start_y) < 20.15:
+                                            shot_in_box_after = True
+                                            # accumulate xG if present
+                                            try:
+                                                shot_xg = float((check_event.get('metrics') or {}).get('xG', 0.0) or 0.0)
+                                            except Exception:
+                                                shot_xg = 0.0
+                                            shot_xg_sum += shot_xg
                                     
                                     # If we found a shot, no need to continue
                                     if shot_in_box_after:
@@ -4298,14 +4310,20 @@ if events_data is not None:
                                     all_teams_data[team_made_entry]['box_entries_pass_dribble'] += 1
                                     if shot_in_box_after:
                                         all_teams_data[team_made_entry]['shots_after_pass_dribble'] += 1
+                                        all_teams_data[team_made_entry].setdefault('xg_after_pass_dribble', 0.0)
+                                        all_teams_data[team_made_entry]['xg_after_pass_dribble'] += shot_xg_sum
                                 elif entry_type == 'cross':
                                     all_teams_data[team_made_entry]['box_entries_cross'] += 1
                                     if shot_in_box_after:
                                         all_teams_data[team_made_entry]['shots_after_cross'] += 1
+                                        all_teams_data[team_made_entry].setdefault('xg_after_cross', 0.0)
+                                        all_teams_data[team_made_entry]['xg_after_cross'] += shot_xg_sum
                                 
                                 all_teams_data[team_made_entry]['box_entries_total'] += 1
                                 if shot_in_box_after:
                                     all_teams_data[team_made_entry]['shots_after_total'] += 1
+                                    all_teams_data[team_made_entry].setdefault('xg_after_total', 0.0)
+                                    all_teams_data[team_made_entry]['xg_after_total'] += shot_xg_sum
 
                             # Update per-match offensive stats
                             if team_made_entry in match_team_stats:
@@ -4313,13 +4331,19 @@ if events_data is not None:
                                     match_team_stats[team_made_entry]['box_entries_pass_dribble'] += 1
                                     if shot_in_box_after:
                                         match_team_stats[team_made_entry]['shots_after_pass_dribble'] += 1
+                                        match_team_stats[team_made_entry].setdefault('xg_after_pass_dribble', 0.0)
+                                        match_team_stats[team_made_entry]['xg_after_pass_dribble'] += shot_xg_sum
                                 elif entry_type == 'cross':
                                     match_team_stats[team_made_entry]['box_entries_cross'] += 1
                                     if shot_in_box_after:
                                         match_team_stats[team_made_entry]['shots_after_cross'] += 1
+                                        match_team_stats[team_made_entry].setdefault('xg_after_cross', 0.0)
+                                        match_team_stats[team_made_entry]['xg_after_cross'] += shot_xg_sum
                                 match_team_stats[team_made_entry]['box_entries_total'] += 1
                                 if shot_in_box_after:
                                     match_team_stats[team_made_entry]['shots_after_total'] += 1
+                                    match_team_stats[team_made_entry].setdefault('xg_after_total', 0.0)
+                                    match_team_stats[team_made_entry]['xg_after_total'] += shot_xg_sum
                             
                             # Update defensive stats for the opposing team
                             opposing_team = away_team if team_made_entry == home_team else home_team
@@ -4328,14 +4352,20 @@ if events_data is not None:
                                     all_teams_data[opposing_team]['box_entries_allowed_pass_dribble'] += 1
                                     if shot_in_box_after:
                                         all_teams_data[opposing_team]['shots_after_allowed_pass_dribble'] += 1
+                                        all_teams_data[opposing_team].setdefault('xg_after_allowed_pass_dribble', 0.0)
+                                        all_teams_data[opposing_team]['xg_after_allowed_pass_dribble'] += shot_xg_sum
                                 elif entry_type == 'cross':
                                     all_teams_data[opposing_team]['box_entries_allowed_cross'] += 1
                                     if shot_in_box_after:
                                         all_teams_data[opposing_team]['shots_after_allowed_cross'] += 1
+                                        all_teams_data[opposing_team].setdefault('xg_after_allowed_cross', 0.0)
+                                        all_teams_data[opposing_team]['xg_after_allowed_cross'] += shot_xg_sum
                                 
                                 all_teams_data[opposing_team]['box_entries_allowed'] += 1
                                 if shot_in_box_after:
                                     all_teams_data[opposing_team]['shots_after_allowed'] += 1
+                                    all_teams_data[opposing_team].setdefault('xg_after_allowed', 0.0)
+                                    all_teams_data[opposing_team]['xg_after_allowed'] += shot_xg_sum
 
                             # Update per-match defensive stats
                             if opposing_team in match_team_stats:
@@ -4343,13 +4373,19 @@ if events_data is not None:
                                     match_team_stats[opposing_team]['box_entries_allowed_pass_dribble'] += 1
                                     if shot_in_box_after:
                                         match_team_stats[opposing_team]['shots_after_allowed_pass_dribble'] += 1
+                                        match_team_stats[opposing_team].setdefault('xg_after_allowed_pass_dribble', 0.0)
+                                        match_team_stats[opposing_team]['xg_after_allowed_pass_dribble'] += shot_xg_sum
                                 elif entry_type == 'cross':
                                     match_team_stats[opposing_team]['box_entries_allowed_cross'] += 1
                                     if shot_in_box_after:
                                         match_team_stats[opposing_team]['shots_after_allowed_cross'] += 1
+                                        match_team_stats[opposing_team].setdefault('xg_after_allowed_cross', 0.0)
+                                        match_team_stats[opposing_team]['xg_after_allowed_cross'] += shot_xg_sum
                                 match_team_stats[opposing_team]['box_entries_allowed'] += 1
                                 if shot_in_box_after:
                                     match_team_stats[opposing_team]['shots_after_allowed'] += 1
+                                    match_team_stats[opposing_team].setdefault('xg_after_allowed', 0.0)
+                                    match_team_stats[opposing_team]['xg_after_allowed'] += shot_xg_sum
 
                     # After processing one match, store per-match results for each team
                     yyyymmdd = info.get('date')
@@ -4374,12 +4410,18 @@ if events_data is not None:
                             'Shots After (Pass/Dribble)': stats.get('shots_after_pass_dribble', 0),
                             'Shots After (Cross)': stats.get('shots_after_cross', 0),
                             'Shots After (Total)': stats.get('shots_after_total', 0),
+                            'xG After (Pass/Dribble)': stats.get('xg_after_pass_dribble', 0.0),
+                            'xG After (Cross)': stats.get('xg_after_cross', 0.0),
+                            'xG After (Total)': stats.get('xg_after_total', 0.0),
                             'Box Entries Allowed': stats.get('box_entries_allowed', 0),
                             'Box Entries Allowed (Pass/Dribble)': stats.get('box_entries_allowed_pass_dribble', 0),
                             'Box Entries Allowed (Cross)': stats.get('box_entries_allowed_cross', 0),
                             'Shots After Allowed': stats.get('shots_after_allowed', 0),
                             'Shots After Allowed (Pass/Dribble)': stats.get('shots_after_allowed_pass_dribble', 0),
-                            'Shots After Allowed (Cross)': stats.get('shots_after_allowed_cross', 0)
+                            'Shots After Allowed (Cross)': stats.get('shots_after_allowed_cross', 0),
+                            'xG After Allowed (Pass/Dribble)': stats.get('xg_after_allowed_pass_dribble', 0.0),
+                            'xG After Allowed (Cross)': stats.get('xg_after_allowed_cross', 0.0),
+                            'xG After Allowed (Total)': stats.get('xg_after_allowed', 0.0)
                         })
                 
                 # Show processing summary
@@ -4420,6 +4462,9 @@ if events_data is not None:
                         'Shots After (Pass/Dribble)': data['shots_after_pass_dribble'],
                         'Shots After (Cross)': data['shots_after_cross'],
                         'Shots After (Total)': data['shots_after_total'],
+                        'xG After (Pass/Dribble)': float(data.get('xg_after_pass_dribble', 0.0) or 0.0),
+                        'xG After (Cross)': float(data.get('xg_after_cross', 0.0) or 0.0),
+                        'xG After (Total)': float(data.get('xg_after_total', 0.0) or 0.0),
                         'Ratio (Pass/Dribble)': f"{data['ratio_pass_dribble']:.3f}",
                         'Ratio (Cross)': f"{data['ratio_cross']:.3f}",
                         'Ratio (Total)': f"{data['ratio_total']:.3f}",
@@ -4429,6 +4474,9 @@ if events_data is not None:
                         'Shots After Allowed': data['shots_after_allowed'],
                         'Shots After Allowed (Pass/Dribble)': data['shots_after_allowed_pass_dribble'],
                         'Shots After Allowed (Cross)': data['shots_after_allowed_cross'],
+                        'xG After Allowed (Pass/Dribble)': float(data.get('xg_after_allowed_pass_dribble', 0.0) or 0.0),
+                        'xG After Allowed (Cross)': float(data.get('xg_after_allowed_cross', 0.0) or 0.0),
+                        'xG After Allowed (Total)': float(data.get('xg_after_allowed', 0.0) or 0.0),
                         'Ratio Allowed': f"{data['ratio_allowed']:.3f}",
                         'Ratio Allowed (Pass/Dribble)': f"{data['ratio_allowed_pass_dribble']:.3f}",
                         'Ratio Allowed (Cross)': f"{data['ratio_allowed_cross']:.3f}"
@@ -4444,6 +4492,7 @@ if events_data is not None:
                     st.dataframe(
                         df[['Team', 'Box Entries (Pass/Dribble)', 'Box Entries (Cross)', 'Box Entries (Total)',
                             'Shots After (Pass/Dribble)', 'Shots After (Cross)', 'Shots After (Total)',
+                            'xG After (Pass/Dribble)', 'xG After (Cross)', 'xG After (Total)',
                             'Ratio (Pass/Dribble)', 'Ratio (Cross)', 'Ratio (Total)']],
                         use_container_width=True,
                         hide_index=True
@@ -4454,6 +4503,7 @@ if events_data is not None:
                     st.dataframe(
                         df[['Team', 'Box Entries Allowed', 'Box Entries Allowed (Pass/Dribble)', 'Box Entries Allowed (Cross)',
                             'Shots After Allowed', 'Shots After Allowed (Pass/Dribble)', 'Shots After Allowed (Cross)',
+                            'xG After Allowed (Pass/Dribble)', 'xG After Allowed (Cross)', 'xG After Allowed (Total)',
                             'Ratio Allowed', 'Ratio Allowed (Pass/Dribble)', 'Ratio Allowed (Cross)']],
                         use_container_width=True,
                         hide_index=True
@@ -4480,9 +4530,14 @@ if events_data is not None:
                         'Date', 'Opponent',
                         'Box Entries (Pass/Dribble)', 'Box Entries (Cross)', 'Box Entries (Total)',
                         'Shots After (Pass/Dribble)', 'Shots After (Cross)', 'Shots After (Total)',
+                        'xG After (Pass/Dribble)', 'xG After (Cross)', 'xG After (Total)',
                         'Box Entries Allowed', 'Box Entries Allowed (Pass/Dribble)', 'Box Entries Allowed (Cross)',
                         'Shots After Allowed', 'Shots After Allowed (Pass/Dribble)', 'Shots After Allowed (Cross)'
                     ]
+                    # Include xG allowed columns if present
+                    for extra_col in ['xG After Allowed (Pass/Dribble)', 'xG After Allowed (Cross)', 'xG After Allowed (Total)']:
+                        if extra_col not in display_cols:
+                            display_cols.append(extra_col)
                     existing_cols = [c for c in display_cols if c in df_match.columns]
                     st.dataframe(df_match[existing_cols], use_container_width=True, hide_index=True)
                 else:
