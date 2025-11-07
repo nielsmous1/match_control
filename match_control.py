@@ -2817,8 +2817,7 @@ if events_data is not None:
                             team_metrics['shots'] += 1
                             xg_value = float(metrics_data.get('xG', 0.0) or 0.0)
                             team_metrics['xg'] += xg_value
-                            psxg_value = metrics_data.get('PSxG')
-                            if psxg_value is not None or result_id == 1:
+                            if 129 in labels:
                                 team_metrics['shots_on_target'] += 1
 
                         # Final third entries
