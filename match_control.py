@@ -170,6 +170,9 @@ if available_teams:
                     file_name = sel['name']
                     try:
                         events_data = load_json_lenient(sel['path'])
+                        st.session_state['selected_match_path'] = sel['path']
+                        st.session_state['selected_match_home'] = sel.get('home')
+                        st.session_state['selected_match_away'] = sel.get('away')
                     except Exception as e:
                         st.error(f"Failed to load JSON: {e}")
                         events_data = None
@@ -2768,139 +2771,178 @@ if events_data is not None:
             st.subheader("Samenvatting Statistieken")
             
             if events_data is not None:
-                events = events_data.get('data', []) if isinstance(events_data, dict) else []
-                
-                # High Recoveries Analysis
-                st.subheader("🏃‍♂️ High Recoveries (x > -17.5)")
-                
-                # Define base type IDs for Interception and Ball Recovery
-                INTERCEPTION_BASE_TYPE_ID = 5
-                BALL_RECOVERY_BASE_TYPE_ID = 9
-                SUCCESSFUL_RESULT_ID = 1
-                RECOVERY_SUB_TYPE_ID_INTERCEPTION = 501
-                
-                # Filter for successful interceptions and recoveries in the middle and final third (x > -17.5)
-                filtered_recoveries_interceptions = []
+                import pandas as pd
 
-                for event in events:
-                    base_type_id = event.get('baseTypeId')
-                    sub_type_id = event.get('subTypeId')
-                    result_id = event.get('resultId')
-                    event_x = event.get('startPosXM')
-                    
-                    # Check if it's a successful event
-                    if result_id == SUCCESSFUL_RESULT_ID:
-                        # Check if it's an Interception or a Ball Recovery
-                        is_interception = base_type_id == INTERCEPTION_BASE_TYPE_ID
-                        is_ball_recovery = base_type_id == BALL_RECOVERY_BASE_TYPE_ID
-                        is_interception_recovery = (base_type_id == INTERCEPTION_BASE_TYPE_ID and
-                                                    sub_type_id == RECOVERY_SUB_TYPE_ID_INTERCEPTION)
-                        
-                        # If it's one of the relevant types and the location is correct (x > -17.5)
-                        if (is_interception or is_ball_recovery or is_interception_recovery) and event_x is not None and event_x > -17.5:
-                            filtered_recoveries_interceptions.append(event)
-                
-                # Prepare data for a DataFrame
-                recovery_interception_data = []
-                for event in filtered_recoveries_interceptions:
-                    recovery_interception_data.append({
-                        'Minute': int(event.get('startTimeMs', 0) / 1000 / 60),
-                        'Team': event.get('teamName', 'Unknown Team'),
-                        'Player': event.get('playerName', 'Unknown Player'),
-                        'Base Type': event.get('baseTypeName', 'Unknown'),
-                        'Sub Type': event.get('subTypeName', 'Unknown'),
-                        'Start X': event.get('startPosXM'),
-                        'Start Y': event.get('startPosYM'),
-                        'Labels': event.get('labels', [])
-                    })
-                
-                # Create and display the DataFrame
-                recovery_interception_df = pd.DataFrame(recovery_interception_data)
-                
-                # Display team counts
-                team_counts = recovery_interception_df['Team'].value_counts().reset_index()
-                team_counts.columns = ['Team', 'Count of Recoveries/Interceptions (x > -17.5)']
-                
-                # Display the counts per team
-                st.dataframe(team_counts)
-                
-                # Display detailed events
-                st.subheader("📋 Gedetailleerde High Recoveries")
-                
-                # Show detailed events table
-                if not recovery_interception_df.empty:
-                    st.dataframe(recovery_interception_df)
+                def normalize_team_name(name):
+                    return name.strip().lower() if isinstance(name, str) else None
+
+                def create_empty_metrics():
+                    return {
+                        'shots': 0,
+                        'shots_on_target': 0,
+                        'xg': 0.0,
+                        'final_third_entries': 0,
+                        'box_entries': 0,
+                        'high_recoveries': 0
+                    }
+
+                def compute_match_metrics(events, home_team_name, away_team_name):
+                    metrics = {}
+                    team_names = [name for name in [home_team_name, away_team_name] if name]
+                    for team in team_names:
+                        metrics[team] = create_empty_metrics()
+
+                    for event in events:
+                        team = event.get('teamName') or event.get('team') or event.get('team_name')
+                        if not team:
+                            continue
+
+                        matched_team = next((tn for tn in metrics.keys() if normalize_team_name(tn) == normalize_team_name(team)), None)
+                        if not matched_team:
+                            continue
+
+                        team_metrics = metrics[matched_team]
+                        base_type = event.get('baseTypeId')
+                        sub_type = event.get('subTypeId')
+                        result_id = event.get('resultId')
+                        labels = event.get('labels', []) or []
+                        start_x = event.get('startPosXM')
+                        start_y = event.get('startPosYM')
+                        end_x = event.get('endPosXM')
+                        end_y = event.get('endPosYM')
+                        metrics_data = event.get('metrics') or {}
+
+                        # Shots and xG
+                        if base_type == 6:
+                            team_metrics['shots'] += 1
+                            xg_value = float(metrics_data.get('xG', 0.0) or 0.0)
+                            team_metrics['xg'] += xg_value
+                            psxg_value = metrics_data.get('PSxG')
+                            if psxg_value is not None or result_id == 1:
+                                team_metrics['shots_on_target'] += 1
+
+                        # Final third entries
+                        if base_type == 2 and result_id == 1 and 127 in labels:
+                            team_metrics['final_third_entries'] += 1
+                        if base_type == 1 and result_id == 1 and 69 in labels:
+                            team_metrics['final_third_entries'] += 1
+
+                        # High recoveries (x > 0)
+                        if result_id == 1 and start_x is not None and start_x > 0:
+                            if base_type in [5, 9] or (base_type == 5 and sub_type == 501):
+                                team_metrics['high_recoveries'] += 1
+
+                        # Box entries
+                        if base_type == 1 and result_id == 1 and start_x is not None and end_x is not None and end_y is not None:
+                            if start_x < 36 and end_x > 36 and abs(end_y) < 20.15:
+                                team_metrics['box_entries'] += 1
+
+                        if base_type == 2 and result_id == 1:
+                            if 125 in labels and start_x is not None and end_x is not None and end_y is not None:
+                                if start_x < 36 and end_x > 36 and abs(end_y) < 20.15:
+                                    team_metrics['box_entries'] += 1
+                            if sub_type in [200, 204] and start_x is not None and start_y is not None and end_x is not None and end_y is not None:
+                                start_outside = start_x < 36 or abs(start_y) >= 20.15
+                                end_inside = end_x > 36 and abs(end_y) < 20.15
+                                if start_outside and end_inside:
+                                    team_metrics['box_entries'] += 1
+
+                    return metrics
+
+                def get_team_metrics(metrics_dict, team_name, allow_none=False):
+                    for key, value in metrics_dict.items():
+                        if normalize_team_name(key) == normalize_team_name(team_name):
+                            return value
+                    return None if allow_none else create_empty_metrics()
+
+                def compute_season_average(team_name, current_match_path):
+                    totals = defaultdict(float)
+                    match_count = 0
+
+                    for info in files_info:
+                        if info.get('path') == current_match_path:
+                            continue
+
+                        home = info.get('home')
+                        away = info.get('away')
+                        if normalize_team_name(team_name) not in {normalize_team_name(home), normalize_team_name(away)}:
+                            continue
+
+                        try:
+                            match_data = load_json_lenient(info['path'])
+                        except Exception:
+                            continue
+
+                        events = match_data.get('data', []) if isinstance(match_data, dict) else []
+                        metadata = match_data.get('metaData', {}) if isinstance(match_data, dict) else {}
+                        match_home = metadata.get('homeTeamName') or metadata.get('homeTeam') or home
+                        match_away = metadata.get('awayTeamName') or metadata.get('awayTeam') or away
+
+                        match_metrics = compute_match_metrics(events, match_home, match_away)
+                        team_metrics = get_team_metrics(match_metrics, team_name, allow_none=True)
+
+                        if team_metrics is None:
+                            continue
+
+                        for key, value in team_metrics.items():
+                            totals[key] += value
+                        match_count += 1
+
+                    averages = {key: (totals[key] / match_count) if match_count > 0 else 0.0 for key in ['shots', 'shots_on_target', 'xg', 'final_third_entries', 'box_entries', 'high_recoveries']}
+                    return averages, match_count
+
+                events = events_data.get('data', []) if isinstance(events_data, dict) else (events_data if isinstance(events_data, list) else [])
+                metadata = events_data.get('metaData', {}) if isinstance(events_data, dict) else {}
+                home_team_summary = metadata.get('homeTeamName') or metadata.get('homeTeam') or st.session_state.get('selected_match_home')
+                away_team_summary = metadata.get('awayTeamName') or metadata.get('awayTeam') or st.session_state.get('selected_match_away')
+
+                if not home_team_summary or not away_team_summary:
+                    st.warning("Teamnamen konden niet worden bepaald voor deze wedstrijd.")
                 else:
-                    st.info("Geen High Recoveries gevonden in deze wedstrijd.")
-                
-                # Final Third Entries Analysis
-                st.subheader("⚽ Final Third Entries")
-                
-                # Define labels for final third entries
-                DRIBBLE_CHANCE_CREATION_LABEL = 127
-                FINAL_3RD_PASS_SUCCESS_LABEL = 69
-                
-                # Count final third entries per team
-                final_third_entries = defaultdict(int)
+                    current_match_metrics = compute_match_metrics(events, home_team_summary, away_team_summary)
+                    home_match_metrics = get_team_metrics(current_match_metrics, home_team_summary)
+                    away_match_metrics = get_team_metrics(current_match_metrics, away_team_summary)
 
-                for event in events:
-                    base_type_id = event.get('baseTypeId')
-                    result_id = event.get('resultId')
-                    labels = event.get('labels', [])
-                    team_name = event.get('teamName')
-                    
-                    # Check for successful dribbles (baseTypeId 2, resultId 1, label 127)
-                    if (base_type_id == 2 and result_id == 1 and DRIBBLE_CHANCE_CREATION_LABEL in labels):
-                        final_third_entries[f"{team_name}_dribbles"] += 1
-                    
-                    # Check for successful final third passes (baseTypeId 1, resultId 1, label 69)
-                    if (base_type_id == 1 and result_id == 1 and FINAL_3RD_PASS_SUCCESS_LABEL in labels):
-                        final_third_entries[f"{team_name}_passes"] += 1
-                
-                # Create summary DataFrame
-                final_third_df = pd.DataFrame([
-                    {'Team': team, 'Chance Creation Dribbles': final_third_entries.get(f"{team}_dribbles", 0), 
-                     'Final 3rd Passes': final_third_entries.get(f"{team}_passes", 0)}
-                    for team in set([event.get('teamName', 'Unknown') for event in events])
-                ])
-                
-                # Add total column
-                final_third_df['Total Final Third Entries'] = final_third_df['Chance Creation Dribbles'] + final_third_df['Final 3rd Passes']
-                
-                # Display the DataFrame
-                st.dataframe(final_third_df)
-                
-                # Match Summary Statistics
-                st.subheader("📊 Wedstrijd Samenvatting")
-                
-                # Calculate summary metrics
-                total_events = len(events)
-                total_high_recoveries = len(filtered_recoveries_interceptions)
-                total_final_third_entries = final_third_df['Total Final Third Entries'].sum()
-                
-                # Display metrics
-                col1, col2, col3 = st.columns(3)
-                
-                with col1:
-                    st.metric("Totaal Events", total_events)
-                
-                with col2:
-                    st.metric("High Recoveries", total_high_recoveries)
-                
-                with col3:
-                    st.metric("Final Third Entries", total_final_third_entries)
-                
-                # Additional metrics
-                col4, col5, col6 = st.columns(3)
-                
-                with col4:
-                    st.metric("Chance Creation Dribbles", final_third_df['Chance Creation Dribbles'].sum())
-                
-                with col5:
-                    st.metric("Final 3rd Passes", final_third_df['Final 3rd Passes'].sum())
-                
-                with col6:
-                    st.metric("Gem. Recovery X Positie", f"{filtered_recoveries_interceptions[0]['startPosXM']:.1f}" if filtered_recoveries_interceptions else "N/A")
+                    current_match_path = st.session_state.get('selected_match_path', '')
+
+                    home_avg_metrics, home_match_count = compute_season_average(home_team_summary, current_match_path)
+                    away_avg_metrics, away_match_count = compute_season_average(away_team_summary, current_match_path)
+
+                    stats_labels = [
+                        ('shots', 'Schoten'),
+                        ('shots_on_target', 'Schoten op doel'),
+                        ('xg', 'xG'),
+                        ('final_third_entries', 'Final third entries'),
+                        ('box_entries', 'Box entries'),
+                        ('high_recoveries', 'High recoveries')
+                    ]
+
+                    def format_match_value(value, stat_key):
+                        if stat_key == 'xg':
+                            return f"{value:.2f}"
+                        return f"{int(round(value))}"
+
+                    def format_average_value(value, stat_key):
+                        return f"{value:.2f}"
+
+                    table_rows = []
+                    for key, label in stats_labels:
+                        home_match_value = format_match_value(home_match_metrics.get(key, 0), key)
+                        away_match_value = format_match_value(away_match_metrics.get(key, 0), key)
+
+                        home_avg_value = format_average_value(home_avg_metrics.get(key, 0), key)
+                        away_avg_value = format_average_value(away_avg_metrics.get(key, 0), key)
+
+                        table_rows.append({
+                            'Statistiek': label,
+                            f"{home_team_summary} (wedstrijd)": home_match_value,
+                            f"{home_team_summary} (seizoensgem.)": home_avg_value if home_match_count > 0 else 'N/A',
+                            f"{away_team_summary} (wedstrijd)": away_match_value,
+                            f"{away_team_summary} (seizoensgem.)": away_avg_value if away_match_count > 0 else 'N/A'
+                        })
+
+                    summary_df = pd.DataFrame(table_rows)
+                    st.dataframe(summary_df, use_container_width=True, hide_index=True)
             else:
                 st.warning("Geen wedstrijddata gevonden voor de samenvatting.")
 
@@ -3336,7 +3378,7 @@ if events_data is not None:
                         if match_info:
                             try:
                                 match_data = load_json_lenient(match_info['path'])
-                                events = match_data.get('data', []) if isinstance(match_data, dict) else []
+                                events = match_data.get('data', []) if isinstance(match_data, dict) else (match_data if isinstance(match_data, list) else [])
                                 
                                 # Filter crosses by selected team
                                 cross_events_for = [
@@ -3383,7 +3425,7 @@ if events_data is not None:
                                             # Add both success flags to the event
                                             event['is_successful_cross'] = is_cross_successful(event, events)  # Strict definition
                                             event['is_successful_cross_simple'] = event.get('resultId') == SUCCESSFUL_RESULT_ID  # Simple definition
-                                            all_cross_events_against.append(event)
+                                all_cross_events_against.append(event)
                             except Exception as e:
                                 st.warning(f"Error loading {match_label}: {e}")
                 
