@@ -1099,7 +1099,35 @@ if events_data is not None:
             None
         )
 
-        tab1, tab2, tab9, tab11, tab3, tab8, tab10, tab5, tab6, tab4, tab12 = st.tabs(["Controle & Gevaar", "Schoten", "Multi Match Schoten", "Slotfase", "xG Verloop", "Voorzetten", "Multi Match Voorzetten", "Gemiddelde Posities", "Samenvatting", "Stand", "Box Entries"])
+        tab_labels = [
+            "Controle & Gevaar",
+            "Schoten",
+            "Multi Match Schoten",
+            "Slotfase",
+            "xG Verloop",
+            "Voorzetten",
+            "Efficiency Assist Zones",
+            "Multi Match Voorzetten",
+            "Multi Match Assist Zones",
+            "Gemiddelde Posities",
+            "Samenvatting",
+            "Stand",
+            "Box Entries"
+        ]
+        tabs = st.tabs(tab_labels)
+        tab1 = tabs[0]
+        tab2 = tabs[1]
+        tab9 = tabs[2]
+        tab11 = tabs[3]
+        tab3 = tabs[4]
+        tab8 = tabs[5]
+        tab13 = tabs[6]
+        tab10 = tabs[7]
+        tab14 = tabs[8]
+        tab5 = tabs[9]
+        tab6 = tabs[10]
+        tab4 = tabs[11]
+        tab12 = tabs[12]
 
         with tab1:
             st.pyplot(fig)
@@ -3165,6 +3193,26 @@ if events_data is not None:
             st.pyplot(fig)
 
     
+        def get_cross_zones(include_assist_zone=False):
+            base_zones = {
+                'Zone 18 (Wide Attacking Right)': {'x_min': 36, 'x_max': 52.5, 'y_min': -34, 'y_max': -20.16},
+                'Zone 16 (Wide Attacking Left)': {'x_min': 36, 'x_max': 52.5, 'y_min': 20.16, 'y_max': 34},
+                'Zone 17 LL (Box Left Deep)': {'x_min': 36, 'x_max': 47, 'y_min': 9.25, 'y_max': 20.16},
+                'Zone 17 LR (Box Right Deep)': {'x_min': 36, 'x_max': 47, 'y_min': -20.16, 'y_max': -9.25},
+                'Zone 17 HL (Box Left Attacking)': {'x_min': 47, 'x_max': 52.5, 'y_min': 9.25, 'y_max': 20.16},
+                'Zone 17 HR (Box Right Attacking)': {'x_min': 47, 'x_max': 52.5, 'y_min': -20.16, 'y_max': -9.25},
+                'Zone 13 (Wide Middle Left)': {'x_min': 17.5, 'x_max': 36, 'y_min': 20.16, 'y_max': 34},
+                'Zone 15 (Wide Middle Right)': {'x_min': 17.5, 'x_max': 36, 'y_min': -34, 'y_max': -20.16},
+                'Zone 14 R (Central Deep Left)': {'x_min': 17.5, 'x_max': 36, 'y_min': -20.16, 'y_max': -9.25},
+                'Zone 14 L (Central Deep Right)': {'x_min': 17.5, 'x_max': 36, 'y_min': 9.25, 'y_max': 20.16},
+                'Zone 14 M (Zone 14 Area)': {'x_min': 17.5, 'x_max': 36, 'y_min': -9.25, 'y_max': 9.25},
+            }
+            if include_assist_zone:
+                zones_with_assist = base_zones.copy()
+                zones_with_assist['Zone 14M'] = {'x_min': 34.0, 'x_max': 52.5, 'y_min': -6.92, 'y_max': 6.92}
+                return zones_with_assist
+            return base_zones
+    
         # ---------- Voorzetten Tab (Single Match - Both Teams) ----------
         with tab8:
             st.subheader("📮 Voorzetten per Zone")
@@ -3183,20 +3231,7 @@ if events_data is not None:
                 CROSS_LOW_SUB_TYPE_ID = 203
                 SUCCESSFUL_RESULT_ID = 1
                 
-                # Zones definition
-                zones = {
-                    'Zone 18 (Wide Attacking Right)': {'x_min': 36, 'x_max': 52.5, 'y_min': -34, 'y_max': -20.16},
-                    'Zone 16 (Wide Attacking Left)': {'x_min': 36, 'x_max': 52.5, 'y_min': 20.16, 'y_max': 34},
-                    'Zone 17 LL (Box Left Deep)': {'x_min': 36, 'x_max': 47, 'y_min': 9.25, 'y_max': 20.16},
-                    'Zone 17 LR (Box Right Deep)': {'x_min': 36, 'x_max': 47, 'y_min': -20.16, 'y_max': -9.25},
-                    'Zone 17 HL (Box Left Attacking)': {'x_min': 47, 'x_max': 52.5, 'y_min': 9.25, 'y_max': 20.16},
-                    'Zone 17 HR (Box Right Attacking)': {'x_min': 47, 'x_max': 52.5, 'y_min': -20.16, 'y_max': -9.25},
-                    'Zone 13 (Wide Middle Left)': {'x_min': 17.5, 'x_max': 36, 'y_min': 20.16, 'y_max': 34},
-                    'Zone 15 (Wide Middle Right)': {'x_min': 17.5, 'x_max': 36, 'y_min': -34, 'y_max': -20.16},
-                    'Zone 14 R (Central Deep Left)': {'x_min': 17.5, 'x_max': 36, 'y_min': -20.16, 'y_max': -9.25},
-                    'Zone 14 L (Central Deep Right)': {'x_min': 17.5, 'x_max': 36, 'y_min': 9.25, 'y_max': 20.16},
-                    'Zone 14 M (Zone 14 Area)': {'x_min': 17.5, 'x_max': 36, 'y_min': -9.25, 'y_max': 9.25},
-                }
+                zones = get_cross_zones()
                 
                 # Function to process crosses for a team
                 def process_team_crosses(events, team_name):
@@ -3290,6 +3325,382 @@ if events_data is not None:
             else:
                 st.info("Selecteer een wedstrijd om voorzetten te bekijken.")
         
+        # ---------- Efficiency Assist Zones Tab (Single Match - Both Teams) ----------
+        with tab13:
+            st.subheader("🎯 Efficiency Assist Zones")
+
+            if events_data is not None:
+                events = events_data.get('data', []) if isinstance(events_data, dict) else (events_data if isinstance(events_data, list) else [])
+                metadata = events_data.get('metaData', {}) if isinstance(events_data, dict) else {}
+                home_team_v = metadata.get('homeTeamName', 'Home')
+                away_team_v = metadata.get('awayTeamName', 'Away')
+
+                PASS_BASE_TYPE_ID = 2
+                CROSS_SUB_TYPE_ID = 200
+                CUTBACK_SUB_TYPE_ID = 204
+                CROSS_LOW_SUB_TYPE_ID = 203
+                SUCCESSFUL_RESULT_ID = 1
+
+                zones_assist = get_cross_zones(include_assist_zone=True)
+
+                def process_team_crosses(events, team_name):
+                    cross_events = [
+                        event for event in events
+                        if event.get('teamName') == team_name and
+                        event.get('baseTypeId') == PASS_BASE_TYPE_ID and
+                        (event.get('subTypeId') == CROSS_SUB_TYPE_ID or
+                         event.get('subTypeId') == CUTBACK_SUB_TYPE_ID or
+                         event.get('subTypeId') == CROSS_LOW_SUB_TYPE_ID)
+                    ]
+
+                    filtered = []
+                    for event in cross_events:
+                        start_x = event.get('startPosXM')
+                        start_y = event.get('startPosYM')
+                        end_x = event.get('endPosXM')
+                        end_y = event.get('endPosYM')
+                        if start_x is not None and start_y is not None and end_x is not None and end_y is not None:
+                            distance = np.sqrt((end_x - start_x)**2 + (end_y - start_y)**2)
+                            if distance >= 0:
+                                filtered.append(event)
+                    return filtered
+
+                def draw_assist_pitch(cross_events, title):
+                    zone_stats = {zone_name: {'total': 0, 'successful': 0} for zone_name in zones_assist}
+                    for event in cross_events:
+                        start_x = event.get('startPosXM')
+                        start_y = event.get('startPosYM')
+                        is_successful = event.get('resultId') == SUCCESSFUL_RESULT_ID
+                        if start_x is not None and start_y is not None:
+                            for zone_name, coords in zones_assist.items():
+                                if (coords['x_min'] <= start_x < coords['x_max'] and
+                                    coords['y_min'] <= start_y < coords['y_max']):
+                                    zone_stats[zone_name]['total'] += 1
+                                    if is_successful:
+                                        zone_stats[zone_name]['successful'] += 1
+                                    break
+
+                    pitch_v = VerticalPitch(half=True, pitch_type='impect')
+                    fig_v, ax_v = pitch_v.draw(figsize=(8, 12))
+
+                    for zone_name, coords in zones_assist.items():
+                        total = zone_stats[zone_name]['total']
+                        successful = zone_stats[zone_name]['successful']
+                        percentage = (successful / total * 100) if total > 0 else 0
+
+                        if total > 0 and percentage == 0:
+                            facecolor = '#f8d7da'
+                        elif percentage > 0 and percentage < 30:
+                            facecolor = '#ffd8a8'
+                        elif percentage >= 30 and percentage < 60:
+                            facecolor = '#fff3bf'
+                        elif percentage >= 60:
+                            facecolor = '#d3f9d8'
+                        else:
+                            facecolor = 'none'
+
+                        rect = patches.Rectangle((coords['y_min'], coords['x_min']),
+                                                 coords['y_max'] - coords['y_min'],
+                                                 coords['x_max'] - coords['x_min'],
+                                                 linewidth=1.5, edgecolor='black', facecolor=facecolor, alpha=0.85, zorder=1)
+                        ax_v.add_patch(rect)
+
+                        ul_x = coords['x_min'] + 1.2
+                        ul_y = coords['y_max'] - 0.4
+                        zone_title = zone_name
+                        pitch_v.annotate(zone_title, (ul_x, ul_y), ax=ax_v,
+                                         ha='left', va='top', fontsize=6, color='black',
+                                         zorder=11)
+
+                        center_x = (coords['x_min'] + coords['x_max']) / 2
+                        center_y = (coords['y_min'] + coords['y_max']) / 2
+                        text_string = f"{successful}/{total}\n{percentage:.0f}%"
+                        pitch_v.annotate(text_string, (center_x, center_y), ax=ax_v,
+                                         ha='center', va='center', fontsize=8, color='black',
+                                         fontweight='bold', zorder=12)
+
+                    plt.title(title, fontsize=16, fontweight='bold')
+                    return fig_v
+
+                home_crosses = process_team_crosses(events, home_team_v)
+                away_crosses = process_team_crosses(events, away_team_v)
+
+                fig_home = draw_assist_pitch(home_crosses, f"{home_team_v} - Assist Zones")
+                st.pyplot(fig_home)
+
+                fig_away = draw_assist_pitch(away_crosses, f"{away_team_v} - Assist Zones")
+                st.pyplot(fig_away)
+            else:
+                st.info("Selecteer een wedstrijd om assist zones te bekijken.")
+        
+        # ---------- Multi Match Assist Zones Tab ----------
+        with tab14:
+            st.subheader("🎯 Multi Match Assist Zones")
+            
+            try:
+                has_team_matches_assist = team_matches and len(team_matches) > 0
+            except NameError:
+                has_team_matches_assist = False
+            
+            if has_team_matches_assist:
+                match_labels_assist = [info['label'] for info in team_matches]
+                selected_assist_matches = st.multiselect(
+                    "Selecteer wedstrijden voor assist zone analyse",
+                    match_labels_assist,
+                    default=[team_matches[0]['label']] if len(team_matches) > 0 else []
+                )
+                
+                if selected_assist_matches and len(selected_assist_matches) > 0:
+                    all_cross_events_for = []
+                    all_cross_events_against = []
+                    team_to_filter = selected_team if selected_team else 'Unknown'
+                    
+                    PASS_BASE_TYPE_ID = 2
+                    CROSS_SUB_TYPE_ID = 200
+                    CUTBACK_SUB_TYPE_ID = 204
+                    CROSS_LOW_SUB_TYPE_ID = 203
+                    SUCCESSFUL_RESULT_ID = 1
+                    SHOT_BASE_TYPE_ID = 6
+                    DEFENSIVE_DUEL_BASE_TYPE_ID = 4
+                    
+                    def is_cross_successful_assist(cross_event, events):
+                        if cross_event.get('resultId') != SUCCESSFUL_RESULT_ID:
+                            return False
+                        
+                        cross_team = cross_event.get('teamName')
+                        if not cross_team:
+                            return False
+                        
+                        cross_id = cross_event.get('eventId')
+                        if not cross_id:
+                            return False
+                        
+                        cross_idx = None
+                        for idx, evt in enumerate(events):
+                            if evt.get('eventId') == cross_id:
+                                cross_idx = idx
+                                break
+                        
+                        if cross_idx is None or cross_idx >= len(events) - 1:
+                            return False
+                        
+                        next_event_1 = events[cross_idx + 1]
+                        if (next_event_1.get('baseTypeId') == SHOT_BASE_TYPE_ID and
+                            next_event_1.get('teamName') == cross_team):
+                            return True
+                        
+                        if cross_idx + 3 < len(events):
+                            next_event_2 = events[cross_idx + 2]
+                            next_event_3 = events[cross_idx + 3]
+                            
+                            if (next_event_1.get('baseTypeName') == 'DEFENSIVE_DUEL' and
+                                next_event_2.get('baseTypeName') == 'DEFENSIVE_DUEL' and
+                                next_event_3.get('baseTypeId') == SHOT_BASE_TYPE_ID and
+                                next_event_3.get('teamName') == cross_team):
+                                return True
+                        
+                        return False
+                    
+                    for match_label in selected_assist_matches:
+                        match_info = next((m for m in team_matches if m['label'] == match_label), None)
+                        if match_info:
+                            try:
+                                match_data = load_json_lenient(match_info['path'])
+                                events = match_data.get('data', []) if isinstance(match_data, dict) else (match_data if isinstance(match_data, list) else [])
+                                
+                                cross_events_for = [
+                                    event for event in events
+                                    if event.get('teamName') == team_to_filter and
+                                    event.get('baseTypeId') == PASS_BASE_TYPE_ID and
+                                    (event.get('subTypeId') == CROSS_SUB_TYPE_ID or 
+                                     event.get('subTypeId') == CUTBACK_SUB_TYPE_ID or 
+                                     event.get('subTypeId') == CROSS_LOW_SUB_TYPE_ID)
+                                ]
+                                
+                                cross_events_against = [
+                                    event for event in events
+                                    if event.get('teamName') != team_to_filter and
+                                    event.get('baseTypeId') == PASS_BASE_TYPE_ID and
+                                    (event.get('subTypeId') == CROSS_SUB_TYPE_ID or 
+                                     event.get('subTypeId') == CUTBACK_SUB_TYPE_ID or 
+                                     event.get('subTypeId') == CROSS_LOW_SUB_TYPE_ID)
+                                ]
+                                
+                                for event in cross_events_for:
+                                    start_x = event.get('startPosXM')
+                                    start_y = event.get('startPosYM')
+                                    end_x = event.get('endPosXM')
+                                    end_y = event.get('endPosYM')
+                                    if start_x is not None and start_y is not None and end_x is not None and end_y is not None:
+                                        distance = np.sqrt((end_x - start_x)**2 + (end_y - start_y)**2)
+                                        if distance >= 0:
+                                            event['is_successful_cross'] = is_cross_successful_assist(event, events)
+                                            event['is_successful_cross_simple'] = event.get('resultId') == SUCCESSFUL_RESULT_ID
+                                            all_cross_events_for.append(event)
+                                
+                                for event in cross_events_against:
+                                    start_x = event.get('startPosXM')
+                                    start_y = event.get('startPosYM')
+                                    end_x = event.get('endPosXM')
+                                    end_y = event.get('endPosYM')
+                                    if start_x is not None and start_y is not None and end_x is not None and end_y is not None:
+                                        distance = np.sqrt((end_x - start_x)**2 + (end_y - start_y)**2)
+                                        if distance >= 0:
+                                            event['is_successful_cross'] = is_cross_successful_assist(event, events)
+                                            event['is_successful_cross_simple'] = event.get('resultId') == SUCCESSFUL_RESULT_ID
+                                            all_cross_events_against.append(event)
+                            except Exception as e:
+                                st.warning(f"Error loading {match_label}: {e}")
+                
+                    zones_assist = get_cross_zones(include_assist_zone=True)
+                    
+                    zone_stats_for = {zone_name: {'total': 0, 'successful': 0, 'successful_simple': 0} for zone_name in zones_assist}
+                    zone_stats_against = {zone_name: {'total': 0, 'successful': 0, 'successful_simple': 0} for zone_name in zones_assist}
+                    
+                    for event in all_cross_events_for:
+                        start_x = event.get('startPosXM')
+                        start_y = event.get('startPosYM')
+                        is_successful = event.get('is_successful_cross', False)
+                        is_successful_simple = event.get('is_successful_cross_simple', False)
+                        if start_x is not None and start_y is not None:
+                            for zone_name, coords in zones_assist.items():
+                                if (coords['x_min'] <= start_x < coords['x_max'] and
+                                    coords['y_min'] <= start_y < coords['y_max']):
+                                    zone_stats_for[zone_name]['total'] += 1
+                                    if is_successful:
+                                        zone_stats_for[zone_name]['successful'] += 1
+                                    if is_successful_simple:
+                                        zone_stats_for[zone_name]['successful_simple'] += 1
+                                    break
+                    
+                    for event in all_cross_events_against:
+                        start_x = event.get('startPosXM')
+                        start_y = event.get('startPosYM')
+                        is_successful = event.get('is_successful_cross', False)
+                        is_successful_simple = event.get('is_successful_cross_simple', False)
+                        if start_x is not None and start_y is not None:
+                            for zone_name, coords in zones_assist.items():
+                                if (coords['x_min'] <= start_x < coords['x_max'] and
+                                    coords['y_min'] <= start_y < coords['y_max']):
+                                    zone_stats_against[zone_name]['total'] += 1
+                                    if is_successful:
+                                        zone_stats_against[zone_name]['successful'] += 1
+                                    if is_successful_simple:
+                                        zone_stats_against[zone_name]['successful_simple'] += 1
+                                    break
+                    
+                    pitch_full = VerticalPitch(half=False, pitch_type='impect')
+                    fig_full, ax_full = pitch_full.draw(figsize=(8, 16))
+                    
+                    for zone_name, coords in zones_assist.items():
+                        total = zone_stats_for[zone_name]['total']
+                        successful = zone_stats_for[zone_name]['successful']
+                        percentage = (successful / total * 100) if total > 0 else 0
+                        
+                        if total > 0 and percentage == 0:
+                            facecolor = '#f8d7da'
+                        elif percentage > 0 and percentage < 30:
+                            facecolor = '#ffd8a8'
+                        elif percentage >= 30 and percentage < 60:
+                            facecolor = '#fff3bf'
+                        elif percentage >= 60:
+                            facecolor = '#d3f9d8'
+                        else:
+                            facecolor = 'none'
+                        
+                        rect = patches.Rectangle((coords['y_min'], coords['x_min']),
+                                                 coords['y_max'] - coords['y_min'],
+                                                 coords['x_max'] - coords['x_min'],
+                                                 linewidth=1.5, edgecolor='black', facecolor=facecolor, alpha=0.85, zorder=1)
+                        ax_full.add_patch(rect)
+                        
+                        ul_x = coords['x_min'] + 1.2
+                        ul_y = coords['y_max'] - 0.4
+                        pitch_full.annotate(zone_name, (ul_x, ul_y), ax=ax_full,
+                                            ha='left', va='top', fontsize=6, color='black',
+                                            zorder=11)
+                        
+                        center_x = (coords['x_min'] + coords['x_max']) / 2
+                        center_y = (coords['y_min'] + coords['y_max']) / 2
+                        text_string = f"{successful}/{total}\n{percentage:.0f}%"
+                        pitch_full.annotate(text_string, (center_x, center_y), ax=ax_full,
+                                            ha='center', va='center', fontsize=8, color='black',
+                                            fontweight='bold', zorder=12)
+                    
+                    for zone_name, coords in zones_assist.items():
+                        total = zone_stats_against[zone_name]['total']
+                        successful = zone_stats_against[zone_name]['successful']
+                        percentage = (successful / total * 100) if total > 0 else 0
+                        
+                        facecolor = '#d3f9d8' if percentage == 0 and total > 0 else '#fff3bf'
+                        if percentage >= 30 and percentage < 60:
+                            facecolor = '#ffd8a8'
+                        elif percentage >= 60:
+                            facecolor = '#f8d7da'
+                        elif total == 0:
+                            facecolor = 'none'
+                        
+                        rect = patches.Rectangle((-coords['y_max'], -coords['x_max']),
+                                                 coords['y_max'] - coords['y_min'],
+                                                 coords['x_max'] - coords['x_min'],
+                                                 linewidth=1.5, edgecolor='black', facecolor=facecolor, alpha=0.85, zorder=1)
+                        ax_full.add_patch(rect)
+                        
+                        ul_x_inv = -coords['x_min'] - 1.2
+                        ul_y_inv = -coords['y_max'] + 0.4
+                        pitch_full.annotate(zone_name, (ul_x_inv, ul_y_inv), ax=ax_full,
+                                            ha='right', va='bottom', fontsize=6, color='black',
+                                            zorder=11)
+                        
+                        center_x_inv = -(coords['x_min'] + coords['x_max']) / 2
+                        center_y_inv = -(coords['y_min'] + coords['y_max']) / 2
+                        text_string = f"{successful}/{total}\n{percentage:.0f}%"
+                        pitch_full.annotate(text_string, (center_x_inv, center_y_inv), ax=ax_full,
+                                            ha='center', va='center', fontsize=8, color='black',
+                                            fontweight='bold', zorder=12)
+                    
+                    st.pyplot(fig_full)
+                    
+                    zone_stats_for_df = pd.DataFrame([
+                        {
+                            'Zone': zone_name,
+                            'Totaal': stats['total'],
+                            'Succesvolle assist voorzetten': stats['successful'],
+                            'Succesvolle assist voorzetten (%)': (stats['successful'] / stats['total'] * 100) if stats['total'] > 0 else 0.0,
+                            'Succesvolle assist voorzetten (simpel)': stats['successful_simple'],
+                            'Succesvolle assist voorzetten (simpel) (%)': (stats['successful_simple'] / stats['total'] * 100) if stats['total'] > 0 else 0.0
+                        }
+                        for zone_name, stats in zone_stats_for.items()
+                    ])
+                    
+                    zone_stats_against_df = pd.DataFrame([
+                        {
+                            'Zone': zone_name,
+                            'Totaal': stats['total'],
+                            'Succesvolle assist voorzetten tegen': stats['successful'],
+                            'Succesvolle assist voorzetten tegen (%)': (stats['successful'] / stats['total'] * 100) if stats['total'] > 0 else 0.0,
+                            'Succesvolle assist voorzetten tegen (simpel)': stats['successful_simple'],
+                            'Succesvolle assist voorzetten tegen (simpel) (%)': (stats['successful_simple'] / stats['total'] * 100) if stats['total'] > 0 else 0.0
+                        }
+                        for zone_name, stats in zone_stats_against.items()
+                    ])
+                    
+                    st.subheader("Assist voorzetten per zone (Voor)")
+                    st.dataframe(zone_stats_for_df.style.format({
+                        'Succesvolle assist voorzetten (%)': '{:.1f}',
+                        'Succesvolle assist voorzetten (simpel) (%)': '{:.1f}'
+                    }), use_container_width=True)
+                    
+                    st.subheader("Assist voorzetten per zone (Tegen)")
+                    st.dataframe(zone_stats_against_df.style.format({
+                        'Succesvolle assist voorzetten tegen (%)': '{:.1f}',
+                        'Succesvolle assist voorzetten tegen (simpel) (%)': '{:.1f}'
+                    }), use_container_width=True)
+                else:
+                    st.info("Selecteer minimaal één wedstrijd om de assist zones te analyseren.")
+            else:
+                st.warning("Geen wedstrijden gevonden voor deze analyse.")
+
         # ---------- Multi Match Voorzetten Tab ----------
         with tab10:
             st.subheader("📮 Multi Match Voorzetten")
@@ -3424,7 +3835,7 @@ if events_data is not None:
                                             # Add both success flags to the event
                                             event['is_successful_cross'] = is_cross_successful(event, events)  # Strict definition
                                             event['is_successful_cross_simple'] = event.get('resultId') == SUCCESSFUL_RESULT_ID  # Simple definition
-                                all_cross_events_against.append(event)
+                                            all_cross_events_against.append(event)
                             except Exception as e:
                                 st.warning(f"Error loading {match_label}: {e}")
                 
@@ -4248,8 +4659,8 @@ if events_data is not None:
                             'possession_time_in_box_allowed_cross': 0.0,
                             'possession_time_in_box_allowed': 0.0
                         }
-                    }
-
+                            }
+                    
                     # Process events for box entries
                     # Process each event
                     for idx, event in enumerate(events):
