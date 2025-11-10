@@ -3797,7 +3797,7 @@ if events_data is not None:
         
         # ---------- Multi Match Voorzetten Tab ----------
         with tab10:
-            st.subheader("📮 Multi Match Voorzetten")
+            st.subheader("📮 Voorzetten/passes naar 16 per zone")
             
             # Check if we have team_matches available
             try:
@@ -4076,16 +4076,16 @@ if events_data is not None:
                                            fontweight='bold', zorder=12)
                     
                     # Add labels for each half (closer to the pitch)
-                    fig_full.text(0.5, 0.88, f"{team_to_filter} - Voorzetten die leiden tot doelpoging", fontsize=12, fontweight='bold',
+                    fig_full.text(0.5, 0.88, f"{team_to_filter} - Voorzetten/passes naar 16 die leiden tot doelpoging", fontsize=12, fontweight='bold',
                                 ha='center', va='center', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
                     
-                    fig_full.text(0.5, 0.12, f"{team_to_filter} - Voorzetten Tegen die leiden tot doelpoging", fontsize=12, fontweight='bold',
+                    fig_full.text(0.5, 0.12, f"{team_to_filter} - Voorzetten/passes naar 16 tegen die leiden tot doelpoging", fontsize=12, fontweight='bold',
                                 ha='center', va='center', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
                     
                     st.pyplot(fig_full)
                     
                     # Second pitch: Show only successful crosses
-                    st.subheader("Voorzetten die aankomen")
+                    st.subheader("Voorzetten/passes naar 16 die aankomen")
                     
                     # Draw second full vertical pitch for successful crosses only
                     pitch_successful = VerticalPitch(half=False, pitch_type='impect')
@@ -4179,16 +4179,16 @@ if events_data is not None:
                                            fontweight='bold', zorder=12)
                     
                     # Add labels for each half (closer to the pitch)
-                    fig_successful.text(0.5, 0.88, f"{team_to_filter} - Voorzetten die aankomen", fontsize=12, fontweight='bold',
+                    fig_successful.text(0.5, 0.88, f"{team_to_filter} - Voorzetten/passes naar 16 die aankomen", fontsize=12, fontweight='bold',
                                 ha='center', va='center', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
                     
-                    fig_successful.text(0.5, 0.12, f"{team_to_filter} - Voorzetten Tegen die aankomen", fontsize=12, fontweight='bold',
+                    fig_successful.text(0.5, 0.12, f"{team_to_filter} - Voorzetten/passes naar 16 tegen die aankomen", fontsize=12, fontweight='bold',
                                 ha='center', va='center', bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
                     
                     st.pyplot(fig_successful)
                     
                     # Statistics tables for crosses that lead to shots
-                    st.subheader("📊 Statistieken Voorzetten die leiden tot doelpoging")
+                    st.subheader("📊 Statistieken Voorzetten/passes naar 16 die leiden tot doelpoging")
                     
                     
                     # Calculate statistics for own team
