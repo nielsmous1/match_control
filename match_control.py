@@ -3408,7 +3408,7 @@ if events_data is not None:
 
                         ul_x = coords['x_min'] + 1.2
                         ul_y = coords['y_max'] - 0.4
-                        zone_title = zone_name
+                        zone_title = zone_name.split('(')[0].strip()
                         pitch_v.annotate(zone_title, (ul_x, ul_y), ax=ax_v,
                                          ha='left', va='top', fontsize=6, color='black',
                                          zorder=11)
@@ -3661,6 +3661,89 @@ if events_data is not None:
                                             fontweight='bold', zorder=12)
                     
                     st.pyplot(fig_full)
+
+                    st.subheader("Assist zones - succesvolle voorzetten (resultaat)")
+                    pitch_successful_assist = VerticalPitch(half=False, pitch_type='impect')
+                    fig_successful_assist, ax_successful_assist = pitch_successful_assist.draw(figsize=(8, 16))
+
+                    for zone_name, coords in zones_assist.items():
+                        total = zone_stats_for[zone_name]['total']
+                        successful = zone_stats_for[zone_name]['successful_simple']
+                        percentage = (successful / total * 100) if total > 0 else 0
+
+                        if total > 0 and percentage == 0:
+                            facecolor = '#f8d7da'
+                        elif percentage > 0 and percentage < 30:
+                            facecolor = '#ffd8a8'
+                        elif percentage >= 30 and percentage < 60:
+                            facecolor = '#fff3bf'
+                        elif percentage >= 60:
+                            facecolor = '#d3f9d8'
+                        else:
+                            facecolor = 'none'
+
+                        rect = patches.Rectangle((coords['y_min'], coords['x_min']),
+                                                 coords['y_max'] - coords['y_min'],
+                                                 coords['x_max'] - coords['x_min'],
+                                                 linewidth=1.5, edgecolor='black', facecolor=facecolor, alpha=0.85, zorder=1)
+                        ax_successful_assist.add_patch(rect)
+
+                        zone_title = zone_name.split('(')[0].strip()
+                        ul_x = coords['x_min'] + 1.2
+                        ul_y = coords['y_max'] - 0.4
+                        pitch_successful_assist.annotate(zone_title, (ul_x, ul_y), ax=ax_successful_assist,
+                                           ha='left', va='top', fontsize=6, color='black',
+                                           zorder=11)
+
+                        center_x = (coords['x_min'] + coords['x_max']) / 2
+                        center_y = (coords['y_min'] + coords['y_max']) / 2
+                        text_string = f"{successful}/{total}\n{percentage:.0f}%"
+                        pitch_successful_assist.annotate(text_string, (center_x, center_y), ax=ax_successful_assist,
+                                           ha='center', va='center', fontsize=8, color='black',
+                                           fontweight='bold', zorder=12)
+
+                    for zone_name, coords in zones_assist.items():
+                        total = zone_stats_against[zone_name]['total']
+                        successful = zone_stats_against[zone_name]['successful_simple']
+                        percentage = (successful / total * 100) if total > 0 else 0
+
+                        if total > 0 and percentage == 0:
+                            facecolor = '#d3f9d8'
+                        elif percentage > 0 and percentage < 30:
+                            facecolor = '#fff3bf'
+                        elif percentage >= 30 and percentage < 60:
+                            facecolor = '#ffd8a8'
+                        elif percentage >= 60:
+                            facecolor = '#f8d7da'
+                        else:
+                            facecolor = 'none'
+
+                        inverted_y_min = -coords['y_max']
+                        inverted_y_max = -coords['y_min']
+                        inverted_x_min = -coords['x_max']
+                        inverted_x_max = -coords['x_min']
+
+                        rect = patches.Rectangle((inverted_y_min, inverted_x_min),
+                                                 inverted_y_max - inverted_y_min,
+                                                 inverted_x_max - inverted_x_min,
+                                                 linewidth=1.5, edgecolor='black', facecolor=facecolor, alpha=0.85, zorder=1)
+                        ax_successful_assist.add_patch(rect)
+
+                        zone_title = zone_name.split('(')[0].strip()
+                        ul_x_inv = inverted_x_min + 1.2
+                        ul_y_inv = inverted_y_max - 0.4
+                        pitch_successful_assist.annotate(zone_title, (ul_x_inv, ul_y_inv), ax=ax_successful_assist,
+                                           ha='left', va='top', fontsize=6, color='black',
+                                           zorder=11)
+
+                        center_x_inv = (inverted_x_min + inverted_x_max) / 2
+                        center_y_inv = (inverted_y_min + inverted_y_max) / 2
+                        text_string = f"{successful}/{total}\n{percentage:.0f}%"
+                        pitch_successful_assist.annotate(text_string, (center_x_inv, center_y_inv), ax=ax_successful_assist,
+                                           ha='center', va='center', fontsize=8, color='black',
+                                           fontweight='bold', zorder=12)
+
+                    st.pyplot(fig_successful_assist)
                     
                     zone_stats_for_df = pd.DataFrame([
                         {
