@@ -3590,14 +3590,14 @@ if events_data is not None:
                                         zone_stats_against[zone_name]['successful_simple'] += 1
                                     break
                     
-                    pitch_full = VerticalPitch(half=False, pitch_type='impect')
-                    fig_full, ax_full = pitch_full.draw(figsize=(8, 16))
-                    
+                    pitch_shot = VerticalPitch(half=False, pitch_type='impect')
+                    fig_shot, ax_shot = pitch_shot.draw(figsize=(8, 16))
+
                     for zone_name, coords in zones_assist.items():
                         total = zone_stats_for[zone_name]['total']
                         successful = zone_stats_for[zone_name]['successful']
                         percentage = (successful / total * 100) if total > 0 else 0
-                        
+
                         if total > 0 and percentage == 0:
                             facecolor = '#f8d7da'
                         elif percentage > 0 and percentage < 30:
@@ -3608,59 +3608,69 @@ if events_data is not None:
                             facecolor = '#d3f9d8'
                         else:
                             facecolor = 'none'
-                        
+
                         rect = patches.Rectangle((coords['y_min'], coords['x_min']),
                                                  coords['y_max'] - coords['y_min'],
                                                  coords['x_max'] - coords['x_min'],
                                                  linewidth=1.5, edgecolor='black', facecolor=facecolor, alpha=0.85, zorder=1)
-                        ax_full.add_patch(rect)
-                        
+                        ax_shot.add_patch(rect)
+
+                        zone_title = zone_name.split('(')[0].strip()
                         ul_x = coords['x_min'] + 1.2
                         ul_y = coords['y_max'] - 0.4
-                        pitch_full.annotate(zone_name, (ul_x, ul_y), ax=ax_full,
+                        pitch_shot.annotate(zone_title, (ul_x, ul_y), ax=ax_shot,
                                             ha='left', va='top', fontsize=6, color='black',
                                             zorder=11)
-                        
+
                         center_x = (coords['x_min'] + coords['x_max']) / 2
                         center_y = (coords['y_min'] + coords['y_max']) / 2
                         text_string = f"{successful}/{total}\n{percentage:.0f}%"
-                        pitch_full.annotate(text_string, (center_x, center_y), ax=ax_full,
+                        pitch_shot.annotate(text_string, (center_x, center_y), ax=ax_shot,
                                             ha='center', va='center', fontsize=8, color='black',
                                             fontweight='bold', zorder=12)
-                    
+
                     for zone_name, coords in zones_assist.items():
                         total = zone_stats_against[zone_name]['total']
                         successful = zone_stats_against[zone_name]['successful']
                         percentage = (successful / total * 100) if total > 0 else 0
-                        
-                        facecolor = '#d3f9d8' if percentage == 0 and total > 0 else '#fff3bf'
-                        if percentage >= 30 and percentage < 60:
+
+                        if total > 0 and percentage == 0:
+                            facecolor = '#d3f9d8'
+                        elif percentage > 0 and percentage < 30:
+                            facecolor = '#fff3bf'
+                        elif percentage >= 30 and percentage < 60:
                             facecolor = '#ffd8a8'
                         elif percentage >= 60:
                             facecolor = '#f8d7da'
-                        elif total == 0:
+                        else:
                             facecolor = 'none'
-                        
-                        rect = patches.Rectangle((-coords['y_max'], -coords['x_max']),
-                                                 coords['y_max'] - coords['y_min'],
-                                                 coords['x_max'] - coords['x_min'],
+
+                        inverted_y_min = -coords['y_max']
+                        inverted_y_max = -coords['y_min']
+                        inverted_x_min = -coords['x_max']
+                        inverted_x_max = -coords['x_min']
+
+                        rect = patches.Rectangle((inverted_y_min, inverted_x_min),
+                                                 inverted_y_max - inverted_y_min,
+                                                 inverted_x_max - inverted_x_min,
                                                  linewidth=1.5, edgecolor='black', facecolor=facecolor, alpha=0.85, zorder=1)
-                        ax_full.add_patch(rect)
-                        
-                        ul_x_inv = -coords['x_min'] - 1.2
-                        ul_y_inv = -coords['y_max'] + 0.4
-                        pitch_full.annotate(zone_name, (ul_x_inv, ul_y_inv), ax=ax_full,
-                                            ha='right', va='bottom', fontsize=6, color='black',
+                        ax_shot.add_patch(rect)
+
+                        zone_title = zone_name.split('(')[0].strip()
+                        ul_x_inv = inverted_x_min + 1.2
+                        ul_y_inv = inverted_y_max - 0.4
+                        pitch_shot.annotate(zone_title, (ul_x_inv, ul_y_inv), ax=ax_shot,
+                                            ha='left', va='top', fontsize=6, color='black',
                                             zorder=11)
-                        
-                        center_x_inv = -(coords['x_min'] + coords['x_max']) / 2
-                        center_y_inv = -(coords['y_min'] + coords['y_max']) / 2
+
+                        center_x_inv = (inverted_x_min + inverted_x_max) / 2
+                        center_y_inv = (inverted_y_min + inverted_y_max) / 2
                         text_string = f"{successful}/{total}\n{percentage:.0f}%"
-                        pitch_full.annotate(text_string, (center_x_inv, center_y_inv), ax=ax_full,
+                        pitch_shot.annotate(text_string, (center_x_inv, center_y_inv), ax=ax_shot,
                                             ha='center', va='center', fontsize=8, color='black',
                                             fontweight='bold', zorder=12)
-                    
-                    st.pyplot(fig_full)
+
+                    st.pyplot(fig_shot)
 
                     st.subheader("Assist zones - succesvolle voorzetten (resultaat)")
                     pitch_successful_assist = VerticalPitch(half=False, pitch_type='impect')
@@ -3784,7 +3794,7 @@ if events_data is not None:
                     st.info("Selecteer minimaal één wedstrijd om de assist zones te analyseren.")
             else:
                 st.warning("Geen wedstrijden gevonden voor deze analyse.")
-
+        
         # ---------- Multi Match Voorzetten Tab ----------
         with tab10:
             st.subheader("📮 Multi Match Voorzetten")
