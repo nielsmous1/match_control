@@ -3201,6 +3201,7 @@ if events_data is not None:
                 'Zone 17 LR (Box Right Deep)': {'x_min': 36, 'x_max': 47, 'y_min': -20.16, 'y_max': -9.25},
                 'Zone 17 HL (Box Left Attacking)': {'x_min': 47, 'x_max': 52.5, 'y_min': 9.25, 'y_max': 20.16},
                 'Zone 17 HR (Box Right Attacking)': {'x_min': 47, 'x_max': 52.5, 'y_min': -20.16, 'y_max': -9.25},
+                'Zone 17 M': {'x_min': 36, 'x_max': 52.5, 'y_min': -9.25, 'y_max': 9.25},
                 'Zone 13 (Wide Middle Left)': {'x_min': 17.5, 'x_max': 36, 'y_min': 20.16, 'y_max': 34},
                 'Zone 15 (Wide Middle Right)': {'x_min': 17.5, 'x_max': 36, 'y_min': -34, 'y_max': -20.16},
                 'Zone 14 R (Central Deep Left)': {'x_min': 17.5, 'x_max': 36, 'y_min': -20.16, 'y_max': -9.25},
@@ -3209,7 +3210,7 @@ if events_data is not None:
             }
             if include_assist_zone:
                 zones_with_assist = base_zones.copy()
-                zones_with_assist['Zone 14M'] = {'x_min': 34.0, 'x_max': 52.5, 'y_min': -6.92, 'y_max': 6.92}
+                zones_with_assist['Zone 17 M'] = {'x_min': 36, 'x_max': 52.5, 'y_min': -9.25, 'y_max': 9.25}
                 return zones_with_assist
             return base_zones
     
