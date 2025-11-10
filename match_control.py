@@ -2820,7 +2820,7 @@ if events_data is not None:
                     for team in team_names:
                         metrics[team] = create_empty_metrics()
 
-                for event in events:
+                    for event in events:
                         team = event.get('teamName') or event.get('team') or event.get('team_name')
                         if not team:
                             continue
@@ -2832,7 +2832,7 @@ if events_data is not None:
                         team_metrics = metrics[matched_team]
                         base_type = event.get('baseTypeId')
                         sub_type = event.get('subTypeId')
-                    result_id = event.get('resultId')
+                        result_id = event.get('resultId')
                         labels = event.get('labels', []) or []
                         start_x = event.get('startPosXM')
                         start_y = event.get('startPosYM')
@@ -2840,7 +2840,6 @@ if events_data is not None:
                         end_y = event.get('endPosYM')
                         metrics_data = event.get('metrics') or {}
 
-                        # Shots and xG
                         if base_type == 6:
                             team_metrics['shots'] += 1
                             xg_value = float(metrics_data.get('xG', 0.0) or 0.0)
@@ -2848,18 +2847,15 @@ if events_data is not None:
                             if 129 in labels:
                                 team_metrics['shots_on_target'] += 1
 
-                        # Final third entries
                         if base_type == 2 and result_id == 1 and 127 in labels:
                             team_metrics['final_third_entries'] += 1
                         if base_type == 1 and result_id == 1 and 69 in labels:
                             team_metrics['final_third_entries'] += 1
 
-                        # High recoveries (x > 0)
                         if result_id == 1 and start_x is not None and start_x > 0:
                             if base_type in [5, 9] or (base_type == 5 and sub_type == 501):
                                 team_metrics['high_recoveries'] += 1
 
-                        # Box entries
                         if base_type == 1 and result_id == 1 and start_x is not None and end_x is not None and end_y is not None:
                             if start_x < 36 and end_x > 36 and abs(end_y) < 20.15:
                                 team_metrics['box_entries'] += 1
@@ -5172,7 +5168,7 @@ if events_data is not None:
                     ]
                     existing_cols = [c for c in display_cols if c in df_match.columns]
                     st.dataframe(df_match[existing_cols], use_container_width=True, hide_index=True)
-                    else:
+                else:
                     st.info("Geen per-wedstrijd data gevonden voor het geselecteerde team.")
 
                 
