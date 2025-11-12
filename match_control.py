@@ -5336,7 +5336,7 @@ if events_data is not None:
                     ]
                     existing_cols = [c for c in display_cols if c in df_match.columns]
                     st.dataframe(df_match[existing_cols], use_container_width=True, hide_index=True)
-                    else:
+                else:
                     st.info("Geen per-wedstrijd data gevonden voor het geselecteerde team.")
 
                 
