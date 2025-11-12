@@ -2820,7 +2820,7 @@ if events_data is not None:
                     for team in team_names:
                         metrics[team] = create_empty_metrics()
 
-                for event in events:
+                    for event in events:
                         team = event.get('teamName') or event.get('team') or event.get('team_name')
                         if not team:
                             continue
@@ -2835,7 +2835,7 @@ if events_data is not None:
                         team_metrics = metrics[matched_team]
                         base_type = event.get('baseTypeId')
                         sub_type = event.get('subTypeId')
-                    result_id = event.get('resultId')
+                        result_id = event.get("resultId")
                         labels = event.get('labels', []) or []
                         start_x = event.get('startPosXM')
                         start_y = event.get('startPosYM')
