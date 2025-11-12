@@ -2820,19 +2820,22 @@ if events_data is not None:
                     for team in team_names:
                         metrics[team] = create_empty_metrics()
 
-                    for event in events:
+                for event in events:
                         team = event.get('teamName') or event.get('team') or event.get('team_name')
                         if not team:
                             continue
 
-                        matched_team = next((tn for tn in metrics.keys() if normalize_team_name(tn) == normalize_team_name(team)), None)
+                        matched_team = next(
+                            (tn for tn in metrics.keys() if normalize_team_name(tn) == normalize_team_name(team)),
+                            None
+                        )
                         if not matched_team:
                             continue
 
                         team_metrics = metrics[matched_team]
                         base_type = event.get('baseTypeId')
                         sub_type = event.get('subTypeId')
-                        result_id = event.get('resultId')
+                    result_id = event.get('resultId')
                         labels = event.get('labels', []) or []
                         start_x = event.get('startPosXM')
                         start_y = event.get('startPosYM')
@@ -3666,7 +3669,172 @@ if events_data is not None:
                                             ha='center', va='center', fontsize=8, color='black',
                                             fontweight='bold', zorder=12)
 
+                    fig_shot.text(
+                        0.5,
+                        0.88,
+                        f"{team_to_filter} - Voorzetten/passes naar 16 die leiden tot doelpoging",
+                        fontsize=12,
+                        fontweight='bold',
+                        ha='center',
+                        va='center',
+                        bbox=dict(boxstyle='round', facecolor='white', alpha=0.8)
+                    )
+                    fig_shot.text(
+                        0.5,
+                        0.12,
+                        f"{team_to_filter} - Voorzetten/passes naar 16 tegen die leiden tot doelpoging",
+                        fontsize=12,
+                        fontweight='bold',
+                        ha='center',
+                        va='center',
+                        bbox=dict(boxstyle='round', facecolor='white', alpha=0.8)
+                    )
                     st.pyplot(fig_shot)
+
+                    st.subheader("Voorzetten/passes naar 16 die aankomen")
+                    pitch_successful_assist = VerticalPitch(half=False, pitch_type='impect')
+                    fig_successful_assist, ax_successful_assist = pitch_successful_assist.draw(figsize=(8, 16))
+
+                    for zone_name, coords in zones_assist.items():
+                        total = zone_stats_for[zone_name]['total']
+                        successful_simple = zone_stats_for[zone_name]['successful_simple']
+                        percentage = (successful_simple / total * 100) if total > 0 else 0
+
+                        if total > 0 and percentage == 0:
+                            facecolor = '#f8d7da'
+                        elif percentage > 0 and percentage < 30:
+                            facecolor = '#ffd8a8'
+                        elif percentage >= 30 and percentage < 60:
+                            facecolor = '#fff3bf'
+                        elif percentage >= 60:
+                            facecolor = '#d3f9d8'
+                        else:
+                            facecolor = 'none'
+
+                        rect = patches.Rectangle(
+                            (coords['y_min'], coords['x_min']),
+                            coords['y_max'] - coords['y_min'],
+                            coords['x_max'] - coords['x_min'],
+                            linewidth=1.5,
+                            edgecolor='black',
+                            facecolor=facecolor,
+                            alpha=0.85,
+                            zorder=1
+                        )
+                        ax_successful_assist.add_patch(rect)
+
+                        zone_title = zone_name.split('(')[0].strip()
+                        ul_x = coords['x_min'] + 1.2
+                        ul_y = coords['y_max'] - 0.4
+                        pitch_successful_assist.annotate(
+                            zone_title,
+                            (ul_x, ul_y),
+                            ax=ax_successful_assist,
+                            ha='left',
+                            va='top',
+                            fontsize=6,
+                            color='black',
+                            zorder=11
+                        )
+
+                        center_x = (coords['x_min'] + coords['x_max']) / 2
+                        center_y = (coords['y_min'] + coords['y_max']) / 2
+                        text_string = f"{successful_simple}/{total}\n{percentage:.0f}%"
+                        pitch_successful_assist.annotate(
+                            text_string,
+                            (center_x, center_y),
+                            ax=ax_successful_assist,
+                            ha='center',
+                            va='center',
+                            fontsize=8,
+                            color='black',
+                            fontweight='bold',
+                            zorder=12
+                        )
+
+                    for zone_name, coords in zones_assist.items():
+                        total = zone_stats_against[zone_name]['total']
+                        successful_simple = zone_stats_against[zone_name]['successful_simple']
+                        percentage = (successful_simple / total * 100) if total > 0 else 0
+
+                        if total > 0 and percentage == 0:
+                            facecolor = '#d3f9d8'
+                        elif percentage > 0 and percentage < 30:
+                            facecolor = '#fff3bf'
+                        elif percentage >= 30 and percentage < 60:
+                            facecolor = '#ffd8a8'
+                        elif percentage >= 60:
+                            facecolor = '#f8d7da'
+                        else:
+                            facecolor = 'none'
+
+                        inverted_y_min = -coords['y_max']
+                        inverted_y_max = -coords['y_min']
+                        inverted_x_min = -coords['x_max']
+                        inverted_x_max = -coords['x_min']
+
+                        rect = patches.Rectangle(
+                            (inverted_y_min, inverted_x_min),
+                            inverted_y_max - inverted_y_min,
+                            inverted_x_max - inverted_x_min,
+                            linewidth=1.5,
+                            edgecolor='black',
+                            facecolor=facecolor,
+                            alpha=0.85,
+                            zorder=1
+                        )
+                        ax_successful_assist.add_patch(rect)
+
+                        zone_title = zone_name.split('(')[0].strip()
+                        ul_x_inv = inverted_x_min + 1.2
+                        ul_y_inv = inverted_y_max - 0.4
+                        pitch_successful_assist.annotate(
+                            zone_title,
+                            (ul_x_inv, ul_y_inv),
+                            ax=ax_successful_assist,
+                            ha='left',
+                            va='top',
+                            fontsize=6,
+                            color='black',
+                            zorder=11
+                        )
+
+                        center_x_inv = (inverted_x_min + inverted_x_max) / 2
+                        center_y_inv = (inverted_y_min + inverted_y_max) / 2
+                        text_string = f"{successful_simple}/{total}\n{percentage:.0f}%"
+                        pitch_successful_assist.annotate(
+                            text_string,
+                            (center_x_inv, center_y_inv),
+                            ax=ax_successful_assist,
+                            ha='center',
+                            va='center',
+                            fontsize=8,
+                            color='black',
+                            fontweight='bold',
+                            zorder=12
+                        )
+
+                    fig_successful_assist.text(
+                        0.5,
+                        0.88,
+                        f"{team_to_filter} - Voorzetten/passes naar 16 die aankomen",
+                        fontsize=12,
+                        fontweight='bold',
+                        ha='center',
+                        va='center',
+                        bbox=dict(boxstyle='round', facecolor='white', alpha=0.8)
+                    )
+                    fig_successful_assist.text(
+                        0.5,
+                        0.12,
+                        f"{team_to_filter} - Voorzetten/passes naar 16 tegen die aankomen",
+                        fontsize=12,
+                        fontweight='bold',
+                        ha='center',
+                        va='center',
+                        bbox=dict(boxstyle='round', facecolor='white', alpha=0.8)
+                    )
+                    st.pyplot(fig_successful_assist)
                     
                     zone_stats_for_df = pd.DataFrame([
                         {
@@ -5168,7 +5336,7 @@ if events_data is not None:
                     ]
                     existing_cols = [c for c in display_cols if c in df_match.columns]
                     st.dataframe(df_match[existing_cols], use_container_width=True, hide_index=True)
-                else:
+                    else:
                     st.info("Geen per-wedstrijd data gevonden voor het geselecteerde team.")
 
                 
