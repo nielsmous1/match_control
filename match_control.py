@@ -4018,15 +4018,19 @@ if events_data is not None:
                     zones = {
                         'Zone 18 (Wide Attacking Right)': {'x_min': 36, 'x_max': 52.5, 'y_min': -34, 'y_max': -20.16},
                         'Zone 16 (Wide Attacking Left)': {'x_min': 36, 'x_max': 52.5, 'y_min': 20.16, 'y_max': 34},
-                        'Zone 17 LL (Box Left Deep)': {'x_min': 36, 'x_max': 47, 'y_min': 9.25, 'y_max': 20.16},
-                        'Zone 17 LR (Box Right Deep)': {'x_min': 36, 'x_max': 47, 'y_min': -20.16, 'y_max': -9.25},
-                        'Zone 17 HL (Box Left Attacking)': {'x_min': 47, 'x_max': 52.5, 'y_min': 9.25, 'y_max': 20.16},
-                        'Zone 17 HR (Box Right Attacking)': {'x_min': 47, 'x_max': 52.5, 'y_min': -20.16, 'y_max': -9.25},
+                        'Zone 17 LB (Box Left Deep)': {'x_min': 36, 'x_max': 47, 'y_min': 9.25, 'y_max': 20.16},
+                        'Zone 17 RA (Box Right Deep)': {'x_min': 36, 'x_max': 47, 'y_min': -20.16, 'y_max': -9.25},
+                        'Zone 17 LA (Box Left Attacking)': {'x_min': 47, 'x_max': 52.5, 'y_min': 9.25, 'y_max': 20.16},
+                        'Zone 17 RB (Box Right Attacking)': {'x_min': 47, 'x_max': 52.5, 'y_min': -20.16, 'y_max': -9.25},
+                        'Zone 17': {'x_min': 36, 'x_max': 41.5, 'y_min': -9.25, 'y_max': 9.25},
                         'Zone 13 (Wide Middle Left)': {'x_min': 17.5, 'x_max': 36, 'y_min': 20.16, 'y_max': 34},
                         'Zone 15 (Wide Middle Right)': {'x_min': 17.5, 'x_max': 36, 'y_min': -34, 'y_max': -20.16},
-                        'Zone 14 R (Central Deep Left)': {'x_min': 17.5, 'x_max': 36, 'y_min': -20.16, 'y_max': -9.25},
-                        'Zone 14 L (Central Deep Right)': {'x_min': 17.5, 'x_max': 36, 'y_min': 9.25, 'y_max': 20.16},
-                        'Zone 14 M (Zone 14 Area)': {'x_min': 17.5, 'x_max': 36, 'y_min': -9.25, 'y_max': 9.25},
+                        'Zone 14 RA (Central Deep Left A)': {'x_min': 26.75, 'x_max': 36, 'y_min': -20.16, 'y_max': -9.25},
+                        'Zone 14 RB (Central Deep Left B)': {'x_min': 17.5, 'x_max': 26.75, 'y_min': -20.16, 'y_max': -9.25},
+                        'Zone 14 LA (Central Deep Right A)': {'x_min': 26.75, 'x_max': 36, 'y_min': 9.25, 'y_max': 20.16},
+                        'Zone 14 LB (Central Deep Right B)': {'x_min': 17.5, 'x_max': 26.75, 'y_min': 9.25, 'y_max': 20.16},
+                        'Zone 14 MA (Zone 14 Area A)': {'x_min': 26.75, 'x_max': 36, 'y_min': -9.25, 'y_max': 9.25},
+                        'Zone 14 MB (Zone 14 Area B)': {'x_min': 17.5, 'x_max': 26.75, 'y_min': -9.25, 'y_max': 9.25},
                     }
                     
                     # Count crosses per zone for both teams
