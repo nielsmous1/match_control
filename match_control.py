@@ -4029,8 +4029,8 @@ if events_data is not None:
                         'Zone 14 RB (Central Deep Left B)': {'x_min': 17.5, 'x_max': 26.75, 'y_min': -20.16, 'y_max': -9.25},
                         'Zone 14 LA (Central Deep Right A)': {'x_min': 26.75, 'x_max': 36, 'y_min': 9.25, 'y_max': 20.16},
                         'Zone 14 LB (Central Deep Right B)': {'x_min': 17.5, 'x_max': 26.75, 'y_min': 9.25, 'y_max': 20.16},
-                        'Zone 14 MA (Zone 14 Area A)': {'x_min': 26.75, 'x_max': 36, 'y_min': -9.25, 'y_max': 9.25},
-                        'Zone 14 MB (Zone 14 Area B)': {'x_min': 17.5, 'x_max': 26.75, 'y_min': -9.25, 'y_max': 9.25},
+                        'Zone 14 A (Zone 14 Area A)': {'x_min': 26.75, 'x_max': 36, 'y_min': -9.25, 'y_max': 9.25},
+                        'Zone 14 B (Zone 14 Area B)': {'x_min': 17.5, 'x_max': 26.75, 'y_min': -9.25, 'y_max': 9.25},
                     }
                     
                     # Count crosses per zone for both teams
