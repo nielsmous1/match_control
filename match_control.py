@@ -2318,13 +2318,13 @@ if events_data is not None:
                     # Create the visualization with three sections
                     fig_temp, (ax_top, ax_middle, ax_bottom) = plt.subplots(3, 1, figsize=(14, 10))
                     
-                    categories = ['Doelpunten', 'Schoten', 'Passes', 'xG', 'Possessie']
+                    categories = ['Doelpunten', 'Schoten', 'Passes', 'xG', 'Balbezit']
                     metric_pairs = [
                         ('goals_for', 'goals_against', 'int'),
                         ('shots_for', 'shots_against', 'int'),
                         ('passes_for', 'passes_against', 'int'),
                         ('xg_for', 'xg_against', 'float'),
-                        ('possession_for', 'possession_against', 'time')
+                        ('possession_for', 'possession_against', 'percentage')
                     ]
                     y_pos = np.arange(len(categories))[::-1]  # Reverse order so Doelpunten is on top
                     bar_height = 0.6
@@ -2347,14 +2347,17 @@ if events_data is not None:
                                 if value_type == 'float':
                                     for_text = f'{for_val:.2f}'
                                     against_text = f'{against_val:.2f}'
-                                elif value_type == 'time':
-                                    # Format time as minutes:seconds
-                                    for_minutes = int(for_val // 60)
-                                    for_seconds = int(for_val % 60)
-                                    against_minutes = int(against_val // 60)
-                                    against_seconds = int(against_val % 60)
-                                    for_text = f'{for_minutes}:{for_seconds:02d}'
-                                    against_text = f'{against_minutes}:{against_seconds:02d}'
+                                elif value_type == 'percentage':
+                                    # Calculate percentage: (team time) / (team time + opponent time) * 100
+                                    total_time = for_val + against_val
+                                    if total_time > 0:
+                                        for_percentage = (for_val / total_time) * 100
+                                        against_percentage = (against_val / total_time) * 100
+                                        for_text = f'{for_percentage:.1f}%'
+                                        against_text = f'{against_percentage:.1f}%'
+                                    else:
+                                        for_text = '0.0%'
+                                        against_text = '0.0%'
                                 else:
                                     for_text = f'{int(for_val)}'
                                     against_text = f'{int(against_val)}'
