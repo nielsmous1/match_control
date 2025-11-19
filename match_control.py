@@ -2095,17 +2095,20 @@ if events_data is not None:
                     stats_0_60 = {
                         'goals_for': 0, 'goals_against': 0,
                         'shots_for': 0, 'shots_against': 0,
-                        'xg_for': 0.0, 'xg_against': 0.0
+                        'xg_for': 0.0, 'xg_against': 0.0,
+                        'passes_for': 0, 'passes_against': 0
                     }
                     stats_60_75 = {
                         'goals_for': 0, 'goals_against': 0,
                         'shots_for': 0, 'shots_against': 0,
-                        'xg_for': 0.0, 'xg_against': 0.0
+                        'xg_for': 0.0, 'xg_against': 0.0,
+                        'passes_for': 0, 'passes_against': 0
                     }
                     stats_75_plus = {
                         'goals_for': 0, 'goals_against': 0,
                         'shots_for': 0, 'shots_against': 0,
-                        'xg_for': 0.0, 'xg_against': 0.0
+                        'xg_for': 0.0, 'xg_against': 0.0,
+                        'passes_for': 0, 'passes_against': 0
                     }
                     
                     # Process each match individually
@@ -2178,6 +2181,30 @@ if events_data is not None:
                                             stats_75_plus['xg_against'] += xg
                                             if is_goal:
                                                 stats_75_plus['goals_against'] += 1
+
+                                # Count successful passes (baseType 1, subType 100, resultId 1)
+                                for event in events:
+                                    if (event.get('baseTypeId') == 1 and
+                                        event.get('subTypeId') == 100 and
+                                        event.get('resultId') == 1):
+                                        minute = int((event.get('startTimeMs', 0) or 0) / 1000 / 60)
+                                        is_pass_for_team = event.get('teamName') == selected_team
+
+                                        if minute < minute_60:
+                                            if is_pass_for_team:
+                                                stats_0_60['passes_for'] += 1
+                                            else:
+                                                stats_0_60['passes_against'] += 1
+                                        elif minute < minute_75:
+                                            if is_pass_for_team:
+                                                stats_60_75['passes_for'] += 1
+                                            else:
+                                                stats_60_75['passes_against'] += 1
+                                        else:
+                                            if is_pass_for_team:
+                                                stats_75_plus['passes_for'] += 1
+                                            else:
+                                                stats_75_plus['passes_against'] += 1
                                 
                                 # Process own goals - add them to the opponent's goal count
                                 OWN_GOAL_LABEL = 205
@@ -2227,166 +2254,63 @@ if events_data is not None:
                     # Create the visualization with three sections
                     fig_temp, (ax_top, ax_middle, ax_bottom) = plt.subplots(3, 1, figsize=(14, 10))
                     
-                    categories = ['Doelpunten', 'Schoten', 'xG']
+                    categories = ['Doelpunten', 'Schoten', 'Passes', 'xG']
+                    metric_pairs = [
+                        ('goals_for', 'goals_against', 'int'),
+                        ('shots_for', 'shots_against', 'int'),
+                        ('passes_for', 'passes_against', 'int'),
+                        ('xg_for', 'xg_against', 'float')
+                    ]
                     y_pos = np.arange(len(categories))[::-1]  # Reverse order so Doelpunten is on top
                     bar_height = 0.6
                     bar_length = 100  # All bars same length
-                    
-                    # Top section: 0-60 minutes
-                    for_values_0_60 = [stats_0_60['goals_for'], stats_0_60['shots_for'], stats_0_60['xg_for']]
-                    against_values_0_60 = [stats_0_60['goals_against'], stats_0_60['shots_against'], stats_0_60['xg_against']]
-                    
-                    # Plot 0-60 bars with proportional coloring
-                    for i, (for_val, against_val) in enumerate(zip(for_values_0_60, against_values_0_60)):
-                        total = for_val + against_val
-                        if total > 0:
-                            for_proportion = (for_val / total) * bar_length
-                            against_proportion = (against_val / total) * bar_length
-                            
-                            # Draw the bar split proportionally
-                            ax_top.barh(y_pos[i], for_proportion, bar_height, 
-                                       left=0, color=home_color, alpha=0.8)
-                            ax_top.barh(y_pos[i], against_proportion, bar_height, 
-                                       left=for_proportion, color=away_color, alpha=0.8)
-                            
-                            # Add text values inside bars
-                            # Format values based on category
-                            if i == 2:  # xG - show 2 decimals
-                                for_text = f'{for_val:.2f}'
-                                against_text = f'{against_val:.2f}'
-                            else:  # Goals and Shots - show integers
-                                for_text = f'{int(for_val)}'
-                                against_text = f'{int(against_val)}'
-                            
-                            # Add text for "Voor" side
-                            if for_proportion > 10:  # Only show if bar is wide enough
-                                ax_top.text(for_proportion / 2, y_pos[i], for_text,
-                                          ha='center', va='center', color='white',
-                                          fontsize=12, fontweight='bold')
-                            
-                            # Add text for "Tegen" side
-                            if against_proportion > 10:  # Only show if bar is wide enough
-                                ax_top.text(for_proportion + against_proportion / 2, y_pos[i], against_text,
-                                          ha='center', va='center', color='white',
-                                          fontsize=12, fontweight='bold')
-                        else:
-                            # Empty bar if no data
-                            ax_top.barh(y_pos[i], bar_length, bar_height, color='lightgray', alpha=0.3)
-                    
-                    ax_top.set_yticks(y_pos)
-                    ax_top.set_yticklabels(categories)
-                    ax_top.set_xlim(-15, bar_length)
-                    ax_top.set_title("0-60 minuten", fontsize=14, fontweight='bold', pad=5)
-                    ax_top.axis('off')
-                    ax_top.set_ylim(-0.5, len(categories) - 0.5)
-                    
-                    # Add y-labels manually with bold font (centered and closer to bars)
-                    for i, cat in enumerate(categories):
-                        ax_top.text(-7.5, y_pos[i], cat, ha='center', va='center', fontsize=11, fontweight='bold')
-                    
-                    # Middle section: 60-75 minutes
-                    for_values_60_75 = [stats_60_75['goals_for'], stats_60_75['shots_for'], stats_60_75['xg_for']]
-                    against_values_60_75 = [stats_60_75['goals_against'], stats_60_75['shots_against'], stats_60_75['xg_against']]
-                    
-                    # Plot 60-75 bars with proportional coloring
-                    for i, (for_val, against_val) in enumerate(zip(for_values_60_75, against_values_60_75)):
-                        total = for_val + against_val
-                        if total > 0:
-                            for_proportion = (for_val / total) * bar_length
-                            against_proportion = (against_val / total) * bar_length
-                            
-                            # Draw the bar split proportionally
-                            ax_middle.barh(y_pos[i], for_proportion, bar_height, 
-                                          left=0, color=home_color, alpha=0.8)
-                            ax_middle.barh(y_pos[i], against_proportion, bar_height, 
-                                          left=for_proportion, color=away_color, alpha=0.8)
-                            
-                            # Add text values inside bars
-                            # Format values based on category
-                            if i == 2:  # xG - show 2 decimals
-                                for_text = f'{for_val:.2f}'
-                                against_text = f'{against_val:.2f}'
-                            else:  # Goals and Shots - show integers
-                                for_text = f'{int(for_val)}'
-                                against_text = f'{int(against_val)}'
-                            
-                            # Add text for "Voor" side
-                            if for_proportion > 10:  # Only show if bar is wide enough
-                                ax_middle.text(for_proportion / 2, y_pos[i], for_text,
-                                             ha='center', va='center', color='white',
-                                             fontsize=12, fontweight='bold')
-                            
-                            # Add text for "Tegen" side
-                            if against_proportion > 10:  # Only show if bar is wide enough
-                                ax_middle.text(for_proportion + against_proportion / 2, y_pos[i], against_text,
-                                             ha='center', va='center', color='white',
-                                             fontsize=12, fontweight='bold')
-                        else:
-                            # Empty bar if no data
-                            ax_middle.barh(y_pos[i], bar_length, bar_height, color='lightgray', alpha=0.3)
-                    
-                    ax_middle.set_yticks(y_pos)
-                    ax_middle.set_yticklabels(categories)
-                    ax_middle.set_xlim(-15, bar_length)
-                    ax_middle.set_title("60-75 minuten", fontsize=14, fontweight='bold', pad=5)
-                    ax_middle.axis('off')
-                    ax_middle.set_ylim(-0.5, len(categories) - 0.5)
-                    
-                    # Add y-labels manually with bold font (centered and closer to bars)
-                    for i, cat in enumerate(categories):
-                        ax_middle.text(-7.5, y_pos[i], cat, ha='center', va='center', fontsize=11, fontweight='bold')
-                    
-                    # Bottom section: 75+ minutes
-                    for_values_75_plus = [stats_75_plus['goals_for'], stats_75_plus['shots_for'], stats_75_plus['xg_for']]
-                    against_values_75_plus = [stats_75_plus['goals_against'], stats_75_plus['shots_against'], stats_75_plus['xg_against']]
-                    
-                    # Plot 75+ bars with proportional coloring
-                    for i, (for_val, against_val) in enumerate(zip(for_values_75_plus, against_values_75_plus)):
-                        total = for_val + against_val
-                        if total > 0:
-                            for_proportion = (for_val / total) * bar_length
-                            against_proportion = (against_val / total) * bar_length
-                            
-                            # Draw the bar split proportionally
-                            ax_bottom.barh(y_pos[i], for_proportion, bar_height, 
-                                          left=0, color=home_color, alpha=0.8)
-                            ax_bottom.barh(y_pos[i], against_proportion, bar_height, 
-                                          left=for_proportion, color=away_color, alpha=0.8)
-                            
-                            # Add text values inside bars
-                            # Format values based on category
-                            if i == 2:  # xG - show 2 decimals
-                                for_text = f'{for_val:.2f}'
-                                against_text = f'{against_val:.2f}'
-                            else:  # Goals and Shots - show integers
-                                for_text = f'{int(for_val)}'
-                                against_text = f'{int(against_val)}'
-                            
-                            # Add text for "Voor" side
-                            if for_proportion > 10:  # Only show if bar is wide enough
-                                ax_bottom.text(for_proportion / 2, y_pos[i], for_text,
-                                             ha='center', va='center', color='white',
-                                             fontsize=12, fontweight='bold')
-                            
-                            # Add text for "Tegen" side
-                            if against_proportion > 10:  # Only show if bar is wide enough
-                                ax_bottom.text(for_proportion + against_proportion / 2, y_pos[i], against_text,
-                                             ha='center', va='center', color='white',
-                                             fontsize=12, fontweight='bold')
-                        else:
-                            # Empty bar if no data
-                            ax_bottom.barh(y_pos[i], bar_length, bar_height, color='lightgray', alpha=0.3)
-                    
-                    ax_bottom.set_yticks(y_pos)
-                    ax_bottom.set_yticklabels(categories)
-                    ax_bottom.set_xlim(-15, bar_length)
-                    ax_bottom.set_title("75+ minuten", fontsize=14, fontweight='bold', pad=5)
-                    ax_bottom.axis('off')
-                    ax_bottom.set_ylim(-0.5, len(categories) - 0.5)
-                    
-                    # Add y-labels manually with bold font (centered and closer to bars)
-                    for i, cat in enumerate(categories):
-                        ax_bottom.text(-7.5, y_pos[i], cat, ha='center', va='center', fontsize=11, fontweight='bold')
+
+                    def plot_interval(ax, stats, title):
+                        for i, (for_key, against_key, value_type) in enumerate(metric_pairs):
+                            for_val = stats[for_key]
+                            against_val = stats[against_key]
+                            total = for_val + against_val
+                            if total > 0:
+                                for_proportion = (for_val / total) * bar_length
+                                against_proportion = (against_val / total) * bar_length
+
+                                ax.barh(y_pos[i], for_proportion, bar_height,
+                                        left=0, color=home_color, alpha=0.8)
+                                ax.barh(y_pos[i], against_proportion, bar_height,
+                                        left=for_proportion, color=away_color, alpha=0.8)
+
+                                if value_type == 'float':
+                                    for_text = f'{for_val:.2f}'
+                                    against_text = f'{against_val:.2f}'
+                                else:
+                                    for_text = f'{int(for_val)}'
+                                    against_text = f'{int(against_val)}'
+
+                                if for_proportion > 10:
+                                    ax.text(for_proportion / 2, y_pos[i], for_text,
+                                            ha='center', va='center', color='white',
+                                            fontsize=12, fontweight='bold')
+
+                                if against_proportion > 10:
+                                    ax.text(for_proportion + (against_proportion / 2), y_pos[i], against_text,
+                                            ha='center', va='center', color='white',
+                                            fontsize=12, fontweight='bold')
+                            else:
+                                ax.barh(y_pos[i], bar_length, bar_height, color='lightgray', alpha=0.3)
+
+                        ax.set_yticks(y_pos)
+                        ax.set_yticklabels(categories)
+                        ax.set_xlim(-15, bar_length)
+                        ax.set_title(title, fontsize=14, fontweight='bold', pad=5)
+                        ax.axis('off')
+                        ax.set_ylim(-0.5, len(categories) - 0.5)
+
+                        for i, cat in enumerate(categories):
+                            ax.text(-7.5, y_pos[i], cat, ha='center', va='center', fontsize=11, fontweight='bold')
+
+                    plot_interval(ax_top, stats_0_60, "0-60 minuten")
+                    plot_interval(ax_middle, stats_60_75, "60-75 minuten")
+                    plot_interval(ax_bottom, stats_75_plus, "75+ minuten")
                     
                     # Add team labels at the ends of the bars
                     ax_bottom.text(0, y_pos[-1] - 1.0, f'{selected_team}', ha='left', va='center', 
