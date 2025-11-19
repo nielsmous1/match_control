@@ -2126,6 +2126,11 @@ if events_data is not None:
                                 # Find all shots in this match
                                 all_shots_temp = find_shot_events(events)
                                 
+                                # Get home and away teams from match metadata
+                                metadata = match_data.get('metaData', {}) if isinstance(match_data, dict) else {}
+                                home_team_match = metadata.get('homeTeamName') or metadata.get('homeTeam') or metadata.get('home') or 'Home'
+                                away_team_match = metadata.get('awayTeamName') or metadata.get('awayTeam') or metadata.get('away') or 'Away'
+                                
                                 # Calculate the 60th and 75th minute for THIS match
                                 minute_60 = second_half_start_time + 15  # 45 + 15 minutes into 2nd half
                                 minute_75 = second_half_start_time + 30  # 45 + 30 minutes into 2nd half
@@ -2172,6 +2177,48 @@ if events_data is not None:
                                             stats_75_plus['shots_against'] += 1
                                             stats_75_plus['xg_against'] += xg
                                             if is_goal:
+                                                stats_75_plus['goals_against'] += 1
+                                
+                                # Process own goals - add them to the opponent's goal count
+                                OWN_GOAL_LABEL = 205
+                                for event in events:
+                                    event_labels = event.get('labels', []) or []
+                                    if OWN_GOAL_LABEL in event_labels:
+                                        # Get the team that scored the own goal
+                                        og_team = event.get('teamName', 'Unknown')
+                                        # Determine the opposing team (the team that benefits from the own goal)
+                                        if og_team == home_team_match:
+                                            opposing_team = away_team_match
+                                        elif og_team == away_team_match:
+                                            opposing_team = home_team_match
+                                        else:
+                                            # If team name doesn't match, skip this own goal
+                                            continue
+                                        
+                                        # Get the minute of the own goal (same calculation as shots)
+                                        minute = int((event.get('startTimeMs', 0) or 0) / 1000 / 60)
+                                        
+                                        # Determine if the own goal is for or against the selected team
+                                        is_og_for_selected_team = opposing_team == selected_team
+                                        
+                                        # Add the own goal to the appropriate time period
+                                        if minute < minute_60:
+                                            # 0-60 minutes
+                                            if is_og_for_selected_team:
+                                                stats_0_60['goals_for'] += 1
+                                            else:
+                                                stats_0_60['goals_against'] += 1
+                                        elif minute < minute_75:
+                                            # 60-75 minutes
+                                            if is_og_for_selected_team:
+                                                stats_60_75['goals_for'] += 1
+                                            else:
+                                                stats_60_75['goals_against'] += 1
+                                        else:
+                                            # 75+ minutes
+                                            if is_og_for_selected_team:
+                                                stats_75_plus['goals_for'] += 1
+                                            else:
                                                 stats_75_plus['goals_against'] += 1
                                 
                             except Exception as e:
