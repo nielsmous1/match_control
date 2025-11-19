@@ -2091,8 +2091,13 @@ if events_data is not None:
                 )
                 
                 if selected_temp_matches and len(selected_temp_matches) > 0:
-                    # Initialize counters for two time periods
-                    stats_0_75 = {
+                    # Initialize counters for three time periods
+                    stats_0_60 = {
+                        'goals_for': 0, 'goals_against': 0,
+                        'shots_for': 0, 'shots_against': 0,
+                        'xg_for': 0.0, 'xg_against': 0.0
+                    }
+                    stats_60_75 = {
                         'goals_for': 0, 'goals_against': 0,
                         'shots_for': 0, 'shots_against': 0,
                         'xg_for': 0.0, 'xg_against': 0.0
@@ -2121,8 +2126,9 @@ if events_data is not None:
                                 # Find all shots in this match
                                 all_shots_temp = find_shot_events(events)
                                 
-                                # Calculate the 75th minute for THIS match (45 + 30 minutes into 2nd half)
-                                minute_75 = second_half_start_time + 30
+                                # Calculate the 60th and 75th minute for THIS match
+                                minute_60 = second_half_start_time + 15  # 45 + 15 minutes into 2nd half
+                                minute_75 = second_half_start_time + 30  # 45 + 30 minutes into 2nd half
                                 
                                 for shot in all_shots_temp:
                                     minute = shot.get('time', 0)
@@ -2130,19 +2136,31 @@ if events_data is not None:
                                     is_goal = shot.get('is_goal', False)
                                     is_for_team = shot.get('team') == selected_team
                                     
-                                    # Check if shot is before or after the 75th minute of THIS match
-                                    if minute < minute_75:
-                                        # 0-75 minutes
+                                    # Check which time period the shot belongs to
+                                    if minute < minute_60:
+                                        # 0-60 minutes
                                         if is_for_team:
-                                            stats_0_75['shots_for'] += 1
-                                            stats_0_75['xg_for'] += xg
+                                            stats_0_60['shots_for'] += 1
+                                            stats_0_60['xg_for'] += xg
                                             if is_goal:
-                                                stats_0_75['goals_for'] += 1
+                                                stats_0_60['goals_for'] += 1
                                         else:
-                                            stats_0_75['shots_against'] += 1
-                                            stats_0_75['xg_against'] += xg
+                                            stats_0_60['shots_against'] += 1
+                                            stats_0_60['xg_against'] += xg
                                             if is_goal:
-                                                stats_0_75['goals_against'] += 1
+                                                stats_0_60['goals_against'] += 1
+                                    elif minute < minute_75:
+                                        # 60-75 minutes
+                                        if is_for_team:
+                                            stats_60_75['shots_for'] += 1
+                                            stats_60_75['xg_for'] += xg
+                                            if is_goal:
+                                                stats_60_75['goals_for'] += 1
+                                        else:
+                                            stats_60_75['shots_against'] += 1
+                                            stats_60_75['xg_against'] += xg
+                                            if is_goal:
+                                                stats_60_75['goals_against'] += 1
                                     else:
                                         # 75+ minutes
                                         if is_for_team:
@@ -2159,21 +2177,20 @@ if events_data is not None:
                             except Exception as e:
                                 st.warning(f"Error loading {match_label}: {e}")
                     
-                    # Create the visualization
-                    fig_temp, (ax_top, ax_bottom) = plt.subplots(2, 1, figsize=(14, 8))
+                    # Create the visualization with three sections
+                    fig_temp, (ax_top, ax_middle, ax_bottom) = plt.subplots(3, 1, figsize=(14, 10))
                     
-                    # Top section: 0-75 minutes
                     categories = ['Doelpunten', 'Schoten', 'xG']
                     y_pos = np.arange(len(categories))[::-1]  # Reverse order so Doelpunten is on top
                     bar_height = 0.6
                     bar_length = 100  # All bars same length
                     
-                    # For vs Against data for 0-75 (reversed order)
-                    for_values_0_75 = [stats_0_75['goals_for'], stats_0_75['shots_for'], stats_0_75['xg_for']]
-                    against_values_0_75 = [stats_0_75['goals_against'], stats_0_75['shots_against'], stats_0_75['xg_against']]
+                    # Top section: 0-60 minutes
+                    for_values_0_60 = [stats_0_60['goals_for'], stats_0_60['shots_for'], stats_0_60['xg_for']]
+                    against_values_0_60 = [stats_0_60['goals_against'], stats_0_60['shots_against'], stats_0_60['xg_against']]
                     
-                    # Plot 0-75 bars with proportional coloring
-                    for i, (for_val, against_val) in enumerate(zip(for_values_0_75, against_values_0_75)):
+                    # Plot 0-60 bars with proportional coloring
+                    for i, (for_val, against_val) in enumerate(zip(for_values_0_60, against_values_0_60)):
                         total = for_val + against_val
                         if total > 0:
                             for_proportion = (for_val / total) * bar_length
@@ -2212,13 +2229,65 @@ if events_data is not None:
                     ax_top.set_yticks(y_pos)
                     ax_top.set_yticklabels(categories)
                     ax_top.set_xlim(-15, bar_length)
-                    ax_top.set_title("Tot de 75e minuut", fontsize=14, fontweight='bold', pad=5)
+                    ax_top.set_title("0-60 minuten", fontsize=14, fontweight='bold', pad=5)
                     ax_top.axis('off')
                     ax_top.set_ylim(-0.5, len(categories) - 0.5)
                     
                     # Add y-labels manually with bold font (centered and closer to bars)
                     for i, cat in enumerate(categories):
                         ax_top.text(-7.5, y_pos[i], cat, ha='center', va='center', fontsize=11, fontweight='bold')
+                    
+                    # Middle section: 60-75 minutes
+                    for_values_60_75 = [stats_60_75['goals_for'], stats_60_75['shots_for'], stats_60_75['xg_for']]
+                    against_values_60_75 = [stats_60_75['goals_against'], stats_60_75['shots_against'], stats_60_75['xg_against']]
+                    
+                    # Plot 60-75 bars with proportional coloring
+                    for i, (for_val, against_val) in enumerate(zip(for_values_60_75, against_values_60_75)):
+                        total = for_val + against_val
+                        if total > 0:
+                            for_proportion = (for_val / total) * bar_length
+                            against_proportion = (against_val / total) * bar_length
+                            
+                            # Draw the bar split proportionally
+                            ax_middle.barh(y_pos[i], for_proportion, bar_height, 
+                                          left=0, color=home_color, alpha=0.8)
+                            ax_middle.barh(y_pos[i], against_proportion, bar_height, 
+                                          left=for_proportion, color=away_color, alpha=0.8)
+                            
+                            # Add text values inside bars
+                            # Format values based on category
+                            if i == 2:  # xG - show 2 decimals
+                                for_text = f'{for_val:.2f}'
+                                against_text = f'{against_val:.2f}'
+                            else:  # Goals and Shots - show integers
+                                for_text = f'{int(for_val)}'
+                                against_text = f'{int(against_val)}'
+                            
+                            # Add text for "Voor" side
+                            if for_proportion > 10:  # Only show if bar is wide enough
+                                ax_middle.text(for_proportion / 2, y_pos[i], for_text,
+                                             ha='center', va='center', color='white',
+                                             fontsize=12, fontweight='bold')
+                            
+                            # Add text for "Tegen" side
+                            if against_proportion > 10:  # Only show if bar is wide enough
+                                ax_middle.text(for_proportion + against_proportion / 2, y_pos[i], against_text,
+                                             ha='center', va='center', color='white',
+                                             fontsize=12, fontweight='bold')
+                        else:
+                            # Empty bar if no data
+                            ax_middle.barh(y_pos[i], bar_length, bar_height, color='lightgray', alpha=0.3)
+                    
+                    ax_middle.set_yticks(y_pos)
+                    ax_middle.set_yticklabels(categories)
+                    ax_middle.set_xlim(-15, bar_length)
+                    ax_middle.set_title("60-75 minuten", fontsize=14, fontweight='bold', pad=5)
+                    ax_middle.axis('off')
+                    ax_middle.set_ylim(-0.5, len(categories) - 0.5)
+                    
+                    # Add y-labels manually with bold font (centered and closer to bars)
+                    for i, cat in enumerate(categories):
+                        ax_middle.text(-7.5, y_pos[i], cat, ha='center', va='center', fontsize=11, fontweight='bold')
                     
                     # Bottom section: 75+ minutes
                     for_values_75_plus = [stats_75_plus['goals_for'], stats_75_plus['shots_for'], stats_75_plus['xg_for']]
@@ -2264,7 +2333,7 @@ if events_data is not None:
                     ax_bottom.set_yticks(y_pos)
                     ax_bottom.set_yticklabels(categories)
                     ax_bottom.set_xlim(-15, bar_length)
-                    ax_bottom.set_title("Na de 75e minuut", fontsize=14, fontweight='bold', pad=5)
+                    ax_bottom.set_title("75+ minuten", fontsize=14, fontweight='bold', pad=5)
                     ax_bottom.axis('off')
                     ax_bottom.set_ylim(-0.5, len(categories) - 0.5)
                     
