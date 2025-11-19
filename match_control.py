@@ -2096,19 +2096,22 @@ if events_data is not None:
                         'goals_for': 0, 'goals_against': 0,
                         'shots_for': 0, 'shots_against': 0,
                         'xg_for': 0.0, 'xg_against': 0.0,
-                        'passes_for': 0, 'passes_against': 0
+                        'passes_for': 0, 'passes_against': 0,
+                        'possession_for': 0.0, 'possession_against': 0.0
                     }
                     stats_60_75 = {
                         'goals_for': 0, 'goals_against': 0,
                         'shots_for': 0, 'shots_against': 0,
                         'xg_for': 0.0, 'xg_against': 0.0,
-                        'passes_for': 0, 'passes_against': 0
+                        'passes_for': 0, 'passes_against': 0,
+                        'possession_for': 0.0, 'possession_against': 0.0
                     }
                     stats_75_plus = {
                         'goals_for': 0, 'goals_against': 0,
                         'shots_for': 0, 'shots_against': 0,
                         'xg_for': 0.0, 'xg_against': 0.0,
-                        'passes_for': 0, 'passes_against': 0
+                        'passes_for': 0, 'passes_against': 0,
+                        'possession_for': 0.0, 'possession_against': 0.0
                     }
                     
                     # Process each match individually
@@ -2137,6 +2140,10 @@ if events_data is not None:
                                 # Calculate the 60th and 75th minute for THIS match
                                 minute_60 = second_half_start_time + 15  # 45 + 15 minutes into 2nd half
                                 minute_75 = second_half_start_time + 30  # 45 + 30 minutes into 2nd half
+                                
+                                # Convert minute thresholds to milliseconds for sequence calculations
+                                minute_60_ms = minute_60 * 60 * 1000
+                                minute_75_ms = minute_75 * 60 * 1000
                                 
                                 for shot in all_shots_temp:
                                     minute = shot.get('time', 0)
@@ -2248,18 +2255,76 @@ if events_data is not None:
                                             else:
                                                 stats_75_plus['goals_against'] += 1
                                 
+                                # Calculate possession sequences
+                                sequence_teams = {}
+                                sequence_start_times = {}
+                                sequence_end_times = {}
+                                
+                                for event in events:
+                                    sequence_id = event.get('sequenceId')
+                                    
+                                    if sequence_id is not None and sequence_id != -1:
+                                        if sequence_id not in sequence_teams:
+                                            sequence_teams[sequence_id] = event.get('teamName')  # Assign team to sequence based on first event
+                                        
+                                        # Check for sequence start (handle both boolean and numeric values)
+                                        sequence_start = event.get('sequenceStart')
+                                        if sequence_start is True or sequence_start == 1:
+                                            sequence_start_times[sequence_id] = event.get('startTimeMs')
+                                        
+                                        # Check for sequence end (handle both boolean and numeric values)
+                                        sequence_end = event.get('sequenceEnd')
+                                        if sequence_end is True or sequence_end == 1:
+                                            sequence_end_times[sequence_id] = event.get('endTimeMs')
+                                
+                                # Calculate sequence durations and assign to time periods
+                                for sequence_id in sequence_teams.keys():
+                                    start_time_ms = sequence_start_times.get(sequence_id)
+                                    end_time_ms = sequence_end_times.get(sequence_id)
+                                    
+                                    if start_time_ms is not None and end_time_ms is not None:
+                                        duration_ms = end_time_ms - start_time_ms
+                                        
+                                        if duration_ms >= 0:  # Ensure duration is not negative
+                                            team = sequence_teams.get(sequence_id)
+                                            if team:
+                                                duration_seconds = duration_ms / 1000.0
+                                                
+                                                # Determine which time period this sequence belongs to
+                                                # Assign based on when the sequence starts
+                                                # If sequence spans boundaries, it goes to the earlier period
+                                                if start_time_ms < minute_60_ms:
+                                                    # 0-60 minutes
+                                                    if team == selected_team:
+                                                        stats_0_60['possession_for'] += duration_seconds
+                                                    else:
+                                                        stats_0_60['possession_against'] += duration_seconds
+                                                elif start_time_ms < minute_75_ms:
+                                                    # 60-75 minutes
+                                                    if team == selected_team:
+                                                        stats_60_75['possession_for'] += duration_seconds
+                                                    else:
+                                                        stats_60_75['possession_against'] += duration_seconds
+                                                else:
+                                                    # 75+ minutes
+                                                    if team == selected_team:
+                                                        stats_75_plus['possession_for'] += duration_seconds
+                                                    else:
+                                                        stats_75_plus['possession_against'] += duration_seconds
+                                
                             except Exception as e:
                                 st.warning(f"Error loading {match_label}: {e}")
                     
                     # Create the visualization with three sections
                     fig_temp, (ax_top, ax_middle, ax_bottom) = plt.subplots(3, 1, figsize=(14, 10))
                     
-                    categories = ['Doelpunten', 'Schoten', 'Passes', 'xG']
+                    categories = ['Doelpunten', 'Schoten', 'Passes', 'xG', 'Possessie']
                     metric_pairs = [
                         ('goals_for', 'goals_against', 'int'),
                         ('shots_for', 'shots_against', 'int'),
                         ('passes_for', 'passes_against', 'int'),
-                        ('xg_for', 'xg_against', 'float')
+                        ('xg_for', 'xg_against', 'float'),
+                        ('possession_for', 'possession_against', 'time')
                     ]
                     y_pos = np.arange(len(categories))[::-1]  # Reverse order so Doelpunten is on top
                     bar_height = 0.6
@@ -2282,6 +2347,14 @@ if events_data is not None:
                                 if value_type == 'float':
                                     for_text = f'{for_val:.2f}'
                                     against_text = f'{against_val:.2f}'
+                                elif value_type == 'time':
+                                    # Format time as minutes:seconds
+                                    for_minutes = int(for_val // 60)
+                                    for_seconds = int(for_val % 60)
+                                    against_minutes = int(against_val // 60)
+                                    against_seconds = int(against_val % 60)
+                                    for_text = f'{for_minutes}:{for_seconds:02d}'
+                                    against_text = f'{against_minutes}:{against_seconds:02d}'
                                 else:
                                     for_text = f'{int(for_val)}'
                                     against_text = f'{int(against_val)}'
