@@ -1112,7 +1112,8 @@ if events_data is not None:
             "Gemiddelde Posities",
             "Samenvatting",
             "Stand",
-            "Box Entries"
+            "Box Entries",
+            "Sub Impact"
         ]
         tabs = st.tabs(tab_labels)
         tab1 = tabs[0]
@@ -1128,6 +1129,7 @@ if events_data is not None:
         tab6 = tabs[10]
         tab4 = tabs[11]
         tab12 = tabs[12]
+        tab_subimpact = tabs[13]
 
         with tab1:
             st.pyplot(fig)
@@ -2398,6 +2400,164 @@ if events_data is not None:
                     st.pyplot(fig_temp)
                 else:
                     st.info("Selecteer minstens één wedstrijd voor temporary analyse.")
+            else:
+                st.info("Geen wedstrijden beschikbaar voor dit team.")
+
+        # ---------- Sub Impact Tab ----------
+        with tab_subimpact:
+            st.subheader("Sub Impact")
+
+            # Check if we have team_matches available (multi-match context)
+            try:
+                has_team_matches_sub = team_matches and len(team_matches) > 0
+            except NameError:
+                has_team_matches_sub = False
+
+            if has_team_matches_sub:
+                match_labels_sub = [info['label'] for info in team_matches]
+                selected_sub_matches = st.multiselect(
+                    "Selecteer wedstrijden voor wissel-impact",
+                    match_labels_sub,
+                    default=match_labels_sub if len(match_labels_sub) <= 5 else match_labels_sub[:5]
+                )
+
+                if selected_sub_matches:
+                    all_sub_impacts = []
+
+                    for match_label in selected_sub_matches:
+                        match_info = next((m for m in team_matches if m['label'] == match_label), None)
+                        if not match_info:
+                            continue
+
+                        try:
+                            match_data = load_json_lenient(match_info['path'])
+                        except Exception as e:
+                            st.warning(f"Error loading {match_label}: {e}")
+                            continue
+
+                        # Derive teams for the match
+                        home_team_match = match_info.get('home')
+                        away_team_match = match_info.get('away')
+                        if not home_team_match or not away_team_match:
+                            if isinstance(match_data, dict):
+                                metadata = match_data.get('metaData', {}) or {}
+                                home_team_match = home_team_match or metadata.get('homeTeamName') or metadata.get('homeTeam') or metadata.get('home')
+                                away_team_match = away_team_match or metadata.get('awayTeamName') or metadata.get('awayTeam') or metadata.get('away')
+
+                        # Use existing control/domination logic to build control events and substitutions
+                        try:
+                            _, match_control_data = calculate_game_control_and_domination(
+                                match_data,
+                                home_team_override=home_team_match,
+                                away_team_override=away_team_match
+                            )
+                        except Exception as e:
+                            st.warning(f"Error analysing controle voor {match_label}: {e}")
+                            continue
+
+                        # Combine halves
+                        first_half_data = match_control_data.get('first_half', {})
+                        second_half_data = match_control_data.get('second_half', {})
+
+                        control_events = (first_half_data.get('control_events', []) or []) + \
+                                         (second_half_data.get('control_events', []) or [])
+                        substitutions = (first_half_data.get('substitutions', []) or []) + \
+                                        (second_half_data.get('substitutions', []) or [])
+
+                        if not substitutions:
+                            continue
+
+                        # Helper to sum control points in a time window for a given team
+                        def sum_control(team_name, start_minute, end_minute_excl):
+                            return sum(
+                                e['value']
+                                for e in control_events
+                                if e.get('team') == team_name
+                                and start_minute <= e.get('minute', 0) < end_minute_excl
+                            )
+
+                        # Date (if available) for nicer display/sorting
+                        date_raw = match_info.get('date')
+                        date_display = None
+                        if date_raw and len(str(date_raw)) == 8:
+                            s = str(date_raw)
+                            date_display = f"{s[6:8]}-{s[4:6]}-{s[0:4]}"
+
+                        for sub in substitutions:
+                            sub_team = sub.get('team')
+                            if not sub_team:
+                                continue
+
+                            # Determine opponent based on home/away mapping
+                            if sub_team == home_team_match:
+                                opponent_team = away_team_match
+                            elif sub_team == away_team_match:
+                                opponent_team = home_team_match
+                            else:
+                                # If team name cannot be resolved reliably, skip
+                                continue
+
+                            sub_minute = sub.get('minute', 0)
+                            if sub_minute is None:
+                                continue
+
+                            # Define 5-minute windows before and after the substitution
+                            before_start = max(0, sub_minute - 5)
+                            before_end = sub_minute
+                            after_start = sub_minute
+                            after_end = sub_minute + 5
+
+                            team_before = sum_control(sub_team, before_start, before_end)
+                            opp_before = sum_control(opponent_team, before_start, before_end)
+                            team_after = sum_control(sub_team, after_start, after_end)
+                            opp_after = sum_control(opponent_team, after_start, after_end)
+
+                            diff_before = team_before - opp_before
+                            diff_after = team_after - opp_after
+                            impact = diff_after - diff_before
+
+                            all_sub_impacts.append({
+                                "Wedstrijd": match_label,
+                                "Datum": date_display,
+                                "Team wissel": sub_team,
+                                "Tegenstander": opponent_team,
+                                "Minuut": round(sub_minute, 1),
+                                "Speler in": sub.get('player_in'),
+                                "Speler uit": sub.get('player_out'),
+                                "Controle voor (team)": round(team_before, 2),
+                                "Controle voor (tegenstander)": round(opp_before, 2),
+                                "Verschil voor": round(diff_before, 2),
+                                "Controle na (team)": round(team_after, 2),
+                                "Controle na (tegenstander)": round(opp_after, 2),
+                                "Verschil na": round(diff_after, 2),
+                                "Impact wissel": round(impact, 2),
+                            })
+
+                    if all_sub_impacts:
+                        try:
+                            import pandas as pd
+                        except ImportError:
+                            st.error("Pandas is vereist om de wissel-impact tabel te tonen.")
+                            all_sub_impacts = []
+
+                    if all_sub_impacts:
+                        df_sub = pd.DataFrame(all_sub_impacts)
+
+                        # Sort by date (desc) if available, then minute
+                        if "Datum" in df_sub.columns:
+                            df_sub['Datum_sort'] = pd.to_datetime(df_sub['Datum'], format="%d-%m-%Y", errors='coerce')
+                            df_sub = df_sub.sort_values(["Datum_sort", "Minuut"], ascending=[False, True])
+                            df_sub = df_sub.drop(columns=["Datum_sort"])
+
+                        st.dataframe(
+                            df_sub,
+                            use_container_width=True,
+                            hide_index=True
+                        )
+                    else:
+                        st.info("Geen wissels gevonden in de geselecteerde wedstrijden.")
+                else:
+                    st.info("Selecteer minstens één wedstrijd voor wissel-impact.")
             else:
                 st.info("Geen wedstrijden beschikbaar voor dit team.")
 
