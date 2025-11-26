@@ -2444,6 +2444,59 @@ if events_data is not None:
                                 home_team_match = home_team_match or metadata.get('homeTeamName') or metadata.get('homeTeam') or metadata.get('home')
                                 away_team_match = away_team_match or metadata.get('awayTeamName') or metadata.get('awayTeam') or metadata.get('away')
 
+                        # Extract raw events to determine period start/end times
+                        if isinstance(match_data, dict):
+                            events_raw = match_data.get('data', []) or []
+                        elif isinstance(match_data, list):
+                            events_raw = match_data
+                        else:
+                            events_raw = []
+
+                        # Build list of playing periods with start/end in minutes
+                        periods = []
+                        current_start_min = None
+                        current_part_id = None
+                        for ev in events_raw:
+                            bt = ev.get('baseTypeId')
+                            stype = ev.get('subTypeId')
+                            part_id = ev.get('partId')
+                            t_ms = ev.get('startTimeMs', 0) or ev.get('timeMs', 0) or ev.get('timestampMs', 0)
+                            if bt == 14 and stype == 1400:
+                                # Period start
+                                if t_ms:
+                                    current_start_min = t_ms / 1000 / 60
+                                    current_part_id = part_id
+                            elif bt == 14 and stype == 1401:
+                                # Period end
+                                if t_ms and current_start_min is not None:
+                                    end_min = t_ms / 1000 / 60
+                                    periods.append((current_start_min, end_min, current_part_id))
+                                    current_start_min = None
+                                    current_part_id = None
+
+                        # Close any open period without explicit end using a heuristic
+                        if current_start_min is not None:
+                            # Assume 45-minute halves or similar
+                            if current_part_id == 1:
+                                end_guess = current_start_min + 45
+                            elif current_part_id == 2:
+                                end_guess = current_start_min + 45
+                            else:
+                                end_guess = current_start_min + 45
+                            periods.append((current_start_min, end_guess, current_part_id))
+
+                        # Helper: check if a substitution minute is in a valid window within a period
+                        def is_valid_sub_minute(minute_val: float) -> bool:
+                            if not periods:
+                                return True  # fall back to allowing all if no period info
+                            for start_min, end_min, _pid in periods:
+                                if start_min <= minute_val <= end_min:
+                                    # At least 5 minutes after start and 5 minutes before end
+                                    if minute_val >= start_min + 5 and minute_val <= end_min - 5:
+                                        return True
+                                    return False
+                            return False
+
                         # Use existing control/domination logic to build control events and substitutions
                         try:
                             _, match_control_data = calculate_game_control_and_domination(
@@ -2499,6 +2552,10 @@ if events_data is not None:
 
                             sub_minute = sub.get('minute', 0)
                             if sub_minute is None:
+                                continue
+
+                            # Only consider subs sufficiently after period start and before period end
+                            if not is_valid_sub_minute(sub_minute):
                                 continue
 
                             # Define 5-minute windows before and after the substitution
