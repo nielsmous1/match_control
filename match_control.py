@@ -2598,6 +2598,7 @@ if events_data is not None:
                             all_sub_impacts = []
 
                     if all_sub_impacts:
+                        # Detailed per-substitution breakdown instead of a compact table
                         df_sub = pd.DataFrame(all_sub_impacts)
 
                         # Sort by date (desc) if available, then minute
@@ -2606,11 +2607,43 @@ if events_data is not None:
                             df_sub = df_sub.sort_values(["Datum_sort", "Minuut"], ascending=[False, True])
                             df_sub = df_sub.drop(columns=["Datum_sort"])
 
-                        st.dataframe(
-                            df_sub,
-                            use_container_width=True,
-                            hide_index=True
-                        )
+                        # Group by match for clearer layout
+                        for match_label, df_match in df_sub.groupby("Wedstrijd"):
+                            with st.expander(f"Wissels in: {match_label}", expanded=False):
+                                for _, row in df_match.iterrows():
+                                    team_name = row.get("Team wissel")
+                                    opp_name = row.get("Tegenstander")
+                                    minute = row.get("Minuut")
+                                    player_in = row.get("Speler in")
+                                    player_out = row.get("Speler uit")
+                                    team_before = row.get("Controle voor (team)")
+                                    opp_before = row.get("Controle voor (tegenstander)")
+                                    diff_before = row.get("Verschil voor")
+                                    team_after = row.get("Controle na (team)")
+                                    opp_after = row.get("Controle na (tegenstander)")
+                                    diff_after = row.get("Verschil na")
+                                    impact = row.get("Impact wissel")
+
+                                    st.markdown(f"**Minuut {minute:.1f} – {team_name}: {player_in} ↔ {player_out}**")
+                                    st.markdown(
+                                        f"- **Tijdvenster vóór wissel**: van minuut "
+                                        f"`{max(0, minute - 5):.1f}` t/m `{minute:.1f}` (exclusief eindminuut)\n"
+                                        f"    - **Controle {team_name}**: `{team_before:.2f}`\n"
+                                        f"    - **Controle {opp_name}**: `{opp_before:.2f}`\n"
+                                        f"    - **Verschil (team - tegenstander)**: `{diff_before:.2f}`"
+                                    )
+                                    st.markdown(
+                                        f"- **Tijdvenster na wissel**: van minuut "
+                                        f"`{minute:.1f}` t/m `{minute + 5:.1f}` (exclusief eindminuut)\n"
+                                        f"    - **Controle {team_name}**: `{team_after:.2f}`\n"
+                                        f"    - **Controle {opp_name}**: `{opp_after:.2f}`\n"
+                                        f"    - **Verschil (team - tegenstander)**: `{diff_after:.2f}`"
+                                    )
+                                    st.markdown(
+                                        f"- **Impact wissel**: verschil in (teamcontrole - tegenstandercontrole) "
+                                        f"tussen na en vóór wissel = `{impact:.2f}`"
+                                    )
+                                    st.markdown("---")
                     else:
                         st.info("Geen wissels gevonden in de geselecteerde wedstrijden.")
                 else:
