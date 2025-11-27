@@ -1362,7 +1362,12 @@ if all_events_data:
             st.subheader("Player Performance Analysis")
             
             # Filters
-            col1, col2, col3 = st.columns([1, 1, 2])
+            # build team options from valid player stats
+            team_options = ["All teams"]
+            team_names = sorted({stats['team'] for stats in valid_players.values() if stats.get('team')})
+            team_options.extend(team_names)
+
+            col1, col2, col3, col4 = st.columns([1, 1, 1, 2])
             
             with col1:
                 num_players = st.selectbox(
@@ -1381,18 +1386,28 @@ if all_events_data:
                 )
             
             with col3:
+                selected_team_filter = st.selectbox(
+                    "Filter by team:",
+                    options=team_options,
+                    index=0
+                )
+
+            with col4:
                 per_96_minutes = st.checkbox("Show stats per 96 minutes", value=False)
                 if per_96_minutes:
                     st.caption("Stats will be normalized to 96 minutes (full match equivalent)")
             
             # Filter players by minimum minutes
             filtered_players = [(name, stats) for name, stats in sorted_players if stats['minutes_played'] >= min_minutes]
+            if selected_team_filter != "All teams":
+                filtered_players = [(name, stats) for name, stats in filtered_players if stats.get('team') == selected_team_filter]
             
             # Display summary
             st.write(f"**Analysis Summary:**")
             st.write(f"• {len(all_events_data)} matches analyzed")
             st.write(f"• {len(total_player_minutes)} total players found")
             st.write(f"• {len(filtered_players)} players with ≥{min_minutes} minutes played")
+            st.write(f"• Team filter: {selected_team_filter}")
             st.write(f"• Showing top {min(num_players, len(filtered_players))} players by xG")
             
             # Create player table
