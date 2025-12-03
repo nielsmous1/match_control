@@ -2612,19 +2612,31 @@ if events_data is not None:
                             df_team_subs = df_sub[df_sub["Team wissel"] == selected_team]
                             df_opp_subs = df_sub[df_sub["Team wissel"] != selected_team]
 
+                            # Averages per substitution
                             avg_team_impact = float(df_team_subs["Impact wissel"].mean()) if not df_team_subs.empty else 0.0
                             avg_opp_impact = float(df_opp_subs["Impact wissel"].mean()) if not df_opp_subs.empty else 0.0
+
+                            # Totals and per-game averages (over selected matches)
+                            num_matches = len(selected_sub_matches)
+                            total_team_impact = float(df_team_subs["Impact wissel"].sum()) if not df_team_subs.empty else 0.0
+                            total_opp_impact = float(df_opp_subs["Impact wissel"].sum()) if not df_opp_subs.empty else 0.0
+                            avg_team_per_game = (total_team_impact / num_matches) if num_matches > 0 else 0.0
+                            avg_opp_per_game = (total_opp_impact / num_matches) if num_matches > 0 else 0.0
 
                             summary_rows = [
                                 {
                                     "Categorie": "Wissels geselecteerd team",
                                     "Aantal wissels": len(df_team_subs),
-                                    "Gemiddelde impact wissel": round(avg_team_impact, 2),
+                                    "Totaal impact wissel": round(total_team_impact, 2),
+                                    "Gemiddelde impact per wissel": round(avg_team_impact, 2),
+                                    "Gemiddelde impact per wedstrijd": round(avg_team_per_game, 2),
                                 },
                                 {
                                     "Categorie": "Wissels tegenstanders (in deze wedstrijden)",
                                     "Aantal wissels": len(df_opp_subs),
-                                    "Gemiddelde impact wissel": round(avg_opp_impact, 2),
+                                    "Totaal impact wissel": round(total_opp_impact, 2),
+                                    "Gemiddelde impact per wissel": round(avg_opp_impact, 2),
+                                    "Gemiddelde impact per wedstrijd": round(avg_opp_per_game, 2),
                                 },
                             ]
 
