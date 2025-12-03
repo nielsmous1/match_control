@@ -2643,6 +2643,42 @@ if events_data is not None:
                             st.subheader("Gemiddelde wissel-impact (geselecteerde wedstrijden)")
                             st.table(summary_rows)
 
+                            # Per-player impact summary for players of selected team
+                            player_impact = {}
+                            for _, row in df_team_subs.iterrows():
+                                impact = float(row.get("Impact wissel", 0.0) or 0.0)
+                                player_in = row.get("Speler in")
+                                player_out = row.get("Speler uit")
+
+                                if player_in:
+                                    stats = player_impact.setdefault(player_in, {"Aantal wissels": 0, "Totaal impact": 0.0})
+                                    stats["Aantal wissels"] += 1
+                                    stats["Totaal impact"] += impact
+
+                                if player_out:
+                                    stats = player_impact.setdefault(player_out, {"Aantal wissels": 0, "Totaal impact": 0.0})
+                                    stats["Aantal wissels"] += 1
+                                    stats["Totaal impact"] -= impact  # negative of subbed-in impact
+
+                            if player_impact:
+                                player_rows = []
+                                for player_name, stats in player_impact.items():
+                                    total_imp = stats["Totaal impact"]
+                                    count_subs = stats["Aantal wissels"]
+                                    avg_per_sub = total_imp / count_subs if count_subs > 0 else 0.0
+                                    player_rows.append({
+                                        "Speler": player_name,
+                                        "Aantal wissels": count_subs,
+                                        "Totaal impact": round(total_imp, 2),
+                                        "Gemiddelde impact per wissel": round(avg_per_sub, 2),
+                                    })
+
+                                # Sort players by average impact per substitution (descending)
+                                player_rows = sorted(player_rows, key=lambda x: x["Gemiddelde impact per wissel"], reverse=True)
+
+                                st.subheader("Gemiddelde wissel-impact per speler (geselecteerd team)")
+                                st.table(player_rows)
+
                         # Group by match for clearer layout
                         for match_label, df_match in df_sub.groupby("Wedstrijd"):
                             with st.expander(f"Wissels in: {match_label}", expanded=False):
