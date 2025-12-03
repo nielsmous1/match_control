@@ -2607,6 +2607,30 @@ if events_data is not None:
                             df_sub = df_sub.sort_values(["Datum_sort", "Minuut"], ascending=[False, True])
                             df_sub = df_sub.drop(columns=["Datum_sort"])
 
+                        # Summary table: average impact of subs by selected team vs opponents
+                        if selected_team:
+                            df_team_subs = df_sub[df_sub["Team wissel"] == selected_team]
+                            df_opp_subs = df_sub[df_sub["Team wissel"] != selected_team]
+
+                            avg_team_impact = float(df_team_subs["Impact wissel"].mean()) if not df_team_subs.empty else 0.0
+                            avg_opp_impact = float(df_opp_subs["Impact wissel"].mean()) if not df_opp_subs.empty else 0.0
+
+                            summary_rows = [
+                                {
+                                    "Categorie": "Wissels geselecteerd team",
+                                    "Aantal wissels": len(df_team_subs),
+                                    "Gemiddelde impact wissel": round(avg_team_impact, 2),
+                                },
+                                {
+                                    "Categorie": "Wissels tegenstanders (in deze wedstrijden)",
+                                    "Aantal wissels": len(df_opp_subs),
+                                    "Gemiddelde impact wissel": round(avg_opp_impact, 2),
+                                },
+                            ]
+
+                            st.subheader("Gemiddelde wissel-impact (geselecteerde wedstrijden)")
+                            st.table(summary_rows)
+
                         # Group by match for clearer layout
                         for match_label, df_match in df_sub.groupby("Wedstrijd"):
                             with st.expander(f"Wissels in: {match_label}", expanded=False):
