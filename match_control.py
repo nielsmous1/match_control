@@ -2607,10 +2607,16 @@ if events_data is not None:
                             df_sub = df_sub.sort_values(["Datum_sort", "Minuut"], ascending=[False, True])
                             df_sub = df_sub.drop(columns=["Datum_sort"])
 
-                        # Summary table: average impact of subs by selected team vs opponents
-                        if selected_team:
-                            df_team_subs = df_sub[df_sub["Team wissel"] == selected_team]
-                            df_opp_subs = df_sub[df_sub["Team wissel"] != selected_team]
+                        # Summary table: average impact of subs by focus team vs opponents
+                        # Use currently selected team if available, otherwise fall back to the team
+                        # from the first substitution in the data.
+                        focus_team = selected_team
+                        if not focus_team and not df_sub.empty:
+                            focus_team = df_sub["Team wissel"].iloc[0]
+
+                        if focus_team:
+                            df_team_subs = df_sub[df_sub["Team wissel"] == focus_team]
+                            df_opp_subs = df_sub[df_sub["Team wissel"] != focus_team]
 
                             # Averages per substitution
                             avg_team_impact = float(df_team_subs["Impact wissel"].mean()) if not df_team_subs.empty else 0.0
@@ -2643,7 +2649,7 @@ if events_data is not None:
                             st.subheader("Gemiddelde wissel-impact (geselecteerde wedstrijden)")
                             st.table(summary_rows)
 
-                            # Per-player impact summary for players of selected team
+                            # Per-player impact summary for players of the focus team
                             player_impact = {}
                             for _, row in df_team_subs.iterrows():
                                 impact = float(row.get("Impact wissel", 0.0) or 0.0)
