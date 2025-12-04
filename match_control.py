@@ -2681,11 +2681,11 @@ if events_data is not None:
                                 st.table(per_game_rows)
 
                             # Per-game average impact per substitution, only for late subs
-                            # (subs within 15 minutes before the last period end in that match)
+                            # (subs within 20 minutes before the last period end in that match)
                             late_rows = []
                             df_late = df_sub.dropna(subset=["Laatste periode-einde"]).copy()
-                            # Keep only subs where minute >= last_period_end - 15
-                            df_late = df_late[df_late["Minuut"] >= df_late["Laatste periode-einde"] - 15]
+                            # Keep only subs where minute >= last_period_end - 20
+                            df_late = df_late[df_late["Minuut"] >= df_late["Laatste periode-einde"] - 20]
 
                             for match_label in selected_sub_matches:
                                 df_match_late = df_late[df_late["Wedstrijd"] == match_label]
@@ -2707,7 +2707,7 @@ if events_data is not None:
                                 })
 
                             if late_rows:
-                                st.subheader("Gemiddelde impact per late wissel per wedstrijd (laatste 15 minuten)")
+                                st.subheader("Gemiddelde impact per late wissel per wedstrijd (laatste 20 minuten)")
                                 st.table(late_rows)
 
                             # Per-player impact summary for players of the focus team
