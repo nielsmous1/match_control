@@ -2485,6 +2485,11 @@ if events_data is not None:
                                 end_guess = current_start_min + 45
                             periods.append((current_start_min, end_guess, current_part_id))
 
+                        # Determine last period end (if available) for late-sub analysis
+                        last_period_end = None
+                        if periods:
+                            last_period_end = max(end_min for _start, end_min, _pid in periods)
+
                         # Helper: check if a substitution minute is in a valid window within a period
                         def is_valid_sub_minute(minute_val: float) -> bool:
                             if not periods:
@@ -2588,6 +2593,7 @@ if events_data is not None:
                                 "Controle na (tegenstander)": round(opp_after, 2),
                                 "Verschil na": round(diff_after, 2),
                                 "Impact wissel": round(impact, 2),
+                                "Laatste periode-einde": round(last_period_end, 1) if last_period_end is not None else None,
                             })
 
                     if all_sub_impacts:
@@ -2673,6 +2679,36 @@ if events_data is not None:
                             if per_game_rows:
                                 st.subheader("Gemiddelde impact per wissel per wedstrijd")
                                 st.table(per_game_rows)
+
+                            # Per-game average impact per substitution, only for late subs
+                            # (subs within 15 minutes before the last period end in that match)
+                            late_rows = []
+                            df_late = df_sub.dropna(subset=["Laatste periode-einde"]).copy()
+                            # Keep only subs where minute >= last_period_end - 15
+                            df_late = df_late[df_late["Minuut"] >= df_late["Laatste periode-einde"] - 15]
+
+                            for match_label in selected_sub_matches:
+                                df_match_late = df_late[df_late["Wedstrijd"] == match_label]
+                                if df_match_late.empty:
+                                    continue
+
+                                df_match_team_late = df_match_late[df_match_late["Team wissel"] == focus_team]
+                                df_match_opp_late = df_match_late[df_match_late["Team wissel"] != focus_team]
+
+                                avg_team_match_late = float(df_match_team_late["Impact wissel"].mean()) if not df_match_team_late.empty else 0.0
+                                avg_opp_match_late = float(df_match_opp_late["Impact wissel"].mean()) if not df_match_opp_late.empty else 0.0
+
+                                late_rows.append({
+                                    "Wedstrijd": match_label,
+                                    "Aantal late wissels (focus team)": len(df_match_team_late),
+                                    "Gemiddelde impact per late wissel (focus team)": round(avg_team_match_late, 2),
+                                    "Aantal late wissels (tegenstander)": len(df_match_opp_late),
+                                    "Gemiddelde impact per late wissel (tegenstander)": round(avg_opp_match_late, 2),
+                                })
+
+                            if late_rows:
+                                st.subheader("Gemiddelde impact per late wissel per wedstrijd (laatste 15 minuten)")
+                                st.table(late_rows)
 
                             # Per-player impact summary for players of the focus team
                             player_impact = {}
