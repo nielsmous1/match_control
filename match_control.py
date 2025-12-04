@@ -2649,6 +2649,31 @@ if events_data is not None:
                             st.subheader("Gemiddelde wissel-impact (geselecteerde wedstrijden)")
                             st.table(summary_rows)
 
+                            # Per-game average impact per substitution (for each selected match)
+                            per_game_rows = []
+                            for match_label in selected_sub_matches:
+                                df_match = df_sub[df_sub["Wedstrijd"] == match_label]
+                                if df_match.empty:
+                                    continue
+
+                                df_match_team = df_match[df_match["Team wissel"] == focus_team]
+                                df_match_opp = df_match[df_match["Team wissel"] != focus_team]
+
+                                avg_team_match = float(df_match_team["Impact wissel"].mean()) if not df_match_team.empty else 0.0
+                                avg_opp_match = float(df_match_opp["Impact wissel"].mean()) if not df_match_opp.empty else 0.0
+
+                                per_game_rows.append({
+                                    "Wedstrijd": match_label,
+                                    "Aantal wissels (focus team)": len(df_match_team),
+                                    "Gemiddelde impact per wissel (focus team)": round(avg_team_match, 2),
+                                    "Aantal wissels (tegenstander)": len(df_match_opp),
+                                    "Gemiddelde impact per wissel (tegenstander)": round(avg_opp_match, 2),
+                                })
+
+                            if per_game_rows:
+                                st.subheader("Gemiddelde impact per wissel per wedstrijd")
+                                st.table(per_game_rows)
+
                             # Per-player impact summary for players of the focus team
                             player_impact = {}
                             for _, row in df_team_subs.iterrows():
