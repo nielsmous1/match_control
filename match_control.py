@@ -2937,25 +2937,26 @@ if events_data is not None:
                                 "Schoten tegen (5 min voor)": shots_against_before
                             })
 
-                        # Calculate overall match averages (for comparison)
-                        # Sum all control events and shots for the entire match
-                        total_match_duration = 90  # Approximate, could be calculated from period events
-                        total_xg_against_match = sum(s.get('xG', 0.0) for s in all_shots if s.get('team') == opponent_team)
-                        total_control_opponent_match = sum(e['value'] for e in control_events if e.get('team') == opponent_team)
-                        total_control_selected_match = sum(e['value'] for e in control_events if e.get('team') == selected_team)
-                        total_net_control_match = total_control_opponent_match - total_control_selected_match
-                        total_shots_against_match = len([s for s in all_shots if s.get('team') == opponent_team])
+                        # Calculate overall match averages (for comparison) - only if there were goals against
+                        if goals_against:
+                            # Sum all control events and shots for the entire match
+                            total_match_duration = 90  # Approximate, could be calculated from period events
+                            total_xg_against_match = sum(s.get('xG', 0.0) for s in all_shots if s.get('team') == opponent_team)
+                            total_control_opponent_match = sum(e['value'] for e in control_events if e.get('team') == opponent_team)
+                            total_control_selected_match = sum(e['value'] for e in control_events if e.get('team') == selected_team)
+                            total_net_control_match = total_control_opponent_match - total_control_selected_match
+                            total_shots_against_match = len([s for s in all_shots if s.get('team') == opponent_team])
 
-                        # Average per 5-minute window (assuming 90 minutes = 18 five-minute windows)
-                        num_windows = total_match_duration / 5
-                        avg_xg_against_per_5min = total_xg_against_match / num_windows if num_windows > 0 else 0.0
-                        avg_net_control_per_5min = total_net_control_match / num_windows if num_windows > 0 else 0.0
-                        avg_shots_against_per_5min = total_shots_against_match / num_windows if num_windows > 0 else 0.0
+                            # Average per 5-minute window (assuming 90 minutes = 18 five-minute windows)
+                            num_windows = total_match_duration / 5
+                            avg_xg_against_per_5min = total_xg_against_match / num_windows if num_windows > 0 else 0.0
+                            avg_net_control_per_5min = total_net_control_match / num_windows if num_windows > 0 else 0.0
+                            avg_shots_against_per_5min = total_shots_against_match / num_windows if num_windows > 0 else 0.0
 
-                        # Store per-match averages separately
-                        overall_avg_xg_list.append(avg_xg_against_per_5min)
-                        overall_avg_net_control_list.append(avg_net_control_per_5min)
-                        overall_avg_shots_list.append(avg_shots_against_per_5min)
+                            # Store per-match averages separately
+                            overall_avg_xg_list.append(avg_xg_against_per_5min)
+                            overall_avg_net_control_list.append(avg_net_control_per_5min)
+                            overall_avg_shots_list.append(avg_shots_against_per_5min)
 
                     if goals_against_data:
                         try:
