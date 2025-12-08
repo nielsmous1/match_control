@@ -2890,21 +2890,27 @@ if events_data is not None:
                                 and start_minute <= e.get('minute', 0) < end_minute_excl
                             )
 
-                        # Helper to sum xG in a time window for a given team
-                        def sum_xg(team_name, start_minute, end_minute_excl):
+                        # Helper to sum xG in a time window for a given team, excluding goal shots at goal_minute
+                        def sum_xg(team_name, start_minute, end_minute_excl, exclude_goal_at_minute=None):
                             return sum(
                                 s.get('xG', 0.0)
                                 for s in all_shots
                                 if s.get('team') == team_name
                                 and start_minute <= s.get('time', 0) < end_minute_excl
+                                and not (exclude_goal_at_minute is not None 
+                                        and s.get('is_goal', False) 
+                                        and abs(s.get('time', 0) - exclude_goal_at_minute) < 1.0)
                             )
 
-                        # Helper to count shots in a time window for a given team
-                        def count_shots(team_name, start_minute, end_minute_excl):
+                        # Helper to count shots in a time window for a given team, excluding goal shots at goal_minute
+                        def count_shots(team_name, start_minute, end_minute_excl, exclude_goal_at_minute=None):
                             return len([
                                 s for s in all_shots
                                 if s.get('team') == team_name
                                 and start_minute <= s.get('time', 0) < end_minute_excl
+                                and not (exclude_goal_at_minute is not None 
+                                        and s.get('is_goal', False) 
+                                        and abs(s.get('time', 0) - exclude_goal_at_minute) < 1.0)
                             ])
 
                         # For each goal against, analyze 5 minutes before
@@ -2917,15 +2923,15 @@ if events_data is not None:
                             before_start = max(0, goal_minute - 5)
                             before_end = goal_minute
 
-                            # Calculate metrics in the 5 minutes before
-                            xg_against_before = sum_xg(opponent_team, before_start, before_end)
+                            # Calculate metrics in the 5 minutes before (explicitly exclude the goal shot itself)
+                            xg_against_before = sum_xg(opponent_team, before_start, before_end, exclude_goal_at_minute=goal_minute)
                             xg_selected_before = sum_xg(selected_team, before_start, before_end)
                             
                             control_opponent_before = sum_control_points(opponent_team, before_start, before_end)
                             control_selected_before = sum_control_points(selected_team, before_start, before_end)
                             net_control_before = control_opponent_before - control_selected_before
                             
-                            shots_against_before = count_shots(opponent_team, before_start, before_end)
+                            shots_against_before = count_shots(opponent_team, before_start, before_end, exclude_goal_at_minute=goal_minute)
                             shots_selected_before = count_shots(selected_team, before_start, before_end)
 
                             goals_against_data.append({
