@@ -1113,7 +1113,8 @@ if events_data is not None:
             "Samenvatting",
             "Stand",
             "Box Entries",
-            "Sub Impact"
+            "Sub Impact",
+            "Patronen Tegendoelpunten"
         ]
         tabs = st.tabs(tab_labels)
         tab1 = tabs[0]
@@ -1130,6 +1131,7 @@ if events_data is not None:
         tab4 = tabs[11]
         tab12 = tabs[12]
         tab_subimpact = tabs[13]
+        tab_goals_against = tabs[14]
 
         with tab1:
             st.pyplot(fig)
@@ -2787,6 +2789,233 @@ if events_data is not None:
                         st.info("Geen wissels gevonden in de geselecteerde wedstrijden.")
                 else:
                     st.info("Selecteer minstens één wedstrijd voor wissel-impact.")
+            else:
+                st.info("Geen wedstrijden beschikbaar voor dit team.")
+
+        # ---------- Patronen Tegendoelpunten Tab ----------
+        with tab_goals_against:
+            st.subheader("Patronen Tegendoelpunten")
+
+            # Check if we have team_matches available and a selected team
+            try:
+                has_team_matches_goals = team_matches and len(team_matches) > 0
+            except NameError:
+                has_team_matches_goals = False
+
+            if has_team_matches_goals and selected_team:
+                match_labels_goals = [info['label'] for info in team_matches]
+                selected_goals_matches = st.multiselect(
+                    "Selecteer wedstrijden voor analyse van tegendoelpunten",
+                    match_labels_goals,
+                    default=match_labels_goals if len(match_labels_goals) <= 5 else match_labels_goals[:5]
+                )
+
+                if selected_goals_matches:
+                    goals_against_data = []
+                    overall_avg_xg_list = []
+                    overall_avg_net_control_list = []
+                    overall_avg_shots_list = []
+
+                    for match_label in selected_goals_matches:
+                        match_info = next((m for m in team_matches if m['label'] == match_label), None)
+                        if not match_info:
+                            continue
+
+                        try:
+                            match_data = load_json_lenient(match_info['path'])
+                        except Exception as e:
+                            st.warning(f"Error loading {match_label}: {e}")
+                            continue
+
+                        # Derive teams for the match
+                        home_team_match = match_info.get('home')
+                        away_team_match = match_info.get('away')
+                        if not home_team_match or not away_team_match:
+                            if isinstance(match_data, dict):
+                                metadata = match_data.get('metaData', {}) or {}
+                                home_team_match = home_team_match or metadata.get('homeTeamName') or metadata.get('homeTeam') or metadata.get('home')
+                                away_team_match = away_team_match or metadata.get('awayTeamName') or metadata.get('awayTeam') or metadata.get('away')
+
+                        # Determine opponent team
+                        if selected_team == home_team_match:
+                            opponent_team = away_team_match
+                        elif selected_team == away_team_match:
+                            opponent_team = home_team_match
+                        else:
+                            continue  # Skip if selected team not in this match
+
+                        # Use existing control/domination logic
+                        try:
+                            _, match_control_data = calculate_game_control_and_domination(
+                                match_data,
+                                home_team_override=home_team_match,
+                                away_team_override=away_team_match
+                            )
+                        except Exception as e:
+                            st.warning(f"Error analysing controle voor {match_label}: {e}")
+                            continue
+
+                        # Combine halves
+                        first_half_data = match_control_data.get('first_half', {})
+                        second_half_data = match_control_data.get('second_half', {})
+
+                        control_events = (first_half_data.get('control_events', []) or []) + \
+                                         (second_half_data.get('control_events', []) or [])
+                        goals = (first_half_data.get('goals', []) or []) + \
+                                (second_half_data.get('goals', []) or [])
+
+                        # Extract raw events for shots/xG
+                        if isinstance(match_data, dict):
+                            events_raw = match_data.get('data', []) or []
+                        elif isinstance(match_data, list):
+                            events_raw = match_data
+                        else:
+                            events_raw = []
+
+                        # Find all shots with xG
+                        all_shots = find_shot_events(events_raw)
+
+                        # Find goals against the selected team
+                        goals_against = [g for g in goals if g.get('team') == opponent_team]
+
+                        if not goals_against:
+                            continue
+
+                        # Helper to sum control points in a time window for a given team
+                        def sum_control_points(team_name, start_minute, end_minute_excl):
+                            return sum(
+                                e['value']
+                                for e in control_events
+                                if e.get('team') == team_name
+                                and start_minute <= e.get('minute', 0) < end_minute_excl
+                            )
+
+                        # Helper to sum xG in a time window for a given team
+                        def sum_xg(team_name, start_minute, end_minute_excl):
+                            return sum(
+                                s.get('xG', 0.0)
+                                for s in all_shots
+                                if s.get('team') == team_name
+                                and start_minute <= s.get('time', 0) < end_minute_excl
+                            )
+
+                        # Helper to count shots in a time window for a given team
+                        def count_shots(team_name, start_minute, end_minute_excl):
+                            return len([
+                                s for s in all_shots
+                                if s.get('team') == team_name
+                                and start_minute <= s.get('time', 0) < end_minute_excl
+                            ])
+
+                        # For each goal against, analyze 5 minutes before
+                        for goal in goals_against:
+                            goal_minute = goal.get('minute', 0)
+                            if goal_minute is None:
+                                continue
+
+                            # 5 minutes before the goal (not counting the goal itself)
+                            before_start = max(0, goal_minute - 5)
+                            before_end = goal_minute
+
+                            # Calculate metrics in the 5 minutes before
+                            xg_against_before = sum_xg(opponent_team, before_start, before_end)
+                            xg_selected_before = sum_xg(selected_team, before_start, before_end)
+                            
+                            control_opponent_before = sum_control_points(opponent_team, before_start, before_end)
+                            control_selected_before = sum_control_points(selected_team, before_start, before_end)
+                            net_control_before = control_opponent_before - control_selected_before
+                            
+                            shots_against_before = count_shots(opponent_team, before_start, before_end)
+                            shots_selected_before = count_shots(selected_team, before_start, before_end)
+
+                            goals_against_data.append({
+                                "Wedstrijd": match_label,
+                                "Minuut": round(goal_minute, 1),
+                                "Speler": goal.get('player', 'Unknown'),
+                                "xG tegen (5 min voor)": round(xg_against_before, 2),
+                                "Net controle (5 min voor)": round(net_control_before, 2),
+                                "Schoten tegen (5 min voor)": shots_against_before
+                            })
+
+                        # Calculate overall match averages (for comparison)
+                        # Sum all control events and shots for the entire match
+                        total_match_duration = 90  # Approximate, could be calculated from period events
+                        total_xg_against_match = sum(s.get('xG', 0.0) for s in all_shots if s.get('team') == opponent_team)
+                        total_control_opponent_match = sum(e['value'] for e in control_events if e.get('team') == opponent_team)
+                        total_control_selected_match = sum(e['value'] for e in control_events if e.get('team') == selected_team)
+                        total_net_control_match = total_control_opponent_match - total_control_selected_match
+                        total_shots_against_match = len([s for s in all_shots if s.get('team') == opponent_team])
+
+                        # Average per 5-minute window (assuming 90 minutes = 18 five-minute windows)
+                        num_windows = total_match_duration / 5
+                        avg_xg_against_per_5min = total_xg_against_match / num_windows if num_windows > 0 else 0.0
+                        avg_net_control_per_5min = total_net_control_match / num_windows if num_windows > 0 else 0.0
+                        avg_shots_against_per_5min = total_shots_against_match / num_windows if num_windows > 0 else 0.0
+
+                        # Store per-match averages separately
+                        overall_avg_xg_list.append(avg_xg_against_per_5min)
+                        overall_avg_net_control_list.append(avg_net_control_per_5min)
+                        overall_avg_shots_list.append(avg_shots_against_per_5min)
+
+                    if goals_against_data:
+                        try:
+                            import pandas as pd
+                        except ImportError:
+                            st.error("Pandas is vereist om de tabel te tonen.")
+                            goals_against_data = []
+
+                    if goals_against_data:
+                        df_goals_against = pd.DataFrame(goals_against_data)
+
+                        # Calculate averages for 5 minutes before goals
+                        avg_xg_before_goal = float(df_goals_against["xG tegen (5 min voor)"].mean()) if not df_goals_against.empty else 0.0
+                        avg_net_control_before_goal = float(df_goals_against["Net controle (5 min voor)"].mean()) if not df_goals_against.empty else 0.0
+                        avg_shots_before_goal = float(df_goals_against["Schoten tegen (5 min voor)"].mean()) if not df_goals_against.empty else 0.0
+
+                        # Calculate overall averages across all matches (average of per-match averages)
+                        overall_avg_xg = float(np.mean(overall_avg_xg_list)) if overall_avg_xg_list else 0.0
+                        overall_avg_net_control = float(np.mean(overall_avg_net_control_list)) if overall_avg_net_control_list else 0.0
+                        overall_avg_shots = float(np.mean(overall_avg_shots_list)) if overall_avg_shots_list else 0.0
+
+                        # Summary table comparing before goals vs overall average
+                        summary_rows = [
+                            {
+                                "Statistiek": "xG tegen",
+                                "Gemiddelde 5 min voor tegendoelpunt": round(avg_xg_before_goal, 2),
+                                "Gemiddelde over alle wedstrijden (per 5 min)": round(overall_avg_xg, 2),
+                                "Verschil": round(avg_xg_before_goal - overall_avg_xg, 2)
+                            },
+                            {
+                                "Statistiek": "Net controle (tegenstander - geselecteerd team)",
+                                "Gemiddelde 5 min voor tegendoelpunt": round(avg_net_control_before_goal, 2),
+                                "Gemiddelde over alle wedstrijden (per 5 min)": round(overall_avg_net_control, 2),
+                                "Verschil": round(avg_net_control_before_goal - overall_avg_net_control, 2)
+                            },
+                            {
+                                "Statistiek": "Schoten tegen",
+                                "Gemiddelde 5 min voor tegendoelpunt": round(avg_shots_before_goal, 2),
+                                "Gemiddelde over alle wedstrijden (per 5 min)": round(overall_avg_shots, 2),
+                                "Verschil": round(avg_shots_before_goal - overall_avg_shots, 2)
+                            }
+                        ]
+
+                        st.subheader("Vergelijking: 5 minuten voor tegendoelpunt vs gemiddelde")
+                        st.table(summary_rows)
+
+                        st.subheader("Details per tegendoelpunt")
+                        st.dataframe(
+                            df_goals_against,
+                            use_container_width=True,
+                            hide_index=True
+                        )
+
+                        st.write(f"**Totaal aantal tegendoelpunten geanalyseerd:** {len(df_goals_against)}")
+                    else:
+                        st.info("Geen tegendoelpunten gevonden in de geselecteerde wedstrijden.")
+                else:
+                    st.info("Selecteer minstens één wedstrijd voor analyse van tegendoelpunten.")
+            elif not selected_team:
+                st.info("Selecteer eerst een team in het hoofdscherm om patronen van tegendoelpunten te analyseren.")
             else:
                 st.info("Geen wedstrijden beschikbaar voor dit team.")
 
