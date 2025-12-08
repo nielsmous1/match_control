@@ -149,7 +149,14 @@ selected_match = None
 
 if available_teams:
     team_options = sorted(available_teams.values(), key=lambda s: s.lower())
-    selected_team = st.selectbox("Selecteer een team", team_options)
+    # Set default to "sc Heerenveen" if available
+    default_index = 0
+    try:
+        default_index = team_options.index("sc Heerenveen")
+    except ValueError:
+        # If "sc Heerenveen" is not in the list, use index 0
+        pass
+    selected_team = st.selectbox("Selecteer een team", team_options, index=default_index)
     team_matches = []
     if selected_team:
         for info in files_info:
