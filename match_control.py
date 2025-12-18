@@ -3330,8 +3330,8 @@ if events_data is not None:
             for goal in all_goals:
                 if goal['is_home']:
                     home_score += 1
-                    idx = np.searchsorted(home_times, goal['time'])
-                    goal_xg = home_cumulative[min(idx, len(home_cumulative)-1)] if home_cumulative else 0
+                    # Use the xg value already stored in the goal dict (correct for own goals)
+                    goal_xg = goal['xg']
                     ax_plot.plot(goal['time'], goal_xg, 'o', color='white', markersize=12,
                                  markeredgecolor='black', markeredgewidth=2, zorder=6)
                     score_text = f"{home_score}-{away_score}"
@@ -3344,8 +3344,8 @@ if events_data is not None:
                                      ha='center', va='bottom')
                 else:
                     away_score += 1
-                    idx = np.searchsorted(away_times, goal['time'])
-                    goal_xg = away_cumulative[min(idx, len(away_cumulative)-1)] if away_cumulative else 0
+                    # Use the xg value already stored in the goal dict (correct for own goals)
+                    goal_xg = goal['xg']
                     ax_plot.plot(goal['time'], goal_xg, 'o', color='white', markersize=12,
                                  markeredgecolor='black', markeredgewidth=2, zorder=6)
                     score_text = f"{home_score}-{away_score}"
