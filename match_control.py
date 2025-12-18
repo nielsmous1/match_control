@@ -1488,8 +1488,9 @@ if events_data is not None:
                         stats[away_team]['PSxG'] += shot['PSxG']
                         stats[away_team]['shots_on_target'] += 1
 
-            home_total_goals = stats[home_team]['goals'] + count_own_goals(events, home_team)
-            away_total_goals = stats[away_team]['goals'] + count_own_goals(events, away_team)
+            # Own goals by away team count for home team, and vice versa
+            home_total_goals = stats[home_team]['goals'] + count_own_goals(events, away_team)
+            away_total_goals = stats[away_team]['goals'] + count_own_goals(events, home_team)
 
             has_penalties = (stats[home_team]['penalties'] > 0) or (stats[away_team]['penalties'] > 0)
             xg_label = "xG (zonder penalty's)" if has_penalties else 'xG'
@@ -3286,14 +3287,11 @@ if events_data is not None:
                                   aspect='auto', zorder=10)
             
             # Scoreboard above the probability bar
-            home_goals_count = len([g for g in home_goals if not g['player'].endswith('(OG)')])
-            away_goals_count = len([g for g in away_goals if not g['player'].endswith('(OG)')])
-            home_own_goals = len([g for g in home_goals if g['player'].endswith('(OG)')])
-            away_own_goals = len([g for g in away_goals if g['player'].endswith('(OG)')])
-
-            # Total goals including own goals
-            home_total_goals_display = home_goals_count + away_own_goals
-            away_total_goals_display = away_goals_count + home_own_goals
+            # home_goals already includes own goals by away team (which count for home)
+            # away_goals already includes own goals by home team (which count for away)
+            # So we just use the total count from each list
+            home_total_goals_display = len(home_goals)
+            away_total_goals_display = len(away_goals)
 
             # Scoreboard rows above the bar
             # Row 1: Doelpunten
