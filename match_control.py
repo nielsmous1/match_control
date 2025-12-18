@@ -3183,17 +3183,21 @@ if events_data is not None:
             away_times, away_cumulative, away_goals = create_cumulative_data(away_shots_xg, max_time)
 
             # Add own goals to goal events
+            # Own goals don't have xG, so use the cumulative xG at the time of the own goal
+            # (i.e., the xG value from the last shot before the own goal)
             for og in away_own_goal_events_xg:
-                idx = np.searchsorted(home_times, og['time'])
-                xg_at_time = home_cumulative[min(idx, len(home_cumulative)-1)] if home_cumulative else 0
+                idx = np.searchsorted(home_times, og['time'], side='right')
+                # Use idx-1 to get the cumulative xG at or before the own goal time
+                xg_at_time = home_cumulative[max(0, idx - 1)] if home_cumulative else 0
                 home_goals.append({
                     'time': og['time'],
                     'xg': xg_at_time,
                     'player': f"{og['player']} (OG)"
                 })
             for og in home_own_goal_events_xg:
-                idx = np.searchsorted(away_times, og['time'])
-                xg_at_time = away_cumulative[min(idx, len(away_cumulative)-1)] if away_cumulative else 0
+                idx = np.searchsorted(away_times, og['time'], side='right')
+                # Use idx-1 to get the cumulative xG at or before the own goal time
+                xg_at_time = away_cumulative[max(0, idx - 1)] if away_cumulative else 0
                 away_goals.append({
                     'time': og['time'],
                     'xg': xg_at_time,
