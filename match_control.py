@@ -3232,6 +3232,73 @@ if events_data is not None:
                                         "Doelsaldo": st.column_config.NumberColumn("Doelsaldo", width="small")
                                     }
                                 )
+                                
+                                # Show all match scores for selected team from metadata
+                                try:
+                                    if selected_team:
+                                        st.subheader(f"Alle wedstrijden van {selected_team} (volgens metadata)")
+                                        
+                                        # Collect all matches for selected team
+                                        team_matches_data = []
+                                        
+                                        for match_info in available_files:
+                                            try:
+                                                match_data = load_json_lenient(match_info['path'])
+                                                if isinstance(match_data, dict):
+                                                    metadata = match_data.get('metaData', {}) or {}
+                                                    
+                                                    # Get teams from metadata
+                                                    home_team = metadata.get('homeTeamName') or metadata.get('homeTeam') or metadata.get('home')
+                                                    away_team = metadata.get('awayTeamName') or metadata.get('awayTeam') or metadata.get('away')
+                                                    
+                                                    # Check if selected team is in this match
+                                                    if home_team and away_team:
+                                                        if (home_team.strip().lower() == selected_team.strip().lower() or 
+                                                            away_team.strip().lower() == selected_team.strip().lower()):
+                                                            
+                                                            matchday = metadata.get('matchDay')
+                                                            home_goals = metadata.get('homeTeamGoals')
+                                                            away_goals = metadata.get('awayTeamGoals')
+                                                            
+                                                            if home_goals is not None and away_goals is not None:
+                                                                # Determine if selected team is home or away
+                                                                is_home = home_team.strip().lower() == selected_team.strip().lower()
+                                                                
+                                                                team_matches_data.append({
+                                                                    'Speeldag': matchday if matchday is not None else 'N/A',
+                                                                    'Thuis': home_team,
+                                                                    'Uit': away_team,
+                                                                    'Score': f"{home_goals}-{away_goals}",
+                                                                    'Voor': int(home_goals) if is_home else int(away_goals),
+                                                                    'Tegen': int(away_goals) if is_home else int(home_goals),
+                                                                    'Resultaat': 'W' if (is_home and home_goals > away_goals) or (not is_home and away_goals > home_goals) else ('G' if home_goals == away_goals else 'V')
+                                                                })
+                                            except Exception:
+                                                continue
+                                        
+                                        if team_matches_data:
+                                            # Sort by matchday
+                                            team_matches_data.sort(key=lambda x: (x['Speeldag'] if isinstance(x['Speeldag'], int) else 999, x['Thuis']))
+                                            
+                                            df_team_matches = pd.DataFrame(team_matches_data)
+                                            st.dataframe(
+                                                df_team_matches,
+                                                use_container_width=True,
+                                                hide_index=True,
+                                                column_config={
+                                                    "Speeldag": st.column_config.NumberColumn("Speeldag", width="small"),
+                                                    "Thuis": st.column_config.TextColumn("Thuis", width="medium"),
+                                                    "Uit": st.column_config.TextColumn("Uit", width="medium"),
+                                                    "Score": st.column_config.TextColumn("Score", width="small"),
+                                                    "Voor": st.column_config.NumberColumn("Voor", width="small"),
+                                                    "Tegen": st.column_config.NumberColumn("Tegen", width="small"),
+                                                    "Resultaat": st.column_config.TextColumn("Resultaat", width="small")
+                                                }
+                                            )
+                                        else:
+                                            st.info(f"Geen wedstrijden gevonden voor {selected_team} in metadata.")
+                                except NameError:
+                                    pass  # selected_team not available
                             
                             # Download button
                             csv = df_rankings.to_csv(index=False)
