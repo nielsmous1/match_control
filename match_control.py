@@ -3191,6 +3191,48 @@ if events_data is not None:
                             
                             st.dataframe(df_rankings, use_container_width=True, hide_index=True)
                             
+                            # Show detailed final standings after last matchday
+                            if all_matchdays:
+                                final_matchday = max(all_matchdays)
+                                st.subheader(f"Eindstand na Speeldag {final_matchday}")
+                                
+                                # Create final standings table with all stats
+                                final_standings_data = []
+                                ranked_teams_final = sorted(
+                                    all_teams,
+                                    key=lambda t: (
+                                        -standings[t]['points'],
+                                        -standings[t]['goal_diff'],
+                                        -standings[t]['goals_for'],
+                                        t.lower()
+                                    )
+                                )
+                                
+                                for rank, team in enumerate(ranked_teams_final, 1):
+                                    final_standings_data.append({
+                                        'Rang': rank,
+                                        'Team': team,
+                                        'Punten': standings[team]['points'],
+                                        'Doelpunten voor': standings[team]['goals_for'],
+                                        'Doelpunten tegen': standings[team]['goals_against'],
+                                        'Doelsaldo': standings[team]['goal_diff']
+                                    })
+                                
+                                df_final_standings = pd.DataFrame(final_standings_data)
+                                st.dataframe(
+                                    df_final_standings,
+                                    use_container_width=True,
+                                    hide_index=True,
+                                    column_config={
+                                        "Rang": st.column_config.NumberColumn("Rang", width="small"),
+                                        "Team": st.column_config.TextColumn("Team", width="medium"),
+                                        "Punten": st.column_config.NumberColumn("Punten", width="small"),
+                                        "Doelpunten voor": st.column_config.NumberColumn("Doelpunten voor", width="small"),
+                                        "Doelpunten tegen": st.column_config.NumberColumn("Doelpunten tegen", width="small"),
+                                        "Doelsaldo": st.column_config.NumberColumn("Doelsaldo", width="small")
+                                    }
+                                )
+                            
                             # Download button
                             csv = df_rankings.to_csv(index=False)
                             st.download_button(
