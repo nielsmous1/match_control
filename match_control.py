@@ -3050,11 +3050,16 @@ if events_data is not None:
             if not available_files:
                 st.info("Geen wedstrijdbestanden gevonden om ranglijst te berekenen.")
             else:
-                with st.spinner("Berekenen ranglijst per speeldag..."):
-                    # Collect all matches with their matchday
-                    matches_by_matchday = {}  # matchday -> list of match data
-                    
-                    for match_info in available_files:
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+                
+                # Collect all matches with their matchday
+                matches_by_matchday = {}  # matchday -> list of match data
+                total_files = len(available_files)
+                
+                for idx, match_info in enumerate(available_files):
+                    progress_bar.progress((idx + 1) / total_files)
+                    status_text.text(f"Verwerken wedstrijd {idx + 1} van {total_files}...")
                     try:
                         match_data = load_json_lenient(match_info['path'])
                         if isinstance(match_data, dict):
@@ -3078,45 +3083,30 @@ if events_data is not None:
                                     away_team = metadata.get('awayTeamName') or metadata.get('awayTeam') or metadata.get('away')
                                 
                                 if home_team and away_team:
-                                    # Calculate goals for each team
+                                    # Get goals directly from metadata (much faster!)
                                     try:
-                                        _, match_control_data = calculate_game_control_and_domination(
-                                            match_data,
-                                            home_team_override=home_team,
-                                            away_team_override=away_team
-                                        )
+                                        home_goals = metadata.get('homeTeamGoals')
+                                        away_goals = metadata.get('awayTeamGoals')
                                         
-                                        first_half_data = match_control_data.get('first_half', {})
-                                        second_half_data = match_control_data.get('second_half', {})
-                                        goals = (first_half_data.get('goals', []) or []) + \
-                                                (second_half_data.get('goals', []) or [])
-                                        
-                                        # Count goals for each team
-                                        home_goals = len([g for g in goals if g.get('team') == home_team])
-                                        away_goals = len([g for g in goals if g.get('team') == away_team])
-                                        
-                                        # Count own goals
-                                        events = match_data.get('data', []) if isinstance(match_data, dict) else []
-                                        OWN_GOAL_LABEL = 205
-                                        for event in events:
-                                            event_labels = event.get('labels', []) or []
-                                            if OWN_GOAL_LABEL in event_labels:
-                                                og_team = event.get('teamName', '')
-                                                if og_team == home_team:
-                                                    away_goals += 1  # Own goal by home counts for away
-                                                elif og_team == away_team:
-                                                    home_goals += 1  # Own goal by away counts for home
-                                        
-                                        matches_by_matchday[matchday].append({
-                                            'home_team': home_team,
-                                            'away_team': away_team,
-                                            'home_goals': home_goals,
-                                            'away_goals': away_goals
-                                        })
-                                    except Exception:
+                                        # Ensure goals are integers
+                                        if home_goals is not None and away_goals is not None:
+                                            home_goals = int(home_goals)
+                                            away_goals = int(away_goals)
+                                            
+                                            matches_by_matchday[matchday].append({
+                                                'home_team': home_team,
+                                                'away_team': away_team,
+                                                'home_goals': home_goals,
+                                                'away_goals': away_goals
+                                            })
+                                    except (ValueError, TypeError):
                                         continue
                     except Exception:
                         continue
+                
+                # Clear progress indicators
+                progress_bar.empty()
+                status_text.empty()
                 
                 if not matches_by_matchday:
                     st.info("Geen matchday data gevonden in de wedstrijdbestanden.")
