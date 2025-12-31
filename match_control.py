@@ -3040,18 +3040,33 @@ if events_data is not None:
         with tab_rankings:
             st.subheader("Ranglijst per Speeldag")
             
-            with st.spinner("Berekenen ranglijst per speeldag..."):
-                # Collect all matches with their matchday
-                matches_by_matchday = {}  # matchday -> list of match data
-                
-                for match_info in files_info:
+            # Check if files_info is available
+            try:
+                available_files = files_info
+            except NameError:
+                available_files = []
+                st.warning("Geen wedstrijdbestanden beschikbaar.")
+            
+            if not available_files:
+                st.info("Geen wedstrijdbestanden gevonden om ranglijst te berekenen.")
+            else:
+                with st.spinner("Berekenen ranglijst per speeldag..."):
+                    # Collect all matches with their matchday
+                    matches_by_matchday = {}  # matchday -> list of match data
+                    
+                    for match_info in available_files:
                     try:
                         match_data = load_json_lenient(match_info['path'])
                         if isinstance(match_data, dict):
                             metadata = match_data.get('metaData', {}) or {}
                             matchday = metadata.get('matchDay')
                             
+                            # Convert matchday to int if possible
                             if matchday is not None:
+                                try:
+                                    matchday = int(matchday)
+                                except (ValueError, TypeError):
+                                    continue
                                 if matchday not in matches_by_matchday:
                                     matches_by_matchday[matchday] = []
                                 
@@ -3117,7 +3132,7 @@ if events_data is not None:
                     # Initialize standings: team -> {points, goals_for, goals_against, goal_diff}
                     standings = {team: {'points': 0, 'goals_for': 0, 'goals_against': 0, 'goal_diff': 0} for team in all_teams}
                     
-                    # Get all matchdays sorted
+                    # Get all matchdays sorted numerically
                     all_matchdays = sorted([md for md in matches_by_matchday.keys() if md is not None])
                     
                     # Build rankings per matchday
@@ -3173,28 +3188,35 @@ if events_data is not None:
                             team_data[f'Speeldag {matchday}'] = rank
                     
                     # Create DataFrame
-                    try:
-                        import pandas as pd
-                        df_rankings = pd.DataFrame(rankings_data)
-                        
-                        # Reorder columns: Team first, then matchdays in order
-                        cols = ['Team'] + [f'Speeldag {md}' for md in all_matchdays]
-                        df_rankings = df_rankings[cols]
-                        
-                        st.dataframe(df_rankings, use_container_width=True, hide_index=True)
-                        
-                        # Download button
-                        csv = df_rankings.to_csv(index=False)
-                        st.download_button(
-                            label="📥 Download CSV",
-                            data=csv,
-                            file_name="ranglijst_per_speeldag.csv",
-                            mime="text/csv"
-                        )
-                    except ImportError:
-                        st.error("Pandas is vereist om de ranglijst te tonen.")
-                    except Exception as e:
-                        st.error(f"Fout bij het maken van de ranglijst: {e}")
+                    if all_matchdays and rankings_data:
+                        try:
+                            import pandas as pd
+                            df_rankings = pd.DataFrame(rankings_data)
+                            
+                            # Reorder columns: Team first, then matchdays in order
+                            cols = ['Team'] + [f'Speeldag {md}' for md in all_matchdays]
+                            # Only include columns that exist in the dataframe
+                            existing_cols = [c for c in cols if c in df_rankings.columns]
+                            df_rankings = df_rankings[existing_cols]
+                            
+                            st.dataframe(df_rankings, use_container_width=True, hide_index=True)
+                            
+                            # Download button
+                            csv = df_rankings.to_csv(index=False)
+                            st.download_button(
+                                label="📥 Download CSV",
+                                data=csv,
+                                file_name="ranglijst_per_speeldag.csv",
+                                mime="text/csv"
+                            )
+                        except ImportError:
+                            st.error("Pandas is vereist om de ranglijst te tonen.")
+                        except Exception as e:
+                            st.error(f"Fout bij het maken van de ranglijst: {e}")
+                            import traceback
+                            st.code(traceback.format_exc())
+                    else:
+                        st.info("Geen ranglijst data beschikbaar.")
 
         # ---------- xG Verloop Tab ----------
         def get_halftime_offset(events):
