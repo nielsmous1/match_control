@@ -1121,7 +1121,8 @@ if events_data is not None:
             "Stand",
             "Box Entries",
             "Sub Impact",
-            "Patronen Tegendoelpunten"
+            "Patronen Tegendoelpunten",
+            "Ranglijst per Speeldag"
         ]
         tabs = st.tabs(tab_labels)
         tab1 = tabs[0]
@@ -1139,6 +1140,7 @@ if events_data is not None:
         tab12 = tabs[12]
         tab_subimpact = tabs[13]
         tab_goals_against = tabs[14]
+        tab_rankings = tabs[15]
 
         with tab1:
             st.pyplot(fig)
@@ -3033,6 +3035,166 @@ if events_data is not None:
                 st.info("Selecteer eerst een team in het hoofdscherm om patronen van tegendoelpunten te analyseren.")
             else:
                 st.info("Geen wedstrijden beschikbaar voor dit team.")
+
+        # ---------- Ranglijst per Speeldag Tab ----------
+        with tab_rankings:
+            st.subheader("Ranglijst per Speeldag")
+            
+            with st.spinner("Berekenen ranglijst per speeldag..."):
+                # Collect all matches with their matchday
+                matches_by_matchday = {}  # matchday -> list of match data
+                
+                for match_info in files_info:
+                    try:
+                        match_data = load_json_lenient(match_info['path'])
+                        if isinstance(match_data, dict):
+                            metadata = match_data.get('metaData', {}) or {}
+                            matchday = metadata.get('matchDay')
+                            
+                            if matchday is not None:
+                                if matchday not in matches_by_matchday:
+                                    matches_by_matchday[matchday] = []
+                                
+                                # Get teams
+                                home_team = match_info.get('home')
+                                away_team = match_info.get('away')
+                                if not home_team or not away_team:
+                                    home_team = metadata.get('homeTeamName') or metadata.get('homeTeam') or metadata.get('home')
+                                    away_team = metadata.get('awayTeamName') or metadata.get('awayTeam') or metadata.get('away')
+                                
+                                if home_team and away_team:
+                                    # Calculate goals for each team
+                                    try:
+                                        _, match_control_data = calculate_game_control_and_domination(
+                                            match_data,
+                                            home_team_override=home_team,
+                                            away_team_override=away_team
+                                        )
+                                        
+                                        first_half_data = match_control_data.get('first_half', {})
+                                        second_half_data = match_control_data.get('second_half', {})
+                                        goals = (first_half_data.get('goals', []) or []) + \
+                                                (second_half_data.get('goals', []) or [])
+                                        
+                                        # Count goals for each team
+                                        home_goals = len([g for g in goals if g.get('team') == home_team])
+                                        away_goals = len([g for g in goals if g.get('team') == away_team])
+                                        
+                                        # Count own goals
+                                        events = match_data.get('data', []) if isinstance(match_data, dict) else []
+                                        OWN_GOAL_LABEL = 205
+                                        for event in events:
+                                            event_labels = event.get('labels', []) or []
+                                            if OWN_GOAL_LABEL in event_labels:
+                                                og_team = event.get('teamName', '')
+                                                if og_team == home_team:
+                                                    away_goals += 1  # Own goal by home counts for away
+                                                elif og_team == away_team:
+                                                    home_goals += 1  # Own goal by away counts for home
+                                        
+                                        matches_by_matchday[matchday].append({
+                                            'home_team': home_team,
+                                            'away_team': away_team,
+                                            'home_goals': home_goals,
+                                            'away_goals': away_goals
+                                        })
+                                    except Exception:
+                                        continue
+                    except Exception:
+                        continue
+                
+                if not matches_by_matchday:
+                    st.info("Geen matchday data gevonden in de wedstrijdbestanden.")
+                else:
+                    # Get all unique teams
+                    all_teams_set = set()
+                    for matchday_matches in matches_by_matchday.values():
+                        for match in matchday_matches:
+                            all_teams_set.add(match['home_team'])
+                            all_teams_set.add(match['away_team'])
+                    all_teams = sorted(list(all_teams_set))
+                    
+                    # Initialize standings: team -> {points, goals_for, goals_against, goal_diff}
+                    standings = {team: {'points': 0, 'goals_for': 0, 'goals_against': 0, 'goal_diff': 0} for team in all_teams}
+                    
+                    # Get all matchdays sorted
+                    all_matchdays = sorted([md for md in matches_by_matchday.keys() if md is not None])
+                    
+                    # Build rankings per matchday
+                    rankings_data = []  # List of dicts: {Team, Matchday 1, Matchday 2, ...}
+                    
+                    # Initialize with team names
+                    for team in all_teams:
+                        rankings_data.append({'Team': team})
+                    
+                    # Process each matchday
+                    for matchday in all_matchdays:
+                        # Update standings with matches from this matchday
+                        for match in matches_by_matchday[matchday]:
+                            home_team = match['home_team']
+                            away_team = match['away_team']
+                            home_goals = match['home_goals']
+                            away_goals = match['away_goals']
+                            
+                            # Update goals
+                            standings[home_team]['goals_for'] += home_goals
+                            standings[home_team]['goals_against'] += away_goals
+                            standings[away_team]['goals_for'] += away_goals
+                            standings[away_team]['goals_against'] += home_goals
+                            
+                            # Calculate points
+                            if home_goals > away_goals:
+                                standings[home_team]['points'] += 3
+                            elif away_goals > home_goals:
+                                standings[away_team]['points'] += 3
+                            else:
+                                standings[home_team]['points'] += 1
+                                standings[away_team]['points'] += 1
+                        
+                        # Calculate goal difference
+                        for team in all_teams:
+                            standings[team]['goal_diff'] = standings[team]['goals_for'] - standings[team]['goals_against']
+                        
+                        # Rank teams: points (desc), goal_diff (desc), goals_for (desc), alphabetically
+                        ranked_teams = sorted(
+                            all_teams,
+                            key=lambda t: (
+                                -standings[t]['points'],
+                                -standings[t]['goal_diff'],
+                                -standings[t]['goals_for'],
+                                t.lower()
+                            )
+                        )
+                        
+                        # Add rankings to data
+                        for idx, team_data in enumerate(rankings_data):
+                            team = team_data['Team']
+                            rank = ranked_teams.index(team) + 1
+                            team_data[f'Speeldag {matchday}'] = rank
+                    
+                    # Create DataFrame
+                    try:
+                        import pandas as pd
+                        df_rankings = pd.DataFrame(rankings_data)
+                        
+                        # Reorder columns: Team first, then matchdays in order
+                        cols = ['Team'] + [f'Speeldag {md}' for md in all_matchdays]
+                        df_rankings = df_rankings[cols]
+                        
+                        st.dataframe(df_rankings, use_container_width=True, hide_index=True)
+                        
+                        # Download button
+                        csv = df_rankings.to_csv(index=False)
+                        st.download_button(
+                            label="📥 Download CSV",
+                            data=csv,
+                            file_name="ranglijst_per_speeldag.csv",
+                            mime="text/csv"
+                        )
+                    except ImportError:
+                        st.error("Pandas is vereist om de ranglijst te tonen.")
+                    except Exception as e:
+                        st.error(f"Fout bij het maken van de ranglijst: {e}")
 
         # ---------- xG Verloop Tab ----------
         def get_halftime_offset(events):
