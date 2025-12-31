@@ -3083,23 +3083,60 @@ if events_data is not None:
                                     away_team = metadata.get('awayTeamName') or metadata.get('awayTeam') or metadata.get('away')
                                 
                                 if home_team and away_team:
-                                    # Get goals directly from metadata (much faster!)
+                                    # Count goals from events
                                     try:
-                                        home_goals = metadata.get('homeTeamGoals')
-                                        away_goals = metadata.get('awayTeamGoals')
+                                        events = match_data.get('data', []) if isinstance(match_data, dict) else []
                                         
-                                        # Ensure goals are integers
-                                        if home_goals is not None and away_goals is not None:
-                                            home_goals = int(home_goals)
-                                            away_goals = int(away_goals)
+                                        # Constants for goal detection
+                                        BASE_TYPE_SHOT = 6
+                                        RESULT_SUCCESSFUL = 1
+                                        GOAL_LABELS = [146, 147, 148, 149, 150, 151]
+                                        OWN_GOAL_LABEL = 205
+                                        SUB_TYPE_OWN_GOAL = 1101
+                                        
+                                        home_goals = 0
+                                        away_goals = 0
+                                        
+                                        # Helper to match team names
+                                        def match_team(event_team_str, target_team):
+                                            if not event_team_str or not target_team:
+                                                return False
+                                            event_team_norm = event_team_str.strip().lower()
+                                            target_team_norm = target_team.strip().lower()
+                                            return (event_team_norm == target_team_norm or 
+                                                   event_team_norm in target_team_norm or 
+                                                   target_team_norm in event_team_norm)
+                                        
+                                        for event in events:
+                                            event_labels = event.get('labels', []) or []
+                                            base_type_id = event.get('baseTypeId')
+                                            sub_type_id = event.get('subTypeId')
+                                            result_id = event.get('resultId')
+                                            event_team = event.get('teamName') or event.get('team')
                                             
-                                            matches_by_matchday[matchday].append({
-                                                'home_team': home_team,
-                                                'away_team': away_team,
-                                                'home_goals': home_goals,
-                                                'away_goals': away_goals
-                                            })
-                                    except (ValueError, TypeError):
+                                            # Check for regular goals (successful shots with goal labels)
+                                            if (base_type_id == BASE_TYPE_SHOT and 
+                                                result_id == RESULT_SUCCESSFUL and
+                                                any(label in event_labels for label in GOAL_LABELS)):
+                                                if match_team(event_team, home_team):
+                                                    home_goals += 1
+                                                elif match_team(event_team, away_team):
+                                                    away_goals += 1
+                                            
+                                            # Check for own goals (label 205 or subType 1101)
+                                            if OWN_GOAL_LABEL in event_labels or sub_type_id == SUB_TYPE_OWN_GOAL:
+                                                if match_team(event_team, home_team):
+                                                    away_goals += 1  # Own goal by home counts for away
+                                                elif match_team(event_team, away_team):
+                                                    home_goals += 1  # Own goal by away counts for home
+                                        
+                                        matches_by_matchday[matchday].append({
+                                            'home_team': home_team,
+                                            'away_team': away_team,
+                                            'home_goals': home_goals,
+                                            'away_goals': away_goals
+                                        })
+                                    except Exception as e:
                                         continue
                     except Exception:
                         continue
@@ -3233,13 +3270,30 @@ if events_data is not None:
                                     }
                                 )
                                 
-                                # Show all match scores for selected team from metadata
+                                # Show all match scores for selected team from events
                                 try:
                                     if selected_team:
-                                        st.subheader(f"Alle wedstrijden van {selected_team} (volgens metadata)")
+                                        st.subheader(f"Alle wedstrijden van {selected_team} (volgens events)")
                                         
                                         # Collect all matches for selected team
                                         team_matches_data = []
+                                        
+                                        # Constants for goal detection
+                                        BASE_TYPE_SHOT = 6
+                                        RESULT_SUCCESSFUL = 1
+                                        GOAL_LABELS = [146, 147, 148, 149, 150, 151]
+                                        OWN_GOAL_LABEL = 205
+                                        SUB_TYPE_OWN_GOAL = 1101
+                                        
+                                        # Helper to match team names
+                                        def match_team(event_team_str, target_team):
+                                            if not event_team_str or not target_team:
+                                                return False
+                                            event_team_norm = event_team_str.strip().lower()
+                                            target_team_norm = target_team.strip().lower()
+                                            return (event_team_norm == target_team_norm or 
+                                                   event_team_norm in target_team_norm or 
+                                                   target_team_norm in event_team_norm)
                                         
                                         for match_info in available_files:
                                             try:
@@ -3247,9 +3301,12 @@ if events_data is not None:
                                                 if isinstance(match_data, dict):
                                                     metadata = match_data.get('metaData', {}) or {}
                                                     
-                                                    # Get teams from metadata
-                                                    home_team = metadata.get('homeTeamName') or metadata.get('homeTeam') or metadata.get('home')
-                                                    away_team = metadata.get('awayTeamName') or metadata.get('awayTeam') or metadata.get('away')
+                                                    # Get teams from metadata or match_info
+                                                    home_team = match_info.get('home')
+                                                    away_team = match_info.get('away')
+                                                    if not home_team or not away_team:
+                                                        home_team = metadata.get('homeTeamName') or metadata.get('homeTeam') or metadata.get('home')
+                                                        away_team = metadata.get('awayTeamName') or metadata.get('awayTeam') or metadata.get('away')
                                                     
                                                     # Check if selected team is in this match
                                                     if home_team and away_team:
@@ -3257,22 +3314,47 @@ if events_data is not None:
                                                             away_team.strip().lower() == selected_team.strip().lower()):
                                                             
                                                             matchday = metadata.get('matchDay')
-                                                            home_goals = metadata.get('homeTeamGoals')
-                                                            away_goals = metadata.get('awayTeamGoals')
                                                             
-                                                            if home_goals is not None and away_goals is not None:
-                                                                # Determine if selected team is home or away
-                                                                is_home = home_team.strip().lower() == selected_team.strip().lower()
+                                                            # Count goals from events
+                                                            events = match_data.get('data', []) if isinstance(match_data, dict) else []
+                                                            home_goals = 0
+                                                            away_goals = 0
+                                                            
+                                                            for event in events:
+                                                                event_labels = event.get('labels', []) or []
+                                                                base_type_id = event.get('baseTypeId')
+                                                                sub_type_id = event.get('subTypeId')
+                                                                result_id = event.get('resultId')
+                                                                event_team = event.get('teamName') or event.get('team')
                                                                 
-                                                                team_matches_data.append({
-                                                                    'Speeldag': matchday if matchday is not None else 'N/A',
-                                                                    'Thuis': home_team,
-                                                                    'Uit': away_team,
-                                                                    'Score': f"{home_goals}-{away_goals}",
-                                                                    'Voor': int(home_goals) if is_home else int(away_goals),
-                                                                    'Tegen': int(away_goals) if is_home else int(home_goals),
-                                                                    'Resultaat': 'W' if (is_home and home_goals > away_goals) or (not is_home and away_goals > home_goals) else ('G' if home_goals == away_goals else 'V')
-                                                                })
+                                                                # Check for regular goals (successful shots with goal labels)
+                                                                if (base_type_id == BASE_TYPE_SHOT and 
+                                                                    result_id == RESULT_SUCCESSFUL and
+                                                                    any(label in event_labels for label in GOAL_LABELS)):
+                                                                    if match_team(event_team, home_team):
+                                                                        home_goals += 1
+                                                                    elif match_team(event_team, away_team):
+                                                                        away_goals += 1
+                                                                
+                                                                # Check for own goals (label 205 or subType 1101)
+                                                                if OWN_GOAL_LABEL in event_labels or sub_type_id == SUB_TYPE_OWN_GOAL:
+                                                                    if match_team(event_team, home_team):
+                                                                        away_goals += 1  # Own goal by home counts for away
+                                                                    elif match_team(event_team, away_team):
+                                                                        home_goals += 1  # Own goal by away counts for home
+                                                            
+                                                            # Determine if selected team is home or away
+                                                            is_home = home_team.strip().lower() == selected_team.strip().lower()
+                                                            
+                                                            team_matches_data.append({
+                                                                'Speeldag': matchday if matchday is not None else 'N/A',
+                                                                'Thuis': home_team,
+                                                                'Uit': away_team,
+                                                                'Score': f"{home_goals}-{away_goals}",
+                                                                'Voor': home_goals if is_home else away_goals,
+                                                                'Tegen': away_goals if is_home else home_goals,
+                                                                'Resultaat': 'W' if (is_home and home_goals > away_goals) or (not is_home and away_goals > home_goals) else ('G' if home_goals == away_goals else 'V')
+                                                            })
                                             except Exception:
                                                 continue
                                         
