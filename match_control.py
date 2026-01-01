@@ -3423,6 +3423,8 @@ if events_data is not None:
                 # Initialize data structures
                 all_teams_data = {}  # team -> timeframe -> stats
                 per_match_stats = {}  # team -> list of match stats
+                matches_processed = 0
+                matches_skipped = 0
                 
                 progress_bar = st.progress(0)
                 status_text = st.empty()
@@ -3512,7 +3514,7 @@ if events_data is not None:
                             part_id = event.get('partId', 1)
                             
                             # Get timeframe index using same logic as Schoten tab
-                            timeframe_idx = get_timeframe_index(part_id, event_minute, second_half_start)
+                            timeframe_idx = get_timeframe_index(part_id, event_minute, second_half_start_time)
                             timeframe = timeframe_labels[timeframe_idx]
                             event_team = event.get('teamName') or event.get('team')
                             base_type_id = event.get('baseTypeId')
@@ -3591,13 +3593,19 @@ if events_data is not None:
                                 match_row[f'{timeframe_label} - xG'] = round(stats['xg'], 2)
                                 match_row[f'{timeframe_label} - xG Conceded'] = round(stats['xg_conceded'], 2)
                             per_match_stats[team].append(match_row)
+                        
+                        matches_processed += 1
                     
                     except Exception as e:
+                        matches_skipped += 1
                         continue
                 
                 # Clear progress indicators
                 progress_bar.empty()
                 status_text.empty()
+                
+                # Show processing summary
+                st.info(f"Wedstrijden verwerkt: {matches_processed}, overgeslagen: {matches_skipped}, Totaal beschikbaar: {total_files}")
                 
                 # Display results
                 if all_teams_data:
