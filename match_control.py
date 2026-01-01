@@ -1122,7 +1122,8 @@ if events_data is not None:
             "Box Entries",
             "Sub Impact",
             "Patronen Tegendoelpunten",
-            "Ranglijst per Speeldag"
+            "Ranglijst per Speeldag",
+            "Rendement Analyse"
         ]
         tabs = st.tabs(tab_labels)
         tab1 = tabs[0]
@@ -1141,6 +1142,7 @@ if events_data is not None:
         tab_subimpact = tabs[13]
         tab_goals_against = tabs[14]
         tab_rankings = tabs[15]
+        tab_rendement = tabs[16]
 
         with tab1:
             st.pyplot(fig)
@@ -3398,6 +3400,245 @@ if events_data is not None:
                             st.code(traceback.format_exc())
                     else:
                         st.info("Geen ranglijst data beschikbaar.")
+
+        # ---------- Rendement Analyse Tab ----------
+        with tab_rendement:
+            st.subheader("Rendement Analyse")
+            
+            # Define 6 timeframes (same as Schoten tab)
+            # 0-15', 15-30', 30-45+' (period 1, minute >= 30)
+            # 45-60', 60-75', 75-90+' (period 2, relative_minute >= 30)
+            timeframe_labels = ["0-15'", "15-30'", "30-45+'", "45-60'", "60-75'", "75-90+'"]
+            
+            # Check if files_info is available
+            try:
+                available_files = files_info
+            except NameError:
+                available_files = []
+                st.warning("Geen wedstrijdbestanden beschikbaar.")
+            
+            if not available_files:
+                st.info("Geen wedstrijdbestanden gevonden om rendement te analyseren.")
+            else:
+                # Initialize data structures
+                all_teams_data = {}  # team -> timeframe -> stats
+                per_match_stats = {}  # team -> list of match stats
+                
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+                total_files = len(available_files)
+                
+                # Constants
+                BASE_TYPE_SHOT = 6
+                RESULT_SUCCESSFUL = 1
+                GOAL_LABELS = [146, 147, 148, 149, 150, 151]
+                OWN_GOAL_LABEL = 205
+                SUB_TYPE_OWN_GOAL = 1101
+                BASE_TYPE_PERIOD = 14
+                SUB_TYPE_END_PERIOD = 1401
+                SUB_TYPE_START_PERIOD = 1400
+                
+                for idx, match_info in enumerate(available_files):
+                    progress_bar.progress((idx + 1) / total_files)
+                    status_text.text(f"Verwerken wedstrijd {idx + 1} van {total_files}...")
+                    
+                    try:
+                        match_data = load_json_lenient(match_info['path'])
+                        if not isinstance(match_data, dict):
+                            continue
+                        
+                        events = match_data.get('data', []) or []
+                        metadata = match_data.get('metaData', {}) or {}
+                        
+                        # Get teams
+                        home_team = match_info.get('home')
+                        away_team = match_info.get('away')
+                        if not home_team or not away_team:
+                            home_team = metadata.get('homeTeamName') or metadata.get('homeTeam') or metadata.get('home')
+                            away_team = metadata.get('awayTeamName') or metadata.get('awayTeam') or metadata.get('away')
+                        
+                        if not home_team or not away_team:
+                            continue
+                        
+                        # Find second half start time (same as Schoten tab)
+                        second_half_start_time = 45
+                        for event in events:
+                            if (event.get('baseTypeId') == BASE_TYPE_PERIOD and
+                                event.get('subTypeId') == SUB_TYPE_START_PERIOD and
+                                event.get('partId') == 2):
+                                second_half_start_time = int((event.get('startTimeMs', 0) or 0) / 1000 / 60)
+                                break
+                        
+                        # Initialize match stats for both teams
+                        match_stats = {
+                            home_team: {label: {'goals': 0, 'goals_conceded': 0, 'shots': 0, 'shots_conceded': 0, 'xg': 0.0, 'xg_conceded': 0.0} for label in timeframe_labels},
+                            away_team: {label: {'goals': 0, 'goals_conceded': 0, 'shots': 0, 'shots_conceded': 0, 'xg': 0.0, 'xg_conceded': 0.0} for label in timeframe_labels}
+                        }
+                        
+                        # Helper to match team names
+                        def match_team(event_team_str, target_team):
+                            if not event_team_str or not target_team:
+                                return False
+                            event_team_norm = event_team_str.strip().lower()
+                            target_team_norm = target_team.strip().lower()
+                            return (event_team_norm == target_team_norm or 
+                                   event_team_norm in target_team_norm or 
+                                   target_team_norm in event_team_norm)
+                        
+                        # Helper to get timeframe index (same logic as Schoten tab)
+                        def get_timeframe_index(part_id, minute, second_half_start_time):
+                            if part_id == 1:
+                                # Period 1
+                                if minute < 15:
+                                    return 0  # "0-15'"
+                                elif minute < 30:
+                                    return 1  # "15-30'"
+                                else:
+                                    return 2  # "30-45+'"
+                            elif part_id == 2:
+                                # Period 2
+                                relative_minute = minute - second_half_start_time
+                                if relative_minute < 15:
+                                    return 3  # "45-60'"
+                                elif relative_minute < 30:
+                                    return 4  # "60-75'"
+                                else:
+                                    return 5  # "75-90+'"
+                            return 0  # Default
+                        
+                        # Process events
+                        for event in events:
+                            event_minute = event.get('startTimeMs', 0) / 1000 / 60
+                            part_id = event.get('partId', 1)
+                            
+                            # Get timeframe index using same logic as Schoten tab
+                            timeframe_idx = get_timeframe_index(part_id, event_minute, second_half_start)
+                            timeframe = timeframe_labels[timeframe_idx]
+                            event_team = event.get('teamName') or event.get('team')
+                            base_type_id = event.get('baseTypeId')
+                            sub_type_id = event.get('subTypeId')
+                            result_id = event.get('resultId')
+                            event_labels = event.get('labels', []) or []
+                            
+                            # Process shots
+                            if base_type_id == BASE_TYPE_SHOT:
+                                xg = event.get('xG', 0.0) or 0.0
+                                is_goal = (result_id == RESULT_SUCCESSFUL and 
+                                          any(label in event_labels for label in GOAL_LABELS))
+                                is_own_goal = (OWN_GOAL_LABEL in event_labels or 
+                                             sub_type_id == SUB_TYPE_OWN_GOAL)
+                                
+                                if match_team(event_team, home_team):
+                                    if is_own_goal:
+                                        # Own goal by home counts for away
+                                        match_stats[away_team][timeframe]['goals'] += 1
+                                        match_stats[home_team][timeframe]['goals_conceded'] += 1
+                                    else:
+                                        match_stats[home_team][timeframe]['shots'] += 1
+                                        match_stats[home_team][timeframe]['xg'] += xg
+                                        match_stats[away_team][timeframe]['shots_conceded'] += 1
+                                        match_stats[away_team][timeframe]['xg_conceded'] += xg
+                                        if is_goal:
+                                            match_stats[home_team][timeframe]['goals'] += 1
+                                            match_stats[away_team][timeframe]['goals_conceded'] += 1
+                                elif match_team(event_team, away_team):
+                                    if is_own_goal:
+                                        # Own goal by away counts for home
+                                        match_stats[home_team][timeframe]['goals'] += 1
+                                        match_stats[away_team][timeframe]['goals_conceded'] += 1
+                                    else:
+                                        match_stats[away_team][timeframe]['shots'] += 1
+                                        match_stats[away_team][timeframe]['xg'] += xg
+                                        match_stats[home_team][timeframe]['shots_conceded'] += 1
+                                        match_stats[home_team][timeframe]['xg_conceded'] += xg
+                                        if is_goal:
+                                            match_stats[away_team][timeframe]['goals'] += 1
+                                            match_stats[home_team][timeframe]['goals_conceded'] += 1
+                        
+                        # Add to overall stats
+                        for team in [home_team, away_team]:
+                            if team not in all_teams_data:
+                                all_teams_data[team] = {label: {'goals': 0, 'goals_conceded': 0, 'shots': 0, 'shots_conceded': 0, 'xg': 0.0, 'xg_conceded': 0.0} for label in timeframe_labels}
+                                per_match_stats[team] = []
+                            
+                            for timeframe_label in timeframe_labels:
+                                stats = match_stats[team][timeframe_label]
+                                all_teams_data[team][timeframe_label]['goals'] += stats['goals']
+                                all_teams_data[team][timeframe_label]['goals_conceded'] += stats['goals_conceded']
+                                all_teams_data[team][timeframe_label]['shots'] += stats['shots']
+                                all_teams_data[team][timeframe_label]['shots_conceded'] += stats['shots_conceded']
+                                all_teams_data[team][timeframe_label]['xg'] += stats['xg']
+                                all_teams_data[team][timeframe_label]['xg_conceded'] += stats['xg_conceded']
+                            
+                            # Store per-match stats
+                            opponent = away_team if team == home_team else home_team
+                            yyyymmdd = match_info.get('date')
+                            if yyyymmdd and len(str(yyyymmdd)) == 8:
+                                yyyy = str(yyyymmdd)[0:4]
+                                mm = str(yyyymmdd)[4:6]
+                                dd = str(yyyymmdd)[6:8]
+                                date_iso = f"{yyyy}-{mm}-{dd}"
+                            else:
+                                date_iso = None
+                            
+                            match_row = {'Date': date_iso, 'Opponent': opponent}
+                            for timeframe_label in timeframe_labels:
+                                stats = match_stats[team][timeframe_label]
+                                match_row[f'{timeframe_label} - Goals'] = stats['goals']
+                                match_row[f'{timeframe_label} - Goals Conceded'] = stats['goals_conceded']
+                                match_row[f'{timeframe_label} - Shots'] = stats['shots']
+                                match_row[f'{timeframe_label} - Shots Conceded'] = stats['shots_conceded']
+                                match_row[f'{timeframe_label} - xG'] = round(stats['xg'], 2)
+                                match_row[f'{timeframe_label} - xG Conceded'] = round(stats['xg_conceded'], 2)
+                            per_match_stats[team].append(match_row)
+                    
+                    except Exception as e:
+                        continue
+                
+                # Clear progress indicators
+                progress_bar.empty()
+                status_text.empty()
+                
+                # Display results
+                if all_teams_data:
+                    import pandas as pd
+                    
+                    # Overall stats table
+                    st.subheader("Rendement per Team per Tijdsframe")
+                    
+                    team_list = []
+                    for team, timeframe_data in sorted(all_teams_data.items(), key=lambda x: x[0].lower()):
+                        row = {'Team': team}
+                        for timeframe_label in timeframe_labels:
+                            stats = timeframe_data[timeframe_label]
+                            row[f'{timeframe_label} - Goals'] = stats['goals']
+                            row[f'{timeframe_label} - Goals Conceded'] = stats['goals_conceded']
+                            row[f'{timeframe_label} - Shots'] = stats['shots']
+                            row[f'{timeframe_label} - Shots Conceded'] = stats['shots_conceded']
+                            row[f'{timeframe_label} - xG'] = round(stats['xg'], 2)
+                            row[f'{timeframe_label} - xG Conceded'] = round(stats['xg_conceded'], 2)
+                        team_list.append(row)
+                    
+                    df_overall = pd.DataFrame(team_list)
+                    st.dataframe(df_overall, use_container_width=True, hide_index=True)
+                    
+                    # Per-match stats for selected team
+                    try:
+                        if selected_team and selected_team in per_match_stats:
+                            st.subheader(f"Rendement per Wedstrijd - {selected_team}")
+                            
+                            df_match = pd.DataFrame(per_match_stats[selected_team])
+                            if not df_match.empty:
+                                df_match = df_match.sort_values('Date', ascending=False)
+                                st.dataframe(df_match, use_container_width=True, hide_index=True)
+                            else:
+                                st.info("Geen per-wedstrijd data gevonden voor het geselecteerde team.")
+                        elif selected_team:
+                            st.info(f"Geen data gevonden voor {selected_team}.")
+                    except NameError:
+                        pass  # selected_team not available
+                else:
+                    st.info("Geen data beschikbaar voor rendement analyse.")
 
         # ---------- xG Verloop Tab ----------
         def get_halftime_offset(events):
