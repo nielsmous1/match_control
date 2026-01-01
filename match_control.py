@@ -3524,7 +3524,9 @@ if events_data is not None:
                             
                             # Process shots
                             if base_type_id == BASE_TYPE_SHOT:
-                                xg = event.get('xG', 0.0) or 0.0
+                                # xG is in metrics dictionary
+                                metrics = event.get('metrics', {}) or {}
+                                xg = float(metrics.get('xG', 0.0) or 0.0)
                                 is_goal = (result_id == RESULT_SUCCESSFUL and 
                                           any(label in event_labels for label in GOAL_LABELS))
                                 is_own_goal = (OWN_GOAL_LABEL in event_labels or 
