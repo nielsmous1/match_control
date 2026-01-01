@@ -3598,6 +3598,9 @@ if events_data is not None:
                     
                     except Exception as e:
                         matches_skipped += 1
+                        # Only show first few errors to avoid spam
+                        if matches_skipped <= 3:
+                            st.warning(f"Fout bij verwerken wedstrijd {idx + 1}: {str(e)}")
                         continue
                 
                 # Clear progress indicators
@@ -3605,10 +3608,17 @@ if events_data is not None:
                 status_text.empty()
                 
                 # Show processing summary
-                st.info(f"Wedstrijden verwerkt: {matches_processed}, overgeslagen: {matches_skipped}, Totaal beschikbaar: {total_files}")
+                if matches_processed == 0 and matches_skipped > 0:
+                    st.error(f"Alle {matches_skipped} wedstrijden konden niet worden verwerkt. Controleer de foutmeldingen hierboven.")
+                else:
+                    st.info(f"Wedstrijden verwerkt: {matches_processed}, overgeslagen: {matches_skipped}, Totaal beschikbaar: {total_files}")
+                
+                # Debug: show what we have
+                if matches_processed > 0:
+                    st.info(f"Aantal teams gevonden: {len(all_teams_data)}")
                 
                 # Display results
-                if all_teams_data:
+                if all_teams_data and len(all_teams_data) > 0:
                     import pandas as pd
                     
                     # Overall stats table
