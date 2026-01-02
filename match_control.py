@@ -3471,10 +3471,22 @@ if events_data is not None:
                                 second_half_start_time = int((event.get('startTimeMs', 0) or 0) / 1000 / 60)
                                 break
                         
-                        # Initialize match stats for both teams
+                        # Initialize match stats for both teams (with possession type breakdown)
+                        def init_timeframe_stats():
+                            return {
+                                'goals': 0, 'goals_conceded': 0, 'shots': 0, 'shots_conceded': 0, 
+                                'xg': 0.0, 'xg_conceded': 0.0,
+                                'openplay_goals': 0, 'openplay_goals_conceded': 0, 'openplay_shots': 0, 
+                                'openplay_shots_conceded': 0, 'openplay_xg': 0.0, 'openplay_xg_conceded': 0.0,
+                                'counter_goals': 0, 'counter_goals_conceded': 0, 'counter_shots': 0, 
+                                'counter_shots_conceded': 0, 'counter_xg': 0.0, 'counter_xg_conceded': 0.0,
+                                'other_goals': 0, 'other_goals_conceded': 0, 'other_shots': 0, 
+                                'other_shots_conceded': 0, 'other_xg': 0.0, 'other_xg_conceded': 0.0
+                            }
+                        
                         match_stats = {
-                            home_team: {label: {'goals': 0, 'goals_conceded': 0, 'shots': 0, 'shots_conceded': 0, 'xg': 0.0, 'xg_conceded': 0.0} for label in timeframe_labels},
-                            away_team: {label: {'goals': 0, 'goals_conceded': 0, 'shots': 0, 'shots_conceded': 0, 'xg': 0.0, 'xg_conceded': 0.0} for label in timeframe_labels}
+                            home_team: {label: init_timeframe_stats() for label in timeframe_labels},
+                            away_team: {label: init_timeframe_stats() for label in timeframe_labels}
                         }
                         
                         # Helper to match team names
@@ -3532,47 +3544,100 @@ if events_data is not None:
                                 is_own_goal = (OWN_GOAL_LABEL in event_labels or 
                                              sub_type_id == SUB_TYPE_OWN_GOAL)
                                 
+                                # Get possession type (0=Openplay, 6=Counter, others=Other)
+                                possession_type_id = event.get('possessionTypeId', -2)
+                                if possession_type_id == 0:
+                                    pos_prefix = 'openplay_'
+                                elif possession_type_id == 6:
+                                    pos_prefix = 'counter_'
+                                else:
+                                    pos_prefix = 'other_'
+                                
                                 if match_team(event_team, home_team):
                                     if is_own_goal:
                                         # Own goal by home counts for away
                                         match_stats[away_team][timeframe]['goals'] += 1
                                         match_stats[home_team][timeframe]['goals_conceded'] += 1
+                                        # Own goals don't have possession type, count as other
+                                        match_stats[away_team][timeframe]['other_goals'] += 1
+                                        match_stats[home_team][timeframe]['other_goals_conceded'] += 1
                                     else:
                                         match_stats[home_team][timeframe]['shots'] += 1
                                         match_stats[home_team][timeframe]['xg'] += xg
                                         match_stats[away_team][timeframe]['shots_conceded'] += 1
                                         match_stats[away_team][timeframe]['xg_conceded'] += xg
+                                        
+                                        # Possession type specific stats
+                                        match_stats[home_team][timeframe][f'{pos_prefix}shots'] += 1
+                                        match_stats[home_team][timeframe][f'{pos_prefix}xg'] += xg
+                                        match_stats[away_team][timeframe][f'{pos_prefix}shots_conceded'] += 1
+                                        match_stats[away_team][timeframe][f'{pos_prefix}xg_conceded'] += xg
+                                        
                                         if is_goal:
                                             match_stats[home_team][timeframe]['goals'] += 1
                                             match_stats[away_team][timeframe]['goals_conceded'] += 1
+                                            match_stats[home_team][timeframe][f'{pos_prefix}goals'] += 1
+                                            match_stats[away_team][timeframe][f'{pos_prefix}goals_conceded'] += 1
                                 elif match_team(event_team, away_team):
                                     if is_own_goal:
                                         # Own goal by away counts for home
                                         match_stats[home_team][timeframe]['goals'] += 1
                                         match_stats[away_team][timeframe]['goals_conceded'] += 1
+                                        # Own goals don't have possession type, count as other
+                                        match_stats[home_team][timeframe]['other_goals'] += 1
+                                        match_stats[away_team][timeframe]['other_goals_conceded'] += 1
                                     else:
                                         match_stats[away_team][timeframe]['shots'] += 1
                                         match_stats[away_team][timeframe]['xg'] += xg
                                         match_stats[home_team][timeframe]['shots_conceded'] += 1
                                         match_stats[home_team][timeframe]['xg_conceded'] += xg
+                                        
+                                        # Possession type specific stats
+                                        match_stats[away_team][timeframe][f'{pos_prefix}shots'] += 1
+                                        match_stats[away_team][timeframe][f'{pos_prefix}xg'] += xg
+                                        match_stats[home_team][timeframe][f'{pos_prefix}shots_conceded'] += 1
+                                        match_stats[home_team][timeframe][f'{pos_prefix}xg_conceded'] += xg
+                                        
                                         if is_goal:
                                             match_stats[away_team][timeframe]['goals'] += 1
                                             match_stats[home_team][timeframe]['goals_conceded'] += 1
+                                            match_stats[away_team][timeframe][f'{pos_prefix}goals'] += 1
+                                            match_stats[home_team][timeframe][f'{pos_prefix}goals_conceded'] += 1
                         
                         # Add to overall stats
                         for team in [home_team, away_team]:
                             if team not in all_teams_data:
-                                all_teams_data[team] = {label: {'goals': 0, 'goals_conceded': 0, 'shots': 0, 'shots_conceded': 0, 'xg': 0.0, 'xg_conceded': 0.0} for label in timeframe_labels}
+                                all_teams_data[team] = {label: init_timeframe_stats() for label in timeframe_labels}
                                 per_match_stats[team] = []
                             
                             for timeframe_label in timeframe_labels:
                                 stats = match_stats[team][timeframe_label]
+                                # Total stats
                                 all_teams_data[team][timeframe_label]['goals'] += stats['goals']
                                 all_teams_data[team][timeframe_label]['goals_conceded'] += stats['goals_conceded']
                                 all_teams_data[team][timeframe_label]['shots'] += stats['shots']
                                 all_teams_data[team][timeframe_label]['shots_conceded'] += stats['shots_conceded']
                                 all_teams_data[team][timeframe_label]['xg'] += stats['xg']
                                 all_teams_data[team][timeframe_label]['xg_conceded'] += stats['xg_conceded']
+                                # Possession type stats
+                                all_teams_data[team][timeframe_label]['openplay_goals'] += stats['openplay_goals']
+                                all_teams_data[team][timeframe_label]['openplay_goals_conceded'] += stats['openplay_goals_conceded']
+                                all_teams_data[team][timeframe_label]['openplay_shots'] += stats['openplay_shots']
+                                all_teams_data[team][timeframe_label]['openplay_shots_conceded'] += stats['openplay_shots_conceded']
+                                all_teams_data[team][timeframe_label]['openplay_xg'] += stats['openplay_xg']
+                                all_teams_data[team][timeframe_label]['openplay_xg_conceded'] += stats['openplay_xg_conceded']
+                                all_teams_data[team][timeframe_label]['counter_goals'] += stats['counter_goals']
+                                all_teams_data[team][timeframe_label]['counter_goals_conceded'] += stats['counter_goals_conceded']
+                                all_teams_data[team][timeframe_label]['counter_shots'] += stats['counter_shots']
+                                all_teams_data[team][timeframe_label]['counter_shots_conceded'] += stats['counter_shots_conceded']
+                                all_teams_data[team][timeframe_label]['counter_xg'] += stats['counter_xg']
+                                all_teams_data[team][timeframe_label]['counter_xg_conceded'] += stats['counter_xg_conceded']
+                                all_teams_data[team][timeframe_label]['other_goals'] += stats['other_goals']
+                                all_teams_data[team][timeframe_label]['other_goals_conceded'] += stats['other_goals_conceded']
+                                all_teams_data[team][timeframe_label]['other_shots'] += stats['other_shots']
+                                all_teams_data[team][timeframe_label]['other_shots_conceded'] += stats['other_shots_conceded']
+                                all_teams_data[team][timeframe_label]['other_xg'] += stats['other_xg']
+                                all_teams_data[team][timeframe_label]['other_xg_conceded'] += stats['other_xg_conceded']
                             
                             # Store per-match stats
                             opponent = away_team if team == home_team else home_team
@@ -3641,6 +3706,60 @@ if events_data is not None:
                     
                     df_overall = pd.DataFrame(team_list)
                     st.dataframe(df_overall, use_container_width=True, hide_index=True)
+                    
+                    # Openplay stats table
+                    st.subheader("Rendement per Team per Tijdsframe - Openplay")
+                    team_list_openplay = []
+                    for team, timeframe_data in sorted(all_teams_data.items(), key=lambda x: x[0].lower()):
+                        row = {'Team': team}
+                        for timeframe_label in timeframe_labels:
+                            stats = timeframe_data[timeframe_label]
+                            row[f'{timeframe_label} - Goals'] = stats['openplay_goals']
+                            row[f'{timeframe_label} - Goals Conceded'] = stats['openplay_goals_conceded']
+                            row[f'{timeframe_label} - Shots'] = stats['openplay_shots']
+                            row[f'{timeframe_label} - Shots Conceded'] = stats['openplay_shots_conceded']
+                            row[f'{timeframe_label} - xG'] = round(stats['openplay_xg'], 2)
+                            row[f'{timeframe_label} - xG Conceded'] = round(stats['openplay_xg_conceded'], 2)
+                        team_list_openplay.append(row)
+                    
+                    df_openplay = pd.DataFrame(team_list_openplay)
+                    st.dataframe(df_openplay, use_container_width=True, hide_index=True)
+                    
+                    # Counter stats table
+                    st.subheader("Rendement per Team per Tijdsframe - Counter")
+                    team_list_counter = []
+                    for team, timeframe_data in sorted(all_teams_data.items(), key=lambda x: x[0].lower()):
+                        row = {'Team': team}
+                        for timeframe_label in timeframe_labels:
+                            stats = timeframe_data[timeframe_label]
+                            row[f'{timeframe_label} - Goals'] = stats['counter_goals']
+                            row[f'{timeframe_label} - Goals Conceded'] = stats['counter_goals_conceded']
+                            row[f'{timeframe_label} - Shots'] = stats['counter_shots']
+                            row[f'{timeframe_label} - Shots Conceded'] = stats['counter_shots_conceded']
+                            row[f'{timeframe_label} - xG'] = round(stats['counter_xg'], 2)
+                            row[f'{timeframe_label} - xG Conceded'] = round(stats['counter_xg_conceded'], 2)
+                        team_list_counter.append(row)
+                    
+                    df_counter = pd.DataFrame(team_list_counter)
+                    st.dataframe(df_counter, use_container_width=True, hide_index=True)
+                    
+                    # Other possession types stats table
+                    st.subheader("Rendement per Team per Tijdsframe - Andere Possessie Types")
+                    team_list_other = []
+                    for team, timeframe_data in sorted(all_teams_data.items(), key=lambda x: x[0].lower()):
+                        row = {'Team': team}
+                        for timeframe_label in timeframe_labels:
+                            stats = timeframe_data[timeframe_label]
+                            row[f'{timeframe_label} - Goals'] = stats['other_goals']
+                            row[f'{timeframe_label} - Goals Conceded'] = stats['other_goals_conceded']
+                            row[f'{timeframe_label} - Shots'] = stats['other_shots']
+                            row[f'{timeframe_label} - Shots Conceded'] = stats['other_shots_conceded']
+                            row[f'{timeframe_label} - xG'] = round(stats['other_xg'], 2)
+                            row[f'{timeframe_label} - xG Conceded'] = round(stats['other_xg_conceded'], 2)
+                        team_list_other.append(row)
+                    
+                    df_other = pd.DataFrame(team_list_other)
+                    st.dataframe(df_other, use_container_width=True, hide_index=True)
                     
                     # Per-match stats for selected team
                     try:
