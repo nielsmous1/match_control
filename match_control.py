@@ -3705,14 +3705,6 @@ if events_data is not None:
                         for timeframe_label in timeframe_labels:
                             stats = timeframe_data[timeframe_label]
                             
-                            # Total stats
-                            row_total[f'{timeframe_label} - Goals'] = stats['goals']
-                            row_total[f'{timeframe_label} - Goals Conceded'] = stats['goals_conceded']
-                            row_total[f'{timeframe_label} - Shots'] = stats['shots']
-                            row_total[f'{timeframe_label} - Shots Conceded'] = stats['shots_conceded']
-                            row_total[f'{timeframe_label} - xG'] = round(stats['xg'], 2)
-                            row_total[f'{timeframe_label} - xG Conceded'] = round(stats['xg_conceded'], 2)
-                            
                             # Openplay stats
                             row_openplay[f'{timeframe_label} - Goals'] = stats['openplay_goals']
                             row_openplay[f'{timeframe_label} - Goals Conceded'] = stats['openplay_goals_conceded']
@@ -3736,6 +3728,14 @@ if events_data is not None:
                             row_other[f'{timeframe_label} - Shots Conceded'] = stats['other_shots_conceded']
                             row_other[f'{timeframe_label} - xG'] = round(stats['other_xg'], 2)
                             row_other[f'{timeframe_label} - xG Conceded'] = round(stats['other_xg_conceded'], 2)
+                            
+                            # Total stats (sum of all possession types to ensure consistency)
+                            row_total[f'{timeframe_label} - Goals'] = stats['openplay_goals'] + stats['counter_goals'] + stats['other_goals']
+                            row_total[f'{timeframe_label} - Goals Conceded'] = stats['openplay_goals_conceded'] + stats['counter_goals_conceded'] + stats['other_goals_conceded']
+                            row_total[f'{timeframe_label} - Shots'] = stats['openplay_shots'] + stats['counter_shots'] + stats['other_shots']
+                            row_total[f'{timeframe_label} - Shots Conceded'] = stats['openplay_shots_conceded'] + stats['counter_shots_conceded'] + stats['other_shots_conceded']
+                            row_total[f'{timeframe_label} - xG'] = round(stats['openplay_xg'] + stats['counter_xg'] + stats['other_xg'], 2)
+                            row_total[f'{timeframe_label} - xG Conceded'] = round(stats['openplay_xg_conceded'] + stats['counter_xg_conceded'] + stats['other_xg_conceded'], 2)
                         
                         team_list.append(row_total)
                         team_list_openplay.append(row_openplay)
