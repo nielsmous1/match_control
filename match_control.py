@@ -3645,7 +3645,7 @@ if events_data is not None:
                     # Per-match stats for selected team
                     try:
                         if selected_team and selected_team in per_match_stats:
-                            st.subheader(f"Rendement per Wedstrijd - {selected_team}")
+                            st.subheader(f"Rendement per Wedstrijd (per Tijdsframe) - {selected_team}")
                             
                             df_match = pd.DataFrame(per_match_stats[selected_team])
                             if not df_match.empty:
@@ -3653,6 +3653,48 @@ if events_data is not None:
                                 st.dataframe(df_match, use_container_width=True, hide_index=True)
                             else:
                                 st.info("Geen per-wedstrijd data gevonden voor het geselecteerde team.")
+                            
+                            # Aggregated per-match stats (totals across all timeframes)
+                            st.subheader(f"Rendement per Wedstrijd (Totaal) - {selected_team}")
+                            
+                            aggregated_matches = []
+                            for match_row in per_match_stats[selected_team]:
+                                agg_row = {
+                                    'Date': match_row['Date'],
+                                    'Opponent': match_row['Opponent']
+                                }
+                                
+                                # Sum across all timeframes
+                                total_goals = 0
+                                total_goals_conceded = 0
+                                total_shots = 0
+                                total_shots_conceded = 0
+                                total_xg = 0.0
+                                total_xg_conceded = 0.0
+                                
+                                for timeframe_label in timeframe_labels:
+                                    total_goals += match_row.get(f'{timeframe_label} - Goals', 0)
+                                    total_goals_conceded += match_row.get(f'{timeframe_label} - Goals Conceded', 0)
+                                    total_shots += match_row.get(f'{timeframe_label} - Shots', 0)
+                                    total_shots_conceded += match_row.get(f'{timeframe_label} - Shots Conceded', 0)
+                                    total_xg += match_row.get(f'{timeframe_label} - xG', 0.0)
+                                    total_xg_conceded += match_row.get(f'{timeframe_label} - xG Conceded', 0.0)
+                                
+                                agg_row['Goals'] = total_goals
+                                agg_row['Goals Conceded'] = total_goals_conceded
+                                agg_row['Shots'] = total_shots
+                                agg_row['Shots Conceded'] = total_shots_conceded
+                                agg_row['xG'] = round(total_xg, 2)
+                                agg_row['xG Conceded'] = round(total_xg_conceded, 2)
+                                
+                                aggregated_matches.append(agg_row)
+                            
+                            if aggregated_matches:
+                                df_agg = pd.DataFrame(aggregated_matches)
+                                df_agg = df_agg.sort_values('Date', ascending=False)
+                                st.dataframe(df_agg, use_container_width=True, hide_index=True)
+                            else:
+                                st.info("Geen geaggregeerde data gevonden voor het geselecteerde team.")
                         elif selected_team:
                             st.info(f"Geen data gevonden voor {selected_team}.")
                     except NameError:
