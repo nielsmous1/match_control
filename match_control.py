@@ -3688,78 +3688,78 @@ if events_data is not None:
                 if all_teams_data and len(all_teams_data) > 0:
                     import pandas as pd
                     
-                    # Overall stats table
+                    # Prepare data for all possession types
                     st.subheader("Rendement per Team per Tijdsframe")
                     
                     team_list = []
-                    for team, timeframe_data in sorted(all_teams_data.items(), key=lambda x: x[0].lower()):
-                        row = {'Team': team}
-                        for timeframe_label in timeframe_labels:
-                            stats = timeframe_data[timeframe_label]
-                            row[f'{timeframe_label} - Goals'] = stats['goals']
-                            row[f'{timeframe_label} - Goals Conceded'] = stats['goals_conceded']
-                            row[f'{timeframe_label} - Shots'] = stats['shots']
-                            row[f'{timeframe_label} - Shots Conceded'] = stats['shots_conceded']
-                            row[f'{timeframe_label} - xG'] = round(stats['xg'], 2)
-                            row[f'{timeframe_label} - xG Conceded'] = round(stats['xg_conceded'], 2)
-                        team_list.append(row)
-                    
-                    df_overall = pd.DataFrame(team_list)
-                    st.dataframe(df_overall, use_container_width=True, hide_index=True)
-                    
-                    # Openplay stats table
-                    st.subheader("Rendement per Team per Tijdsframe - Openplay")
                     team_list_openplay = []
-                    for team, timeframe_data in sorted(all_teams_data.items(), key=lambda x: x[0].lower()):
-                        row = {'Team': team}
-                        for timeframe_label in timeframe_labels:
-                            stats = timeframe_data[timeframe_label]
-                            row[f'{timeframe_label} - Goals'] = stats['openplay_goals']
-                            row[f'{timeframe_label} - Goals Conceded'] = stats['openplay_goals_conceded']
-                            row[f'{timeframe_label} - Shots'] = stats['openplay_shots']
-                            row[f'{timeframe_label} - Shots Conceded'] = stats['openplay_shots_conceded']
-                            row[f'{timeframe_label} - xG'] = round(stats['openplay_xg'], 2)
-                            row[f'{timeframe_label} - xG Conceded'] = round(stats['openplay_xg_conceded'], 2)
-                        team_list_openplay.append(row)
-                    
-                    df_openplay = pd.DataFrame(team_list_openplay)
-                    st.dataframe(df_openplay, use_container_width=True, hide_index=True)
-                    
-                    # Counter stats table
-                    st.subheader("Rendement per Team per Tijdsframe - Counter")
                     team_list_counter = []
-                    for team, timeframe_data in sorted(all_teams_data.items(), key=lambda x: x[0].lower()):
-                        row = {'Team': team}
-                        for timeframe_label in timeframe_labels:
-                            stats = timeframe_data[timeframe_label]
-                            row[f'{timeframe_label} - Goals'] = stats['counter_goals']
-                            row[f'{timeframe_label} - Goals Conceded'] = stats['counter_goals_conceded']
-                            row[f'{timeframe_label} - Shots'] = stats['counter_shots']
-                            row[f'{timeframe_label} - Shots Conceded'] = stats['counter_shots_conceded']
-                            row[f'{timeframe_label} - xG'] = round(stats['counter_xg'], 2)
-                            row[f'{timeframe_label} - xG Conceded'] = round(stats['counter_xg_conceded'], 2)
-                        team_list_counter.append(row)
-                    
-                    df_counter = pd.DataFrame(team_list_counter)
-                    st.dataframe(df_counter, use_container_width=True, hide_index=True)
-                    
-                    # Other possession types stats table
-                    st.subheader("Rendement per Team per Tijdsframe - Andere Possessie Types")
                     team_list_other = []
+                    
                     for team, timeframe_data in sorted(all_teams_data.items(), key=lambda x: x[0].lower()):
-                        row = {'Team': team}
+                        row_total = {'Team': team}
+                        row_openplay = {'Team': team}
+                        row_counter = {'Team': team}
+                        row_other = {'Team': team}
+                        
                         for timeframe_label in timeframe_labels:
                             stats = timeframe_data[timeframe_label]
-                            row[f'{timeframe_label} - Goals'] = stats['other_goals']
-                            row[f'{timeframe_label} - Goals Conceded'] = stats['other_goals_conceded']
-                            row[f'{timeframe_label} - Shots'] = stats['other_shots']
-                            row[f'{timeframe_label} - Shots Conceded'] = stats['other_shots_conceded']
-                            row[f'{timeframe_label} - xG'] = round(stats['other_xg'], 2)
-                            row[f'{timeframe_label} - xG Conceded'] = round(stats['other_xg_conceded'], 2)
-                        team_list_other.append(row)
+                            
+                            # Total stats
+                            row_total[f'{timeframe_label} - Goals'] = stats['goals']
+                            row_total[f'{timeframe_label} - Goals Conceded'] = stats['goals_conceded']
+                            row_total[f'{timeframe_label} - Shots'] = stats['shots']
+                            row_total[f'{timeframe_label} - Shots Conceded'] = stats['shots_conceded']
+                            row_total[f'{timeframe_label} - xG'] = round(stats['xg'], 2)
+                            row_total[f'{timeframe_label} - xG Conceded'] = round(stats['xg_conceded'], 2)
+                            
+                            # Openplay stats
+                            row_openplay[f'{timeframe_label} - Goals'] = stats['openplay_goals']
+                            row_openplay[f'{timeframe_label} - Goals Conceded'] = stats['openplay_goals_conceded']
+                            row_openplay[f'{timeframe_label} - Shots'] = stats['openplay_shots']
+                            row_openplay[f'{timeframe_label} - Shots Conceded'] = stats['openplay_shots_conceded']
+                            row_openplay[f'{timeframe_label} - xG'] = round(stats['openplay_xg'], 2)
+                            row_openplay[f'{timeframe_label} - xG Conceded'] = round(stats['openplay_xg_conceded'], 2)
+                            
+                            # Counter stats
+                            row_counter[f'{timeframe_label} - Goals'] = stats['counter_goals']
+                            row_counter[f'{timeframe_label} - Goals Conceded'] = stats['counter_goals_conceded']
+                            row_counter[f'{timeframe_label} - Shots'] = stats['counter_shots']
+                            row_counter[f'{timeframe_label} - Shots Conceded'] = stats['counter_shots_conceded']
+                            row_counter[f'{timeframe_label} - xG'] = round(stats['counter_xg'], 2)
+                            row_counter[f'{timeframe_label} - xG Conceded'] = round(stats['counter_xg_conceded'], 2)
+                            
+                            # Other possession types stats
+                            row_other[f'{timeframe_label} - Goals'] = stats['other_goals']
+                            row_other[f'{timeframe_label} - Goals Conceded'] = stats['other_goals_conceded']
+                            row_other[f'{timeframe_label} - Shots'] = stats['other_shots']
+                            row_other[f'{timeframe_label} - Shots Conceded'] = stats['other_shots_conceded']
+                            row_other[f'{timeframe_label} - xG'] = round(stats['other_xg'], 2)
+                            row_other[f'{timeframe_label} - xG Conceded'] = round(stats['other_xg_conceded'], 2)
+                        
+                        team_list.append(row_total)
+                        team_list_openplay.append(row_openplay)
+                        team_list_counter.append(row_counter)
+                        team_list_other.append(row_other)
                     
-                    df_other = pd.DataFrame(team_list_other)
-                    st.dataframe(df_other, use_container_width=True, hide_index=True)
+                    # Display in tabs
+                    tab_total, tab_openplay, tab_counter, tab_other = st.tabs(["Totaal", "Openplay", "Counter", "Andere Possessie Types"])
+                    
+                    with tab_total:
+                        df_overall = pd.DataFrame(team_list)
+                        st.dataframe(df_overall, use_container_width=True, hide_index=True)
+                    
+                    with tab_openplay:
+                        df_openplay = pd.DataFrame(team_list_openplay)
+                        st.dataframe(df_openplay, use_container_width=True, hide_index=True)
+                    
+                    with tab_counter:
+                        df_counter = pd.DataFrame(team_list_counter)
+                        st.dataframe(df_counter, use_container_width=True, hide_index=True)
+                    
+                    with tab_other:
+                        df_other = pd.DataFrame(team_list_other)
+                        st.dataframe(df_other, use_container_width=True, hide_index=True)
                     
                     # Per-match stats for selected team
                     try:
