@@ -3432,6 +3432,7 @@ if events_data is not None:
                 
                 # Constants
                 BASE_TYPE_SHOT = 6
+                BASE_TYPE_BAD_TOUCH = 11
                 RESULT_SUCCESSFUL = 1
                 GOAL_LABELS = [146, 147, 148, 149, 150, 151]
                 OWN_GOAL_LABEL = 205
@@ -3603,6 +3604,32 @@ if events_data is not None:
                                             match_stats[home_team][timeframe]['goals_conceded'] += 1
                                             match_stats[away_team][timeframe][f'{pos_prefix}goals'] += 1
                                             match_stats[home_team][timeframe][f'{pos_prefix}goals_conceded'] += 1
+                            
+                            # Process Bad Touch own goals (baseTypeId 11, subTypeId 1101)
+                            if base_type_id == BASE_TYPE_BAD_TOUCH and sub_type_id == SUB_TYPE_OWN_GOAL:
+                                # Get possession type
+                                possession_type_id = event.get('possessionTypeId', -2)
+                                if possession_type_id == 0 or possession_type_id == 1 or possession_type_id == 3:
+                                    pos_prefix = 'openplay_'
+                                elif possession_type_id == 6:
+                                    pos_prefix = 'counter_'
+                                else:
+                                    pos_prefix = 'other_'
+                                
+                                if match_team(event_team, home_team):
+                                    # Own goal by home counts for away
+                                    match_stats[away_team][timeframe]['goals'] += 1
+                                    match_stats[home_team][timeframe]['goals_conceded'] += 1
+                                    # Categorize own goal by possession type
+                                    match_stats[away_team][timeframe][f'{pos_prefix}goals'] += 1
+                                    match_stats[home_team][timeframe][f'{pos_prefix}goals_conceded'] += 1
+                                elif match_team(event_team, away_team):
+                                    # Own goal by away counts for home
+                                    match_stats[home_team][timeframe]['goals'] += 1
+                                    match_stats[away_team][timeframe]['goals_conceded'] += 1
+                                    # Categorize own goal by possession type
+                                    match_stats[home_team][timeframe][f'{pos_prefix}goals'] += 1
+                                    match_stats[away_team][timeframe][f'{pos_prefix}goals_conceded'] += 1
                         
                         # Add to overall stats
                         for team in [home_team, away_team]:
