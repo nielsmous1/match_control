@@ -3653,12 +3653,13 @@ if events_data is not None:
                             match_row = {'Date': date_iso, 'Opponent': opponent}
                             for timeframe_label in timeframe_labels:
                                 stats = match_stats[team][timeframe_label]
-                                match_row[f'{timeframe_label} - Goals'] = stats['goals']
-                                match_row[f'{timeframe_label} - Goals Conceded'] = stats['goals_conceded']
-                                match_row[f'{timeframe_label} - Shots'] = stats['shots']
-                                match_row[f'{timeframe_label} - Shots Conceded'] = stats['shots_conceded']
-                                match_row[f'{timeframe_label} - xG'] = round(stats['xg'], 2)
-                                match_row[f'{timeframe_label} - xG Conceded'] = round(stats['xg_conceded'], 2)
+                                # Calculate totals as sum of possession types to ensure own goals are included
+                                match_row[f'{timeframe_label} - Goals'] = stats['openplay_goals'] + stats['counter_goals'] + stats['other_goals']
+                                match_row[f'{timeframe_label} - Goals Conceded'] = stats['openplay_goals_conceded'] + stats['counter_goals_conceded'] + stats['other_goals_conceded']
+                                match_row[f'{timeframe_label} - Shots'] = stats['openplay_shots'] + stats['counter_shots'] + stats['other_shots']
+                                match_row[f'{timeframe_label} - Shots Conceded'] = stats['openplay_shots_conceded'] + stats['counter_shots_conceded'] + stats['other_shots_conceded']
+                                match_row[f'{timeframe_label} - xG'] = round(stats['openplay_xg'] + stats['counter_xg'] + stats['other_xg'], 2)
+                                match_row[f'{timeframe_label} - xG Conceded'] = round(stats['openplay_xg_conceded'] + stats['counter_xg_conceded'] + stats['other_xg_conceded'], 2)
                             per_match_stats[team].append(match_row)
                         
                         matches_processed += 1
