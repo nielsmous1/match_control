@@ -3558,9 +3558,9 @@ if events_data is not None:
                                         # Own goal by home counts for away
                                         match_stats[away_team][timeframe]['goals'] += 1
                                         match_stats[home_team][timeframe]['goals_conceded'] += 1
-                                        # Own goals don't have possession type, count as other
-                                        match_stats[away_team][timeframe]['other_goals'] += 1
-                                        match_stats[home_team][timeframe]['other_goals_conceded'] += 1
+                                        # Categorize own goal by possession type
+                                        match_stats[away_team][timeframe][f'{pos_prefix}goals'] += 1
+                                        match_stats[home_team][timeframe][f'{pos_prefix}goals_conceded'] += 1
                                     else:
                                         match_stats[home_team][timeframe]['shots'] += 1
                                         match_stats[home_team][timeframe]['xg'] += xg
@@ -3583,9 +3583,9 @@ if events_data is not None:
                                         # Own goal by away counts for home
                                         match_stats[home_team][timeframe]['goals'] += 1
                                         match_stats[away_team][timeframe]['goals_conceded'] += 1
-                                        # Own goals don't have possession type, count as other
-                                        match_stats[home_team][timeframe]['other_goals'] += 1
-                                        match_stats[away_team][timeframe]['other_goals_conceded'] += 1
+                                        # Categorize own goal by possession type
+                                        match_stats[home_team][timeframe][f'{pos_prefix}goals'] += 1
+                                        match_stats[away_team][timeframe][f'{pos_prefix}goals_conceded'] += 1
                                     else:
                                         match_stats[away_team][timeframe]['shots'] += 1
                                         match_stats[away_team][timeframe]['xg'] += xg
