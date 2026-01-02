@@ -3535,18 +3535,13 @@ if events_data is not None:
                             result_id = event.get('resultId')
                             event_labels = event.get('labels', []) or []
                             
-                            # Check for own goal label in any event (label 205)
-                            is_own_goal_from_label = OWN_GOAL_LABEL in event_labels
-                            
-                            # Process shots
+                            # Process shots (only regular goals, not own goals)
                             if base_type_id == BASE_TYPE_SHOT:
                                 # xG is in metrics dictionary
                                 metrics = event.get('metrics', {}) or {}
                                 xg = float(metrics.get('xG', 0.0) or 0.0)
                                 is_goal = (result_id == RESULT_SUCCESSFUL and 
                                           any(label in event_labels for label in GOAL_LABELS))
-                                is_own_goal = (is_own_goal_from_label or 
-                                             sub_type_id == SUB_TYPE_OWN_GOAL)
                                 
                                 # Get possession type (0=Openplay, 1=Throwin (also openplay), 3=Goalkick (also openplay), 6=Counter, others=Other)
                                 possession_type_id = event.get('possessionTypeId', -2)
@@ -3558,60 +3553,43 @@ if events_data is not None:
                                     pos_prefix = 'other_'
                                 
                                 if match_team(event_team, home_team):
-                                    if is_own_goal:
-                                        # Own goal by home counts for away
-                                        match_stats[away_team][timeframe]['goals'] += 1
-                                        match_stats[home_team][timeframe]['goals_conceded'] += 1
-                                        # Categorize own goal by possession type
-                                        match_stats[away_team][timeframe][f'{pos_prefix}goals'] += 1
-                                        match_stats[home_team][timeframe][f'{pos_prefix}goals_conceded'] += 1
-                                    else:
-                                        match_stats[home_team][timeframe]['shots'] += 1
-                                        match_stats[home_team][timeframe]['xg'] += xg
-                                        match_stats[away_team][timeframe]['shots_conceded'] += 1
-                                        match_stats[away_team][timeframe]['xg_conceded'] += xg
-                                        
-                                        # Possession type specific stats
-                                        match_stats[home_team][timeframe][f'{pos_prefix}shots'] += 1
-                                        match_stats[home_team][timeframe][f'{pos_prefix}xg'] += xg
-                                        match_stats[away_team][timeframe][f'{pos_prefix}shots_conceded'] += 1
-                                        match_stats[away_team][timeframe][f'{pos_prefix}xg_conceded'] += xg
-                                        
-                                        if is_goal:
-                                            match_stats[home_team][timeframe]['goals'] += 1
-                                            match_stats[away_team][timeframe]['goals_conceded'] += 1
-                                            match_stats[home_team][timeframe][f'{pos_prefix}goals'] += 1
-                                            match_stats[away_team][timeframe][f'{pos_prefix}goals_conceded'] += 1
-                                elif match_team(event_team, away_team):
-                                    if is_own_goal:
-                                        # Own goal by away counts for home
+                                    match_stats[home_team][timeframe]['shots'] += 1
+                                    match_stats[home_team][timeframe]['xg'] += xg
+                                    match_stats[away_team][timeframe]['shots_conceded'] += 1
+                                    match_stats[away_team][timeframe]['xg_conceded'] += xg
+                                    
+                                    # Possession type specific stats
+                                    match_stats[home_team][timeframe][f'{pos_prefix}shots'] += 1
+                                    match_stats[home_team][timeframe][f'{pos_prefix}xg'] += xg
+                                    match_stats[away_team][timeframe][f'{pos_prefix}shots_conceded'] += 1
+                                    match_stats[away_team][timeframe][f'{pos_prefix}xg_conceded'] += xg
+                                    
+                                    if is_goal:
                                         match_stats[home_team][timeframe]['goals'] += 1
                                         match_stats[away_team][timeframe]['goals_conceded'] += 1
-                                        # Categorize own goal by possession type
                                         match_stats[home_team][timeframe][f'{pos_prefix}goals'] += 1
                                         match_stats[away_team][timeframe][f'{pos_prefix}goals_conceded'] += 1
-                                    else:
-                                        match_stats[away_team][timeframe]['shots'] += 1
-                                        match_stats[away_team][timeframe]['xg'] += xg
-                                        match_stats[home_team][timeframe]['shots_conceded'] += 1
-                                        match_stats[home_team][timeframe]['xg_conceded'] += xg
-                                        
-                                        # Possession type specific stats
-                                        match_stats[away_team][timeframe][f'{pos_prefix}shots'] += 1
-                                        match_stats[away_team][timeframe][f'{pos_prefix}xg'] += xg
-                                        match_stats[home_team][timeframe][f'{pos_prefix}shots_conceded'] += 1
-                                        match_stats[home_team][timeframe][f'{pos_prefix}xg_conceded'] += xg
-                                        
-                                        if is_goal:
-                                            match_stats[away_team][timeframe]['goals'] += 1
-                                            match_stats[home_team][timeframe]['goals_conceded'] += 1
-                                            match_stats[away_team][timeframe][f'{pos_prefix}goals'] += 1
-                                            match_stats[home_team][timeframe][f'{pos_prefix}goals_conceded'] += 1
+                                elif match_team(event_team, away_team):
+                                    match_stats[away_team][timeframe]['shots'] += 1
+                                    match_stats[away_team][timeframe]['xg'] += xg
+                                    match_stats[home_team][timeframe]['shots_conceded'] += 1
+                                    match_stats[home_team][timeframe]['xg_conceded'] += xg
+                                    
+                                    # Possession type specific stats
+                                    match_stats[away_team][timeframe][f'{pos_prefix}shots'] += 1
+                                    match_stats[away_team][timeframe][f'{pos_prefix}xg'] += xg
+                                    match_stats[home_team][timeframe][f'{pos_prefix}shots_conceded'] += 1
+                                    match_stats[home_team][timeframe][f'{pos_prefix}xg_conceded'] += xg
+                                    
+                                    if is_goal:
+                                        match_stats[away_team][timeframe]['goals'] += 1
+                                        match_stats[home_team][timeframe]['goals_conceded'] += 1
+                                        match_stats[away_team][timeframe][f'{pos_prefix}goals'] += 1
+                                        match_stats[home_team][timeframe][f'{pos_prefix}goals_conceded'] += 1
                             
-                            # Process own goals from non-shot events (Bad Touch or any event with label 205)
-                            # Shots with own goals are already handled above
-                            if base_type_id != BASE_TYPE_SHOT and (is_own_goal_from_label or 
-                                                                    (base_type_id == BASE_TYPE_BAD_TOUCH and sub_type_id == SUB_TYPE_OWN_GOAL)):
+                            # Process own goals: Bad Touch events with subTypeId 1101
+                            # The team with the Bad Touch concedes, the opponent scores
+                            if base_type_id == BASE_TYPE_BAD_TOUCH and sub_type_id == SUB_TYPE_OWN_GOAL:
                                 # Get possession type
                                 possession_type_id = event.get('possessionTypeId', -2)
                                 if possession_type_id == 0 or possession_type_id == 1 or possession_type_id == 3:
@@ -3636,14 +3614,14 @@ if events_data is not None:
                                         away_matched = True
                                 
                                 if home_matched:
-                                    # Own goal by home counts for away
+                                    # Bad Touch by home team: home concedes, away scores
                                     match_stats[away_team][timeframe]['goals'] += 1
                                     match_stats[home_team][timeframe]['goals_conceded'] += 1
                                     # Categorize own goal by possession type
                                     match_stats[away_team][timeframe][f'{pos_prefix}goals'] += 1
                                     match_stats[home_team][timeframe][f'{pos_prefix}goals_conceded'] += 1
                                 elif away_matched:
-                                    # Own goal by away counts for home
+                                    # Bad Touch by away team: away concedes, home scores
                                     match_stats[home_team][timeframe]['goals'] += 1
                                     match_stats[away_team][timeframe]['goals_conceded'] += 1
                                     # Categorize own goal by possession type
