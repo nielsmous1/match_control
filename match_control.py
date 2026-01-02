@@ -3544,9 +3544,9 @@ if events_data is not None:
                                 is_own_goal = (OWN_GOAL_LABEL in event_labels or 
                                              sub_type_id == SUB_TYPE_OWN_GOAL)
                                 
-                                # Get possession type (0=Openplay, 3=Goalkick (also openplay), 6=Counter, others=Other)
+                                # Get possession type (0=Openplay, 1=Throwin (also openplay), 3=Goalkick (also openplay), 6=Counter, others=Other)
                                 possession_type_id = event.get('possessionTypeId', -2)
-                                if possession_type_id == 0 or possession_type_id == 3:
+                                if possession_type_id == 0 or possession_type_id == 1 or possession_type_id == 3:
                                     pos_prefix = 'openplay_'
                                 elif possession_type_id == 6:
                                     pos_prefix = 'counter_'
