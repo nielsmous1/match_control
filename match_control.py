@@ -3423,6 +3423,8 @@ if events_data is not None:
                 # Initialize data structures
                 all_teams_data = {}  # team -> timeframe -> stats
                 per_match_stats = {}  # team -> list of match stats
+                per_match_stats_openplay = {}  # team -> list of match stats (openplay only)
+                per_match_stats_other = {}  # team -> list of match stats (other possession types)
                 matches_processed = 0
                 matches_skipped = 0
                 
@@ -3633,6 +3635,8 @@ if events_data is not None:
                             if team not in all_teams_data:
                                 all_teams_data[team] = {label: init_timeframe_stats() for label in timeframe_labels}
                                 per_match_stats[team] = []
+                                per_match_stats_openplay[team] = []
+                                per_match_stats_other[team] = []
                             
                             for timeframe_label in timeframe_labels:
                                 stats = match_stats[team][timeframe_label]
@@ -3675,16 +3679,46 @@ if events_data is not None:
                                 date_iso = None
                             
                             match_row = {'Date': date_iso, 'Opponent': opponent}
+                            match_row_openplay = {'Date': date_iso, 'Opponent': opponent}
+                            match_row_other = {'Date': date_iso, 'Opponent': opponent}
+                            
                             for timeframe_label in timeframe_labels:
                                 stats = match_stats[team][timeframe_label]
-                                # Use direct stats (includes own goals from event processing)
+                                
+                                # Total stats (includes own goals from event processing)
                                 match_row[f'{timeframe_label} - Goals'] = stats['goals']
                                 match_row[f'{timeframe_label} - Goals Conceded'] = stats['goals_conceded']
                                 match_row[f'{timeframe_label} - Shots'] = stats['shots']
                                 match_row[f'{timeframe_label} - Shots Conceded'] = stats['shots_conceded']
                                 match_row[f'{timeframe_label} - xG'] = round(stats['xg'], 2)
                                 match_row[f'{timeframe_label} - xG Conceded'] = round(stats['xg_conceded'], 2)
+                                
+                                # Openplay stats
+                                match_row_openplay[f'{timeframe_label} - Goals'] = stats['openplay_goals']
+                                match_row_openplay[f'{timeframe_label} - Goals Conceded'] = stats['openplay_goals_conceded']
+                                match_row_openplay[f'{timeframe_label} - Shots'] = stats['openplay_shots']
+                                match_row_openplay[f'{timeframe_label} - Shots Conceded'] = stats['openplay_shots_conceded']
+                                match_row_openplay[f'{timeframe_label} - xG'] = round(stats['openplay_xg'], 2)
+                                match_row_openplay[f'{timeframe_label} - xG Conceded'] = round(stats['openplay_xg_conceded'], 2)
+                                
+                                # Other possession types stats (Counter + Other)
+                                other_goals = stats['counter_goals'] + stats['other_goals']
+                                other_goals_conceded = stats['counter_goals_conceded'] + stats['other_goals_conceded']
+                                other_shots = stats['counter_shots'] + stats['other_shots']
+                                other_shots_conceded = stats['counter_shots_conceded'] + stats['other_shots_conceded']
+                                other_xg = stats['counter_xg'] + stats['other_xg']
+                                other_xg_conceded = stats['counter_xg_conceded'] + stats['other_xg_conceded']
+                                
+                                match_row_other[f'{timeframe_label} - Goals'] = other_goals
+                                match_row_other[f'{timeframe_label} - Goals Conceded'] = other_goals_conceded
+                                match_row_other[f'{timeframe_label} - Shots'] = other_shots
+                                match_row_other[f'{timeframe_label} - Shots Conceded'] = other_shots_conceded
+                                match_row_other[f'{timeframe_label} - xG'] = round(other_xg, 2)
+                                match_row_other[f'{timeframe_label} - xG Conceded'] = round(other_xg_conceded, 2)
+                            
                             per_match_stats[team].append(match_row)
+                            per_match_stats_openplay[team].append(match_row_openplay)
+                            per_match_stats_other[team].append(match_row_other)
                         
                         matches_processed += 1
                     
@@ -3839,6 +3873,79 @@ if events_data is not None:
                                 st.dataframe(df_agg, use_container_width=True, hide_index=True)
                             else:
                                 st.info("Geen geaggregeerde data gevonden voor het geselecteerde team.")
+                            
+                            # Per-match stats with possession type filter (per timeframe)
+                            st.subheader(f"Rendement per Wedstrijd (per Tijdsframe) - {selected_team} - Possessie Type")
+                            
+                            pos_type_match = st.selectbox("Selecteer possessie type", ["Totaal", "Openplay", "Andere"], key="pos_type_match_timeframe")
+                            
+                            if pos_type_match == "Totaal":
+                                match_data_to_show = per_match_stats.get(selected_team, [])
+                            elif pos_type_match == "Openplay":
+                                match_data_to_show = per_match_stats_openplay.get(selected_team, [])
+                            else:  # Andere
+                                match_data_to_show = per_match_stats_other.get(selected_team, [])
+                            
+                            if match_data_to_show:
+                                df_match_pos = pd.DataFrame(match_data_to_show)
+                                df_match_pos = df_match_pos.sort_values('Date', ascending=False)
+                                st.dataframe(df_match_pos, use_container_width=True, hide_index=True)
+                            else:
+                                st.info(f"Geen per-wedstrijd data gevonden voor {selected_team} ({pos_type_match}).")
+                            
+                            # Aggregated per-match stats with possession type filter (totals)
+                            st.subheader(f"Rendement per Wedstrijd (Totaal) - {selected_team} - Possessie Type")
+                            
+                            pos_type_total = st.selectbox("Selecteer possessie type", ["Totaal", "Openplay", "Andere"], key="pos_type_match_total")
+                            
+                            if pos_type_total == "Totaal":
+                                match_data_for_total = per_match_stats.get(selected_team, [])
+                            elif pos_type_total == "Openplay":
+                                match_data_for_total = per_match_stats_openplay.get(selected_team, [])
+                            else:  # Andere
+                                match_data_for_total = per_match_stats_other.get(selected_team, [])
+                            
+                            if match_data_for_total:
+                                aggregated_matches_pos = []
+                                for match_row in match_data_for_total:
+                                    agg_row = {
+                                        'Date': match_row['Date'],
+                                        'Opponent': match_row['Opponent']
+                                    }
+                                    
+                                    # Sum across all timeframes
+                                    total_goals = 0
+                                    total_goals_conceded = 0
+                                    total_shots = 0
+                                    total_shots_conceded = 0
+                                    total_xg = 0.0
+                                    total_xg_conceded = 0.0
+                                    
+                                    for timeframe_label in timeframe_labels:
+                                        total_goals += match_row.get(f'{timeframe_label} - Goals', 0)
+                                        total_goals_conceded += match_row.get(f'{timeframe_label} - Goals Conceded', 0)
+                                        total_shots += match_row.get(f'{timeframe_label} - Shots', 0)
+                                        total_shots_conceded += match_row.get(f'{timeframe_label} - Shots Conceded', 0)
+                                        total_xg += match_row.get(f'{timeframe_label} - xG', 0.0)
+                                        total_xg_conceded += match_row.get(f'{timeframe_label} - xG Conceded', 0.0)
+                                    
+                                    agg_row['Goals'] = total_goals
+                                    agg_row['Goals Conceded'] = total_goals_conceded
+                                    agg_row['Shots'] = total_shots
+                                    agg_row['Shots Conceded'] = total_shots_conceded
+                                    agg_row['xG'] = round(total_xg, 2)
+                                    agg_row['xG Conceded'] = round(total_xg_conceded, 2)
+                                    
+                                    aggregated_matches_pos.append(agg_row)
+                                
+                                if aggregated_matches_pos:
+                                    df_agg_pos = pd.DataFrame(aggregated_matches_pos)
+                                    df_agg_pos = df_agg_pos.sort_values('Date', ascending=False)
+                                    st.dataframe(df_agg_pos, use_container_width=True, hide_index=True)
+                                else:
+                                    st.info(f"Geen geaggregeerde data gevonden voor {selected_team} ({pos_type_total}).")
+                            else:
+                                st.info(f"Geen data gevonden voor {selected_team} ({pos_type_total}).")
                         elif selected_team:
                             st.info(f"Geen data gevonden voor {selected_team}.")
                     except NameError:
