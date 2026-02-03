@@ -1,4 +1,6 @@
-#!/Users/niels/Documents/GitHub/match_control/.venv/bin/python3.12
+#!/bin/sh
+'''exec' "/Users/niels/Documents/Documenten - MacBook Pro van gebruiker/match_control/.venv/bin/python3.12" "$0" "$@"
+' '''
 import sys
 from numpy.f2py.f2py2e import main
 if __name__ == '__main__':

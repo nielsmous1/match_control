@@ -126,6 +126,7 @@ class Repo:
     working_dir: PathLike
     """The working directory of the git command."""
 
+    # stored as string for easier processing, but annotated as path for clearer intention
     _working_tree_dir: Optional[PathLike] = None
 
     git_dir: PathLike
@@ -215,15 +216,13 @@ class Repo:
         epath = path or os.getenv("GIT_DIR")
         if not epath:
             epath = os.getcwd()
+        epath = os.fspath(epath)
         if Git.is_cygwin():
             # Given how the tests are written, this seems more likely to catch Cygwin
             # git used from Windows than Windows git used from Cygwin. Therefore
             # changing to Cygwin-style paths is the relevant operation.
-            epath = cygpath(str(epath))
+            epath = cygpath(epath)
 
-        epath = epath or path or os.getcwd()
-        if not isinstance(epath, str):
-            epath = str(epath)
         if expand_vars and re.search(self.re_envvars, epath):
             warnings.warn(
                 "The use of environment variables in paths is deprecated"
@@ -520,7 +519,7 @@ class Repo:
         """
         return RootModule(self).traverse(*args, **kwargs)
 
-    def submodule_update(self, *args: Any, **kwargs: Any) -> Iterator[Submodule]:
+    def submodule_update(self, *args: Any, **kwargs: Any) -> RootModule:
         """Update the submodules, keeping the repository consistent as it will
         take the previous state into consideration.
 
@@ -684,11 +683,7 @@ class Repo:
         git_dir: Optional[PathLike] = None,
     ) -> GitConfigParser:
         if config_level is None:
-            files = [
-                self._get_config_path(cast(Lit_config_levels, f), git_dir)
-                for f in self.config_level
-                if cast(Lit_config_levels, f)
-            ]
+            files = [self._get_config_path(f, git_dir) for f in self.config_level if f]
         else:
             files = [self._get_config_path(config_level, git_dir)]
         return GitConfigParser(files, read_only=True, repo=self)
@@ -961,7 +956,7 @@ class Repo:
         if not submodules:
             default_args.append("--ignore-submodules")
         if path:
-            default_args.extend(["--", str(path)])
+            default_args.extend(["--", os.fspath(path)])
         if index:
             # diff index against HEAD.
             if osp.isfile(self.index.path) and len(self.git.diff("--cached", *default_args)):
@@ -1361,9 +1356,9 @@ class Repo:
     ) -> "Repo":
         odbt = kwargs.pop("odbt", odb_default_type)
 
-        # When pathlib.Path or other class-based path is passed
-        if not isinstance(path, str):
-            path = str(path)
+        # url may be a path and this has no effect if it is a string
+        url = os.fspath(url)
+        path = os.fspath(path)
 
         ## A bug win cygwin's Git, when `--bare` or `--separate-git-dir`
         #  it prepends the cwd or(?) the `url` into the `path, so::
@@ -1380,7 +1375,7 @@ class Repo:
             multi = shlex.split(" ".join(multi_options))
 
         if not allow_unsafe_protocols:
-            Git.check_unsafe_protocols(str(url))
+            Git.check_unsafe_protocols(url)
         if not allow_unsafe_options:
             Git.check_unsafe_options(options=list(kwargs.keys()), unsafe_options=cls.unsafe_git_clone_options)
         if not allow_unsafe_options and multi_options:
@@ -1389,7 +1384,7 @@ class Repo:
         proc = git.clone(
             multi,
             "--",
-            Git.polish_url(str(url)),
+            Git.polish_url(url),
             clone_path,
             with_extended_output=True,
             as_process=True,
@@ -1484,7 +1479,7 @@ class Repo:
             self.common_dir,
             path,
             type(self.odb),
-            progress,
+            progress,  # type: ignore[arg-type]
             multi_options,
             allow_unsafe_protocols=allow_unsafe_protocols,
             allow_unsafe_options=allow_unsafe_options,
@@ -1545,7 +1540,7 @@ class Repo:
             url,
             to_path,
             GitCmdObjectDB,
-            progress,
+            progress,  # type: ignore[arg-type]
             multi_options,
             allow_unsafe_protocols=allow_unsafe_protocols,
             allow_unsafe_options=allow_unsafe_options,

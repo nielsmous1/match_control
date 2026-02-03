@@ -33,7 +33,7 @@ end
 # Unset irrelevant variables.
 deactivate nondestructive
 
-set -gx VIRTUAL_ENV /Users/niels/Documents/GitHub/match_control/.venv
+set -gx VIRTUAL_ENV '/Users/niels/Documents/Documenten - MacBook Pro van gebruiker/match_control/.venv'
 
 set -gx _OLD_VIRTUAL_PATH $PATH
 set -gx PATH "$VIRTUAL_ENV/"bin $PATH

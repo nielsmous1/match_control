@@ -1,6 +1,7 @@
 import streamlit as st
 import json
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import matplotlib.gridspec as gridspec
@@ -2412,6 +2413,76 @@ if events_data is not None:
                     
                     plt.tight_layout()
                     st.pyplot(fig_temp)
+
+                    # Possession % per period for tables
+                    def possession_pct(for_sec, against_sec):
+                        total = for_sec + against_sec
+                        if total <= 0:
+                            return 0.0, 0.0
+                        return (for_sec / total) * 100, (against_sec / total) * 100
+
+                    pct_0_60_f, pct_0_60_a = possession_pct(stats_0_60['possession_for'], stats_0_60['possession_against'])
+                    pct_60_75_f, pct_60_75_a = possession_pct(stats_60_75['possession_for'], stats_60_75['possession_against'])
+                    pct_75_f, pct_75_a = possession_pct(stats_75_plus['possession_for'], stats_75_plus['possession_against'])
+
+                    # Table: selected team (doelpunten, schoten, passes, xg, balbezit per slot)
+                    table_selected = pd.DataFrame({
+                        '0-60': [
+                            stats_0_60['goals_for'],
+                            stats_0_60['shots_for'],
+                            stats_0_60['passes_for'],
+                            f"{stats_0_60['xg_for']:.2f}",
+                            f"{pct_0_60_f:.1f}%",
+                        ],
+                        '60-75': [
+                            stats_60_75['goals_for'],
+                            stats_60_75['shots_for'],
+                            stats_60_75['passes_for'],
+                            f"{stats_60_75['xg_for']:.2f}",
+                            f"{pct_60_75_f:.1f}%",
+                        ],
+                        '75+': [
+                            stats_75_plus['goals_for'],
+                            stats_75_plus['shots_for'],
+                            stats_75_plus['passes_for'],
+                            f"{stats_75_plus['xg_for']:.2f}",
+                            f"{pct_75_f:.1f}%",
+                        ],
+                    }, index=['Doelpunten', 'Schoten', 'Passes', 'xG', 'Balbezit'])
+
+                    # Table: opponent
+                    table_opponent = pd.DataFrame({
+                        '0-60': [
+                            stats_0_60['goals_against'],
+                            stats_0_60['shots_against'],
+                            stats_0_60['passes_against'],
+                            f"{stats_0_60['xg_against']:.2f}",
+                            f"{pct_0_60_a:.1f}%",
+                        ],
+                        '60-75': [
+                            stats_60_75['goals_against'],
+                            stats_60_75['shots_against'],
+                            stats_60_75['passes_against'],
+                            f"{stats_60_75['xg_against']:.2f}",
+                            f"{pct_60_75_a:.1f}%",
+                        ],
+                        '75+': [
+                            stats_75_plus['goals_against'],
+                            stats_75_plus['shots_against'],
+                            stats_75_plus['passes_against'],
+                            f"{stats_75_plus['xg_against']:.2f}",
+                            f"{pct_75_a:.1f}%",
+                        ],
+                    }, index=['Doelpunten', 'Schoten', 'Passes', 'xG', 'Balbezit'])
+
+                    st.subheader("Data per slotfase")
+                    col_t1, col_t2 = st.columns(2)
+                    with col_t1:
+                        st.caption(selected_team)
+                        st.dataframe(table_selected, use_container_width=True, hide_index=False)
+                    with col_t2:
+                        st.caption("Tegenstanders")
+                        st.dataframe(table_opponent, use_container_width=True, hide_index=False)
                 else:
                     st.info("Selecteer minstens één wedstrijd voor temporary analyse.")
             else:
