@@ -12,6 +12,7 @@ from pathlib import Path
 from collections import defaultdict
 from mplsoccer import Pitch, VerticalPitch
 import numpy as np
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
 # Page config
 st.set_page_config(page_title="Match Control Analysis", layout="wide")
@@ -669,7 +670,7 @@ def calculate_game_control_and_domination(data, home_team_override=None, away_te
     # Create visualization
     if extra_time_present:
         # 4 period plots (2 halves + 2 extra-time) in 2x2 grid, bar on third row.
-        # Use same width ratios as regular halves so extra-time plots are not overly stretched.
+        # Extra-time plots are drawn as narrower, centered insets under each half.
         fig = plt.figure(figsize=(20, 13), constrained_layout=True)
         gs = gridspec.GridSpec(
             3, 2,
@@ -680,8 +681,17 @@ def calculate_game_control_and_domination(data, home_team_override=None, away_te
         )
         ax1 = fig.add_subplot(gs[0, 0])
         ax2 = fig.add_subplot(gs[0, 1])
-        ax3 = fig.add_subplot(gs[1, 0])
-        ax4 = fig.add_subplot(gs[1, 1])
+
+        # Base axes for extra time rows (we'll place smaller, centered insets inside)
+        ax3_base = fig.add_subplot(gs[1, 0])
+        ax4_base = fig.add_subplot(gs[1, 1])
+        ax3_base.set_axis_off()
+        ax4_base.set_axis_off()
+
+        # Extra-time plots: ~1/3 width of regular halves, centered horizontally
+        ax3 = inset_axes(ax3_base, width="33%", height="80%", loc="center")
+        ax4 = inset_axes(ax4_base, width="33%", height="80%", loc="center")
+
         ax_bar = fig.add_subplot(gs[2, :])
     else:
         fig = plt.figure(figsize=(20, 9), constrained_layout=True)
