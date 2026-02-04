@@ -668,11 +668,12 @@ def calculate_game_control_and_domination(data, home_team_override=None, away_te
     
     # Create visualization
     if extra_time_present:
-        # 4 period plots (2 halves + 2 extra-time) in 2x2 grid, bar on third row
+        # 4 period plots (2 halves + 2 extra-time) in 2x2 grid, bar on third row.
+        # Use same width ratios as regular halves so extra-time plots are not overly stretched.
         fig = plt.figure(figsize=(20, 13), constrained_layout=True)
         gs = gridspec.GridSpec(
             3, 2,
-            width_ratios=[1, 1],
+            width_ratios=[first_half_ratio, second_half_ratio],
             height_ratios=[4, 4, 1],
             hspace=0.25,
             figure=fig
@@ -852,13 +853,25 @@ def calculate_game_control_and_domination(data, home_team_override=None, away_te
         
         step = 5 if (minutes[-1] - minutes[0]) >= 30 else max(1, int((minutes[-1] - minutes[0]) // 5))
         ticks = np.arange(minutes[0], minutes[-1] + 1, step)
-        
-        if half_name == 'Second Half' and len(minutes) > 0:
-            offset = 45 - minutes[0]
-            ax.set_xticks(ticks)
+
+        # Normalize displayed start minutes:
+        # - First Half: actual minutes
+        # - Second Half: always start at 45'
+        # - First Half Extra Time: always start at 90'
+        # - Second Half Extra Time: always start at 105'
+        base_minute = None
+        if half_name == 'Second Half':
+            base_minute = 45
+        elif half_name == 'First Half Extra Time':
+            base_minute = 90
+        elif half_name == 'Second Half Extra Time':
+            base_minute = 105
+
+        ax.set_xticks(ticks)
+        if base_minute is not None and len(minutes) > 0:
+            offset = base_minute - minutes[0]
             ax.set_xticklabels([f"{int(t + offset)}'" for t in ticks])
         else:
-            ax.set_xticks(ticks)
             ax.set_xticklabels([f"{int(t)}'" for t in ticks])
         
         ax.spines['top'].set_visible(False)
@@ -906,12 +919,12 @@ def calculate_game_control_and_domination(data, home_team_override=None, away_te
     if extra_time_present:
         plot_half(ax3, extra1_minutes, extra1_home_dom, extra1_away_dom,
                   extra1_net_ctrl, extra1_home_ctrl, extra1_away_ctrl,
-                  extra1_goals, extra1_subs, extra1_cards, 'Extra Time 1',
+                  extra1_goals, extra1_subs, extra1_cards, 'First Half Extra Time',
                   home_plot_color, away_plot_color, home_team, away_team)
         
         plot_half(ax4, extra2_minutes, extra2_home_dom, extra2_away_dom,
                   extra2_net_ctrl, extra2_home_ctrl, extra2_away_ctrl,
-                  extra2_goals, extra2_subs, extra2_cards, 'Extra Time 2',
+                  extra2_goals, extra2_subs, extra2_cards, 'Second Half Extra Time',
                   home_plot_color, away_plot_color, home_team, away_team)
     
     # Calculate overall percentages (include extra time if present)
