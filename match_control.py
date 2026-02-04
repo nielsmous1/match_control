@@ -344,17 +344,30 @@ def calculate_game_control_and_domination(data, home_team_override=None, away_te
         
         return None
     
-    # Initialize event lists
+    # Initialize event lists for each period
     first_half_domination_events = []
     first_half_control_events = []
     second_half_domination_events = []
     second_half_control_events = []
+    extra1_domination_events = []  # first extra-time period
+    extra1_control_events = []
+    extra2_domination_events = []  # second extra-time period
+    extra2_control_events = []
+
     first_half_goals = []
     second_half_goals = []
+    extra1_goals = []
+    extra2_goals = []
+
     first_half_subs = []
     second_half_subs = []
+    extra1_subs = []
+    extra2_subs = []
+
     first_half_cards = []
     second_half_cards = []
+    extra1_cards = []
+    extra2_cards = []
     
     # Process events
     for event in events:
@@ -387,7 +400,7 @@ def calculate_game_control_and_domination(data, home_team_override=None, away_te
         domination_type = None
         control_type = None
         
-        # Determine half
+        # Determine period (regular halves + possible extra time)
         part_id = event.get('partId')
         part_name = event.get('partName', '').upper()
         
@@ -403,6 +416,20 @@ def calculate_game_control_and_domination(data, home_team_override=None, away_te
             target_goals = second_half_goals
             target_subs = second_half_subs
             target_cards = second_half_cards
+        elif part_id == 3 or 'EXTRA' in part_name:
+            # First extra-time period
+            target_domination_events = extra1_domination_events
+            target_control_events = extra1_control_events
+            target_goals = extra1_goals
+            target_subs = extra1_subs
+            target_cards = extra1_cards
+        elif part_id == 4:
+            # Second extra-time period
+            target_domination_events = extra2_domination_events
+            target_control_events = extra2_control_events
+            target_goals = extra2_goals
+            target_subs = extra2_subs
+            target_cards = extra2_cards
         else:
             continue
         
@@ -602,7 +629,7 @@ def calculate_game_control_and_domination(data, home_team_override=None, away_te
         
         return minutes, net_domination, net_control, home_domination, away_domination, home_control, away_control
     
-    # Calculate metrics for each half
+    # Calculate metrics for each period
     first_half_start = min([e['minute'] for e in first_half_domination_events + first_half_control_events]) if (first_half_domination_events or first_half_control_events) else 0
     first_half_end = max([e['minute'] for e in first_half_domination_events + first_half_control_events]) if (first_half_domination_events or first_half_control_events) else 45
     
@@ -616,8 +643,22 @@ def calculate_game_control_and_domination(data, home_team_override=None, away_te
     second_half_minutes, second_half_net_dom, second_half_net_ctrl, second_half_home_dom, second_half_away_dom, second_half_home_ctrl, second_half_away_ctrl = calculate_half_metrics(
         second_half_domination_events, second_half_control_events, second_half_start, second_half_end
     )
+
+    # Extra-time periods (if present)
+    extra1_minutes, extra1_net_dom, extra1_net_ctrl, extra1_home_dom, extra1_away_dom, extra1_home_ctrl, extra1_away_ctrl = calculate_half_metrics(
+        extra1_domination_events, extra1_control_events,
+        min([e['minute'] for e in extra1_domination_events + extra1_control_events]) if (extra1_domination_events or extra1_control_events) else 90,
+        max([e['minute'] for e in extra1_domination_events + extra1_control_events]) if (extra1_domination_events or extra1_control_events) else 105
+    )
+    extra2_minutes, extra2_net_dom, extra2_net_ctrl, extra2_home_dom, extra2_away_dom, extra2_home_ctrl, extra2_away_ctrl = calculate_half_metrics(
+        extra2_domination_events, extra2_control_events,
+        min([e['minute'] for e in extra2_domination_events + extra2_control_events]) if (extra2_domination_events or extra2_control_events) else 105,
+        max([e['minute'] for e in extra2_domination_events + extra2_control_events]) if (extra2_domination_events or extra2_control_events) else 120
+    )
+
+    extra_time_present = bool(extra1_domination_events or extra1_control_events or extra2_domination_events or extra2_control_events)
     
-    # Calculate durations
+    # Calculate durations for layout (regular time only)
     first_half_duration = first_half_end - first_half_start if (first_half_domination_events or first_half_control_events) else 45
     second_half_duration = second_half_end - second_half_start if (second_half_domination_events or second_half_control_events) else 45
     
@@ -626,12 +667,28 @@ def calculate_game_control_and_domination(data, home_team_override=None, away_te
     second_half_ratio = second_half_duration / total_duration if total_duration > 0 else 0.5
     
     # Create visualization
-    fig = plt.figure(figsize=(20, 9), constrained_layout=True)
-    gs = gridspec.GridSpec(2, 2, width_ratios=[first_half_ratio, second_half_ratio],
-                          height_ratios=[5, 1], hspace=0.25, figure=fig)
-    ax1 = fig.add_subplot(gs[0, 0])
-    ax2 = fig.add_subplot(gs[0, 1])
-    ax_bar = fig.add_subplot(gs[1, :])
+    if extra_time_present:
+        # 4 period plots (2 halves + 2 extra-time) in 2x2 grid, bar on third row
+        fig = plt.figure(figsize=(20, 13), constrained_layout=True)
+        gs = gridspec.GridSpec(
+            3, 2,
+            width_ratios=[1, 1],
+            height_ratios=[4, 4, 1],
+            hspace=0.25,
+            figure=fig
+        )
+        ax1 = fig.add_subplot(gs[0, 0])
+        ax2 = fig.add_subplot(gs[0, 1])
+        ax3 = fig.add_subplot(gs[1, 0])
+        ax4 = fig.add_subplot(gs[1, 1])
+        ax_bar = fig.add_subplot(gs[2, :])
+    else:
+        fig = plt.figure(figsize=(20, 9), constrained_layout=True)
+        gs = gridspec.GridSpec(2, 2, width_ratios=[first_half_ratio, second_half_ratio],
+                              height_ratios=[5, 1], hspace=0.25, figure=fig)
+        ax1 = fig.add_subplot(gs[0, 0])
+        ax2 = fig.add_subplot(gs[0, 1])
+        ax_bar = fig.add_subplot(gs[1, :])
     
     home_plot_color = home_color
     away_plot_color = away_color
@@ -834,7 +891,7 @@ def calculate_game_control_and_domination(data, home_team_override=None, away_te
                    color='black', linewidth=2,
                    linestyle='--', alpha=0.9, transform=ax.transAxes, dashes=(3, 1.5))
     
-    # Plot both halves
+    # Plot regular halves
     plot_half(ax1, first_half_minutes, first_half_home_dom, first_half_away_dom,
               first_half_net_ctrl, first_half_home_ctrl, first_half_away_ctrl,
               first_half_goals, first_half_subs, first_half_cards, 'First Half', 
@@ -845,13 +902,35 @@ def calculate_game_control_and_domination(data, home_team_override=None, away_te
               second_half_goals, second_half_subs, second_half_cards, 'Second Half', 
               home_plot_color, away_plot_color, home_team, away_team)
     
-    # Calculate overall percentages
-    all_control_events = first_half_control_events + second_half_control_events
-    all_domination_events = first_half_domination_events + second_half_domination_events
-    all_cards = first_half_cards + second_half_cards
+    # Plot extra-time periods if present
+    if extra_time_present:
+        plot_half(ax3, extra1_minutes, extra1_home_dom, extra1_away_dom,
+                  extra1_net_ctrl, extra1_home_ctrl, extra1_away_ctrl,
+                  extra1_goals, extra1_subs, extra1_cards, 'Extra Time 1',
+                  home_plot_color, away_plot_color, home_team, away_team)
+        
+        plot_half(ax4, extra2_minutes, extra2_home_dom, extra2_away_dom,
+                  extra2_net_ctrl, extra2_home_ctrl, extra2_away_ctrl,
+                  extra2_goals, extra2_subs, extra2_cards, 'Extra Time 2',
+                  home_plot_color, away_plot_color, home_team, away_team)
     
-    match_start = first_half_start
-    match_end = second_half_end
+    # Calculate overall percentages (include extra time if present)
+    all_control_events = first_half_control_events + second_half_control_events + extra1_control_events + extra2_control_events
+    all_domination_events = first_half_domination_events + second_half_domination_events + extra1_domination_events + extra2_domination_events
+    all_cards = first_half_cards + second_half_cards + extra1_cards + extra2_cards
+    
+    # Match span from first to last minute across all periods
+    period_starts = [first_half_start, second_half_start]
+    period_ends = [first_half_end, second_half_end]
+    if extra1_domination_events or extra1_control_events:
+        period_starts.append(min([e['minute'] for e in extra1_domination_events + extra1_control_events]))
+        period_ends.append(max([e['minute'] for e in extra1_domination_events + extra1_control_events]))
+    if extra2_domination_events or extra2_control_events:
+        period_starts.append(min([e['minute'] for e in extra2_domination_events + extra2_control_events]))
+        period_ends.append(max([e['minute'] for e in extra2_domination_events + extra2_control_events]))
+    
+    match_start = min(period_starts) if period_starts else 0
+    match_end = max(period_ends) if period_ends else 90
     match_total_duration = max(1.0, (match_end - match_start))
     
     def compute_pct_by_team(events_list, start_time, end_time, teamA, teamB):
@@ -1068,9 +1147,10 @@ def calculate_game_control_and_domination(data, home_team_override=None, away_te
         ax_bar.spines['right'].set_visible(False)
         ax_bar.spines['bottom'].set_visible(False)
     
-    # Add score
-    total_home_goals = len([g for g in first_half_goals + second_half_goals if g['team'] == home_team])
-    total_away_goals = len([g for g in first_half_goals + second_half_goals if g['team'] == away_team])
+    # Add score (including extra time if present)
+    all_goals = first_half_goals + second_half_goals + extra1_goals + extra2_goals
+    total_home_goals = len([g for g in all_goals if g['team'] == home_team])
+    total_away_goals = len([g for g in all_goals if g['team'] == away_team])
     
     fig.suptitle(f'{home_team} {total_home_goals} - {total_away_goals} {away_team}',
                  fontsize=18, fontweight='bold', y=1.02)
@@ -1095,6 +1175,26 @@ def calculate_game_control_and_domination(data, home_team_override=None, away_te
             'goals': second_half_goals,
             'substitutions': second_half_subs,
             'cards': second_half_cards
+        },
+        'extra_time_1': {
+            'minutes': extra1_minutes,
+            'net_domination': extra1_net_dom,
+            'net_control': extra1_net_ctrl,
+            'domination_events': extra1_domination_events,
+            'control_events': extra1_control_events,
+            'goals': extra1_goals,
+            'substitutions': extra1_subs,
+            'cards': extra1_cards
+        },
+        'extra_time_2': {
+            'minutes': extra2_minutes,
+            'net_domination': extra2_net_dom,
+            'net_control': extra2_net_ctrl,
+            'domination_events': extra2_domination_events,
+            'control_events': extra2_control_events,
+            'goals': extra2_goals,
+            'substitutions': extra2_subs,
+            'cards': extra2_cards
         }
     }
 
