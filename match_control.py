@@ -688,9 +688,9 @@ def calculate_game_control_and_domination(data, home_team_override=None, away_te
         ax3_base.set_axis_off()
         ax4_base.set_axis_off()
 
-        # Extra-time plots: ~1/3 width of regular halves, centered horizontally
-        ax3 = inset_axes(ax3_base, width="33%", height="80%", loc="center")
-        ax4 = inset_axes(ax4_base, width="33%", height="80%", loc="center")
+        # Extra-time plots: slightly larger but still narrower than regular halves, centered horizontally
+        ax3 = inset_axes(ax3_base, width="50%", height="90%", loc="center")
+        ax4 = inset_axes(ax4_base, width="50%", height="90%", loc="center")
 
         ax_bar = fig.add_subplot(gs[2, :])
     else:
