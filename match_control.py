@@ -2954,6 +2954,56 @@ if events_data is not None:
                                 st.subheader("Gemiddelde wissel-impact per speler (geselecteerd team)")
                                 st.table(player_rows)
 
+                                # --- Detailtabel per speler: alle wissels en gemiddelde impact ---
+                                player_names = [row["Speler"] for row in player_rows]
+                                selected_player_detail = st.selectbox(
+                                    "Kies speler voor detailoverzicht wissels",
+                                    player_names,
+                                    index=0 if player_names else None
+                                )
+
+                                if selected_player_detail:
+                                    # Alle wissels waarbij deze speler betrokken is (in of uit) voor het focusteam
+                                    df_player = df_team_subs[
+                                        (df_team_subs["Speler in"] == selected_player_detail) |
+                                        (df_team_subs["Speler uit"] == selected_player_detail)
+                                    ].copy()
+
+                                    if not df_player.empty:
+                                        # Richting (In/Uit) en speler-gecentreerde impact (uit = negatieve impact)
+                                        df_player["In/Uit"] = np.where(
+                                            df_player["Speler in"] == selected_player_detail,
+                                            "In",
+                                            "Uit"
+                                        )
+                                        df_player["Impact speler"] = np.where(
+                                            df_player["Speler in"] == selected_player_detail,
+                                            df_player["Impact wissel"],
+                                            -df_player["Impact wissel"],
+                                        )
+
+                                        player_table = df_player[[
+                                            "Wedstrijd",
+                                            "Datum",
+                                            "In/Uit",
+                                            "Minuut",
+                                            "Tegenstander",
+                                            "Impact speler",
+                                        ]].copy()
+                                        player_table.rename(
+                                            columns={"Impact speler": "Impact per wissel"},
+                                            inplace=True,
+                                        )
+
+                                        avg_player_impact = float(df_player["Impact speler"].mean())
+
+                                        st.subheader(f"Wissels voor {selected_player_detail}")
+                                        st.dataframe(player_table, use_container_width=True)
+                                        st.markdown(
+                                            f"**Gemiddelde impact per wissel voor {selected_player_detail}:** "
+                                            f"{avg_player_impact:.2f}"
+                                        )
+
                         # Group by match for clearer layout
                         for match_label, df_match in df_sub.groupby("Wedstrijd"):
                             with st.expander(f"Wissels in: {match_label}", expanded=False):
