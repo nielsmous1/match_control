@@ -3560,6 +3560,17 @@ if events_data is not None:
                                                             away_team.strip().lower() == selected_team.strip().lower()):
                                                             
                                                             matchday = metadata.get('matchDay')
+
+                                                            # Try to get a match date (YYYYMMDD) from match_info
+                                                            date_raw = match_info.get('date')
+                                                            date_display = None
+                                                            date_sort = None
+                                                            if date_raw is not None:
+                                                                s = str(date_raw)
+                                                                if len(s) == 8 and s.isdigit():
+                                                                    # Store as dd-mm-YYYY for display, yyyymmdd int for sorting
+                                                                    date_display = f"{s[6:8]}-{s[4:6]}-{s[0:4]}"
+                                                                    date_sort = int(s)
                                                             
                                                             # Count goals from events
                                                             events = match_data.get('data', []) if isinstance(match_data, dict) else []
@@ -3594,6 +3605,8 @@ if events_data is not None:
                                                             
                                                             team_matches_data.append({
                                                                 'Speeldag': matchday if matchday is not None else 'N/A',
+                                                                'Datum': date_display,
+                                                                '_DatumSort': date_sort,
                                                                 'Thuis': home_team,
                                                                 'Uit': away_team,
                                                                 'Score': f"{home_goals}-{away_goals}",
@@ -3605,8 +3618,15 @@ if events_data is not None:
                                                 continue
                                         
                                         if team_matches_data:
-                                            # Sort by matchday
-                                            team_matches_data.sort(key=lambda x: (x['Speeldag'] if isinstance(x['Speeldag'], int) else 999, x['Thuis']))
+                                            # Sort by date (if available), otherwise by matchday
+                                            def _team_match_sort_key(m):
+                                                sort_date = m.get('_DatumSort')
+                                                if sort_date is not None:
+                                                    return (sort_date, m['Thuis'])
+                                                speeldag = m.get('Speeldag')
+                                                return ((speeldag if isinstance(speeldag, int) else 999), m['Thuis'])
+
+                                            team_matches_data.sort(key=_team_match_sort_key)
                                             
                                             df_team_matches = pd.DataFrame(team_matches_data)
                                             st.dataframe(
@@ -3615,6 +3635,7 @@ if events_data is not None:
                                                 hide_index=True,
                                                 column_config={
                                                     "Speeldag": st.column_config.NumberColumn("Speeldag", width="small"),
+                                                    "Datum": st.column_config.TextColumn("Datum", width="small"),
                                                     "Thuis": st.column_config.TextColumn("Thuis", width="medium"),
                                                     "Uit": st.column_config.TextColumn("Uit", width="medium"),
                                                     "Score": st.column_config.TextColumn("Score", width="small"),
