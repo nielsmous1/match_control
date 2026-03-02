@@ -3623,6 +3623,37 @@ if events_data is not None:
                                                     "Resultaat": st.column_config.TextColumn("Resultaat", width="small")
                                                 }
                                             )
+
+                                            # Running 5-game average of points per match for selected team
+                                            result_to_points = {'W': 3, 'G': 1, 'V': 0}
+                                            df_running = df_team_matches.copy()
+                                            df_running["Punten"] = df_running["Resultaat"].map(result_to_points).fillna(0).astype(int)
+
+                                            rolling_points = []
+                                            window = 5
+                                            for i in range(len(df_running)):
+                                                start_idx = max(0, i - window + 1)
+                                                window_points = df_running.iloc[start_idx:i + 1]["Punten"]
+                                                if not window_points.empty:
+                                                    rolling_points.append(round(window_points.mean(), 2))
+                                                else:
+                                                    rolling_points.append(0.0)
+                                            df_running["Gemiddeld punten (laatste 5)"] = rolling_points
+
+                                            st.subheader(f"Lopend gemiddelde punten per wedstrijd (laatste 5) – {selected_team}")
+                                            st.dataframe(
+                                                df_running[[
+                                                    "Speeldag",
+                                                    "Thuis",
+                                                    "Uit",
+                                                    "Score",
+                                                    "Resultaat",
+                                                    "Punten",
+                                                    "Gemiddeld punten (laatste 5)",
+                                                ]],
+                                                use_container_width=True,
+                                                hide_index=True,
+                                            )
                                         else:
                                             st.info(f"Geen wedstrijden gevonden voor {selected_team} in metadata.")
                                 except NameError:
