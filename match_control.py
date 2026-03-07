@@ -3299,8 +3299,8 @@ if events_data is not None:
                 progress_bar = st.progress(0)
                 status_text = st.empty()
                 
-                # Collect all matches with their matchday
-                matches_by_matchday = {}  # matchday -> list of match data
+                # Collect all matches with date and basic info
+                all_matches = []  # list of {home_team, away_team, home_goals, away_goals, date_sort}
                 total_files = len(available_files)
                 
                 for idx, match_info in enumerate(available_files):
@@ -3310,80 +3310,79 @@ if events_data is not None:
                         match_data = load_json_lenient(match_info['path'])
                         if isinstance(match_data, dict):
                             metadata = match_data.get('metaData', {}) or {}
-                            matchday = metadata.get('matchDay')
                             
-                            # Convert matchday to int if possible
-                            if matchday is not None:
+                            # Get teams
+                            home_team = match_info.get('home')
+                            away_team = match_info.get('away')
+                            if not home_team or not away_team:
+                                home_team = metadata.get('homeTeamName') or metadata.get('homeTeam') or metadata.get('home')
+                                away_team = metadata.get('awayTeamName') or metadata.get('awayTeam') or metadata.get('away')
+                            
+                            if home_team and away_team:
+                                # Try to get a match date (YYYYMMDD) from match_info for chronological sorting
+                                date_raw = match_info.get('date')
+                                date_sort = None
+                                if date_raw is not None:
+                                    s = str(date_raw)
+                                    if len(s) == 8 and s.isdigit():
+                                        date_sort = int(s)
+                                
+                                # Count goals from events
                                 try:
-                                    matchday = int(matchday)
-                                except (ValueError, TypeError):
+                                    events = match_data.get('data', []) if isinstance(match_data, dict) else []
+                                    
+                                    # Constants for goal detection
+                                    BASE_TYPE_SHOT = 6
+                                    RESULT_SUCCESSFUL = 1
+                                    GOAL_LABELS = [146, 147, 148, 149, 150, 151]
+                                    OWN_GOAL_LABEL = 205
+                                    SUB_TYPE_OWN_GOAL = 1101
+                                    
+                                    home_goals = 0
+                                    away_goals = 0
+                                    
+                                    # Helper to match team names
+                                    def match_team(event_team_str, target_team):
+                                        if not event_team_str or not target_team:
+                                            return False
+                                        event_team_norm = event_team_str.strip().lower()
+                                        target_team_norm = target_team.strip().lower()
+                                        return (event_team_norm == target_team_norm or 
+                                               event_team_norm in target_team_norm or 
+                                               target_team_norm in event_team_norm)
+                                    
+                                    for event in events:
+                                        event_labels = event.get('labels', []) or []
+                                        base_type_id = event.get('baseTypeId')
+                                        sub_type_id = event.get('subTypeId')
+                                        result_id = event.get('resultId')
+                                        event_team = event.get('teamName') or event.get('team')
+                                        
+                                        # Check for regular goals (successful shots with goal labels)
+                                        if (base_type_id == BASE_TYPE_SHOT and 
+                                            result_id == RESULT_SUCCESSFUL and
+                                            any(label in event_labels for label in GOAL_LABELS)):
+                                            if match_team(event_team, home_team):
+                                                home_goals += 1
+                                            elif match_team(event_team, away_team):
+                                                away_goals += 1
+                                        
+                                        # Check for own goals (label 205 or subType 1101)
+                                        if OWN_GOAL_LABEL in event_labels or sub_type_id == SUB_TYPE_OWN_GOAL:
+                                            if match_team(event_team, home_team):
+                                                away_goals += 1  # Own goal by home counts for away
+                                            elif match_team(event_team, away_team):
+                                                home_goals += 1  # Own goal by away counts for home
+                                    
+                                    all_matches.append({
+                                        'home_team': home_team,
+                                        'away_team': away_team,
+                                        'home_goals': home_goals,
+                                        'away_goals': away_goals,
+                                        'date_sort': date_sort,
+                                    })
+                                except Exception:
                                     continue
-                                if matchday not in matches_by_matchday:
-                                    matches_by_matchday[matchday] = []
-                                
-                                # Get teams
-                                home_team = match_info.get('home')
-                                away_team = match_info.get('away')
-                                if not home_team or not away_team:
-                                    home_team = metadata.get('homeTeamName') or metadata.get('homeTeam') or metadata.get('home')
-                                    away_team = metadata.get('awayTeamName') or metadata.get('awayTeam') or metadata.get('away')
-                                
-                                if home_team and away_team:
-                                    # Count goals from events
-                                    try:
-                                        events = match_data.get('data', []) if isinstance(match_data, dict) else []
-                                        
-                                        # Constants for goal detection
-                                        BASE_TYPE_SHOT = 6
-                                        RESULT_SUCCESSFUL = 1
-                                        GOAL_LABELS = [146, 147, 148, 149, 150, 151]
-                                        OWN_GOAL_LABEL = 205
-                                        SUB_TYPE_OWN_GOAL = 1101
-                                        
-                                        home_goals = 0
-                                        away_goals = 0
-                                        
-                                        # Helper to match team names
-                                        def match_team(event_team_str, target_team):
-                                            if not event_team_str or not target_team:
-                                                return False
-                                            event_team_norm = event_team_str.strip().lower()
-                                            target_team_norm = target_team.strip().lower()
-                                            return (event_team_norm == target_team_norm or 
-                                                   event_team_norm in target_team_norm or 
-                                                   target_team_norm in event_team_norm)
-                                        
-                                        for event in events:
-                                            event_labels = event.get('labels', []) or []
-                                            base_type_id = event.get('baseTypeId')
-                                            sub_type_id = event.get('subTypeId')
-                                            result_id = event.get('resultId')
-                                            event_team = event.get('teamName') or event.get('team')
-                                            
-                                            # Check for regular goals (successful shots with goal labels)
-                                            if (base_type_id == BASE_TYPE_SHOT and 
-                                                result_id == RESULT_SUCCESSFUL and
-                                                any(label in event_labels for label in GOAL_LABELS)):
-                                                if match_team(event_team, home_team):
-                                                    home_goals += 1
-                                                elif match_team(event_team, away_team):
-                                                    away_goals += 1
-                                            
-                                            # Check for own goals (label 205 or subType 1101)
-                                            if OWN_GOAL_LABEL in event_labels or sub_type_id == SUB_TYPE_OWN_GOAL:
-                                                if match_team(event_team, home_team):
-                                                    away_goals += 1  # Own goal by home counts for away
-                                                elif match_team(event_team, away_team):
-                                                    home_goals += 1  # Own goal by away counts for home
-                                        
-                                        matches_by_matchday[matchday].append({
-                                            'home_team': home_team,
-                                            'away_team': away_team,
-                                            'home_goals': home_goals,
-                                            'away_goals': away_goals
-                                        })
-                                    except Exception as e:
-                                        continue
                     except Exception:
                         continue
                 
@@ -3391,92 +3390,117 @@ if events_data is not None:
                 progress_bar.empty()
                 status_text.empty()
                 
-                if not matches_by_matchday:
+                if not all_matches:
                     st.info("Geen matchday data gevonden in de wedstrijdbestanden.")
                 else:
                     # Get all unique teams
                     all_teams_set = set()
-                    for matchday_matches in matches_by_matchday.values():
-                        for match in matchday_matches:
-                            all_teams_set.add(match['home_team'])
-                            all_teams_set.add(match['away_team'])
+                    for match in all_matches:
+                        all_teams_set.add(match['home_team'])
+                        all_teams_set.add(match['away_team'])
                     all_teams = sorted(list(all_teams_set))
                     
-                    # Initialize standings: team -> {points, goals_for, goals_against, goal_diff}
-                    standings = {team: {'points': 0, 'goals_for': 0, 'goals_against': 0, 'goal_diff': 0} for team in all_teams}
-                    
-                    # Get all matchdays sorted numerically
-                    all_matchdays = sorted([md for md in matches_by_matchday.keys() if md is not None])
-                    
-                    # Build rankings per matchday
-                    rankings_data = []  # List of dicts: {Team, Matchday 1, Matchday 2, ...}
-                    
-                    # Initialize with team names
-                    for team in all_teams:
-                        rankings_data.append({'Team': team})
-                    
-                    # Process each matchday
-                    for matchday in all_matchdays:
-                        # Update standings with matches from this matchday
-                        for match in matches_by_matchday[matchday]:
-                            home_team = match['home_team']
-                            away_team = match['away_team']
-                            home_goals = match['home_goals']
-                            away_goals = match['away_goals']
-                            
-                            # Update goals
-                            standings[home_team]['goals_for'] += home_goals
-                            standings[home_team]['goals_against'] += away_goals
-                            standings[away_team]['goals_for'] += away_goals
-                            standings[away_team]['goals_against'] += home_goals
-                            
-                            # Calculate points
-                            if home_goals > away_goals:
-                                standings[home_team]['points'] += 3
-                            elif away_goals > home_goals:
-                                standings[away_team]['points'] += 3
-                            else:
-                                standings[home_team]['points'] += 1
-                                standings[away_team]['points'] += 1
-                        
-                        # Calculate goal difference
-                        for team in all_teams:
-                            standings[team]['goal_diff'] = standings[team]['goals_for'] - standings[team]['goals_against']
-                        
-                        # Rank teams: points (desc), goal_diff (desc), goals_for (desc), alphabetically
-                        ranked_teams = sorted(
-                            all_teams,
-                            key=lambda t: (
-                                -standings[t]['points'],
-                                -standings[t]['goal_diff'],
-                                -standings[t]['goals_for'],
-                                t.lower()
+                    # Initialize standings: team -> stats including matches_played
+                    standings = {
+                        team: {
+                            'points': 0,
+                            'goals_for': 0,
+                            'goals_against': 0,
+                            'goal_diff': 0,
+                            'matches_played': 0,
+                        }
+                        for team in all_teams
+                    }
+
+                    # Sort all matches chronologically by date_sort (fallback: 0) then by home/away
+                    def _match_sort_key(m):
+                        ds = m.get('date_sort')
+                        if ds is None:
+                            ds = 0
+                        return (ds, m['home_team'], m['away_team'])
+
+                    all_matches.sort(key=_match_sort_key)
+
+                    # Prepare structures for rankings per "Speeldag" (games played count)
+                    rankings_per_team = {team: {} for team in all_teams}  # team -> {games_played: rank}
+                    points_history = {team: [] for team in all_teams}     # team -> [points_after_1, points_after_2, ...]
+                    last_snapshot_games = 0
+
+                    def _update_goal_diff():
+                        for t in all_teams:
+                            standings[t]['goal_diff'] = standings[t]['goals_for'] - standings[t]['goals_against']
+
+                    # Process matches chronologically
+                    for match in all_matches:
+                        home_team = match['home_team']
+                        away_team = match['away_team']
+                        home_goals = match['home_goals']
+                        away_goals = match['away_goals']
+
+                        # Update goals
+                        standings[home_team]['goals_for'] += home_goals
+                        standings[home_team]['goals_against'] += away_goals
+                        standings[away_team]['goals_for'] += away_goals
+                        standings[away_team]['goals_against'] += home_goals
+
+                        # Update matches played
+                        standings[home_team]['matches_played'] += 1
+                        standings[away_team]['matches_played'] += 1
+
+                        # Calculate points for this match
+                        if home_goals > away_goals:
+                            standings[home_team]['points'] += 3
+                        elif away_goals > home_goals:
+                            standings[away_team]['points'] += 3
+                        else:
+                            standings[home_team]['points'] += 1
+                            standings[away_team]['points'] += 1
+
+                        # After this match, see if all teams have completed at least N matches
+                        min_games = min(standings[t]['matches_played'] for t in all_teams)
+                        if min_games <= last_snapshot_games:
+                            continue
+
+                        # For each newly completed "Speeldag" (game number), snapshot rankings and points
+                        for games_played in range(last_snapshot_games + 1, min_games + 1):
+                            _update_goal_diff()
+                            ranked_teams = sorted(
+                                all_teams,
+                                key=lambda t: (
+                                    -standings[t]['points'],
+                                    -standings[t]['goal_diff'],
+                                    -standings[t]['goals_for'],
+                                    t.lower(),
+                                ),
                             )
-                        )
-                        
-                        # Add rankings to data
-                        for idx, team_data in enumerate(rankings_data):
-                            team = team_data['Team']
-                            rank = ranked_teams.index(team) + 1
-                            team_data[f'Speeldag {matchday}'] = rank
+                            for rank, team in enumerate(ranked_teams, start=1):
+                                rankings_per_team[team][games_played] = rank
+                            # Store cumulative points history for running averages
+                            for team in all_teams:
+                                points_history[team].append(standings[team]['points'])
+
+                        last_snapshot_games = min_games
                     
-                    # Create DataFrame
-                    if all_matchdays and rankings_data:
+                    max_games = last_snapshot_games
+
+                    # Create rankings DataFrame: rows per team, columns per Speeldag (game number)
+                    if max_games > 0:
                         try:
                             import pandas as pd
-                            df_rankings = pd.DataFrame(rankings_data)
-                            
-                            # Reorder columns: Team first, then matchdays in order
-                            cols = ['Team'] + [f'Speeldag {md}' for md in all_matchdays]
-                            # Only include columns that exist in the dataframe
-                            existing_cols = [c for c in cols if c in df_rankings.columns]
-                            df_rankings = df_rankings[existing_cols]
+                            rankings_rows = []
+                            for team in all_teams:
+                                row = {'Team': team}
+                                for g in range(1, max_games + 1):
+                                    row[f'Speeldag {g}'] = rankings_per_team[team].get(g)
+                                rankings_rows.append(row)
+
+                            df_rankings = pd.DataFrame(rankings_rows)
                             
                             st.dataframe(df_rankings, use_container_width=True, hide_index=True)
                             
-                            # Show detailed final standings after last matchday
-                            if all_matchdays:
-                                final_matchday = max(all_matchdays)
+                            # Show detailed final standings after last "Speeldag"
+                            if max_games:
+                                final_matchday = max_games
                                 st.subheader(f"Eindstand na Speeldag {final_matchday}")
                                 
                                 # Create final standings table with all stats
@@ -3645,36 +3669,33 @@ if events_data is not None:
                                                 }
                                             )
 
-                                            # Running 5-game average of points per match for selected team
-                                            result_to_points = {'W': 3, 'G': 1, 'V': 0}
-                                            df_running = df_team_matches.copy()
-                                            df_running["Punten"] = df_running["Resultaat"].map(result_to_points).fillna(0).astype(int)
-
-                                            rolling_points = []
+                                            # Running 5-game average of points per match for all teams,
+                                            # based on cumulative points history from df_rankings context.
                                             window = 5
-                                            for i in range(len(df_running)):
-                                                start_idx = max(0, i - window + 1)
-                                                window_points = df_running.iloc[start_idx:i + 1]["Punten"]
-                                                if not window_points.empty:
-                                                    rolling_points.append(round(window_points.mean(), 2))
-                                                else:
-                                                    rolling_points.append(0.0)
-                                            df_running["Gemiddeld punten (laatste 5)"] = rolling_points
+                                            running_rows = []
+                                            for team in all_teams:
+                                                history = points_history.get(team, [])
+                                                for idx, pts_after in enumerate(history):
+                                                    g = idx + 1  # game number
+                                                    if g <= window:
+                                                        avg = pts_after / g if g > 0 else 0.0
+                                                    else:
+                                                        prev_pts = history[idx - window] if idx - window >= 0 else 0.0
+                                                        avg = (pts_after - prev_pts) / window
+                                                    running_rows.append({
+                                                        "Team": team,
+                                                        "Speeldag": g,
+                                                        "Gemiddeld punten (laatste 5)": round(avg, 2),
+                                                    })
 
-                                            st.subheader(f"Lopend gemiddelde punten per wedstrijd (laatste 5) – {selected_team}")
-                                            st.dataframe(
-                                                df_running[[
-                                                    "Speeldag",
-                                                    "Thuis",
-                                                    "Uit",
-                                                    "Score",
-                                                    "Resultaat",
-                                                    "Punten",
-                                                    "Gemiddeld punten (laatste 5)",
-                                                ]],
-                                                use_container_width=True,
-                                                hide_index=True,
-                                            )
+                                            if running_rows:
+                                                df_running_all = pd.DataFrame(running_rows)
+                                                st.subheader("Lopend gemiddelde punten per wedstrijd (laatste 5) – alle teams")
+                                                st.dataframe(
+                                                    df_running_all,
+                                                    use_container_width=True,
+                                                    hide_index=True,
+                                                )
                                         else:
                                             st.info(f"Geen wedstrijden gevonden voor {selected_team} in metadata.")
                                 except NameError:
