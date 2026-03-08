@@ -3751,6 +3751,7 @@ if events_data is not None:
                 
                 # Constants
                 BASE_TYPE_SHOT = 6
+                SUB_TYPE_PENALTY = 602  # penalties: count goals only, not shots or xG
                 BASE_TYPE_BAD_TOUCH = 11
                 RESULT_SUCCESSFUL = 1
                 GOAL_LABELS = [146, 147, 148, 149, 150, 151]
@@ -3855,8 +3856,10 @@ if events_data is not None:
                             event_labels = event.get('labels', []) or []
                             
                             # Process shots (only regular goals, not own goals)
+                            # Penalties (subTypeId 602): count goals only, not shots or xG
                             if base_type_id == BASE_TYPE_SHOT:
-                                # xG is in metrics dictionary
+                                is_penalty = (sub_type_id == SUB_TYPE_PENALTY)
+                                # xG is in metrics dictionary (not used for penalties for shot/xG stats)
                                 metrics = event.get('metrics', {}) or {}
                                 xg = float(metrics.get('xG', 0.0) or 0.0)
                                 is_goal = (result_id == RESULT_SUCCESSFUL and 
@@ -3872,39 +3875,37 @@ if events_data is not None:
                                     pos_prefix = 'other_'
                                 
                                 if match_team(event_team, home_team):
-                                    match_stats[home_team][timeframe]['shots'] += 1
-                                    match_stats[home_team][timeframe]['xg'] += xg
-                                    match_stats[away_team][timeframe]['shots_conceded'] += 1
-                                    match_stats[away_team][timeframe]['xg_conceded'] += xg
-                                    
-                                    # Possession type specific stats
-                                    match_stats[home_team][timeframe][f'{pos_prefix}shots'] += 1
-                                    match_stats[home_team][timeframe][f'{pos_prefix}xg'] += xg
-                                    match_stats[away_team][timeframe][f'{pos_prefix}shots_conceded'] += 1
-                                    match_stats[away_team][timeframe][f'{pos_prefix}xg_conceded'] += xg
-                                    
+                                    if not is_penalty:
+                                        match_stats[home_team][timeframe]['shots'] += 1
+                                        match_stats[home_team][timeframe]['xg'] += xg
+                                        match_stats[away_team][timeframe]['shots_conceded'] += 1
+                                        match_stats[away_team][timeframe]['xg_conceded'] += xg
+                                        match_stats[home_team][timeframe][f'{pos_prefix}shots'] += 1
+                                        match_stats[home_team][timeframe][f'{pos_prefix}xg'] += xg
+                                        match_stats[away_team][timeframe][f'{pos_prefix}shots_conceded'] += 1
+                                        match_stats[away_team][timeframe][f'{pos_prefix}xg_conceded'] += xg
                                     if is_goal:
                                         match_stats[home_team][timeframe]['goals'] += 1
                                         match_stats[away_team][timeframe]['goals_conceded'] += 1
-                                        match_stats[home_team][timeframe][f'{pos_prefix}goals'] += 1
-                                        match_stats[away_team][timeframe][f'{pos_prefix}goals_conceded'] += 1
+                                        if not is_penalty:
+                                            match_stats[home_team][timeframe][f'{pos_prefix}goals'] += 1
+                                            match_stats[away_team][timeframe][f'{pos_prefix}goals_conceded'] += 1
                                 elif match_team(event_team, away_team):
-                                    match_stats[away_team][timeframe]['shots'] += 1
-                                    match_stats[away_team][timeframe]['xg'] += xg
-                                    match_stats[home_team][timeframe]['shots_conceded'] += 1
-                                    match_stats[home_team][timeframe]['xg_conceded'] += xg
-                                    
-                                    # Possession type specific stats
-                                    match_stats[away_team][timeframe][f'{pos_prefix}shots'] += 1
-                                    match_stats[away_team][timeframe][f'{pos_prefix}xg'] += xg
-                                    match_stats[home_team][timeframe][f'{pos_prefix}shots_conceded'] += 1
-                                    match_stats[home_team][timeframe][f'{pos_prefix}xg_conceded'] += xg
-                                    
+                                    if not is_penalty:
+                                        match_stats[away_team][timeframe]['shots'] += 1
+                                        match_stats[away_team][timeframe]['xg'] += xg
+                                        match_stats[home_team][timeframe]['shots_conceded'] += 1
+                                        match_stats[home_team][timeframe]['xg_conceded'] += xg
+                                        match_stats[away_team][timeframe][f'{pos_prefix}shots'] += 1
+                                        match_stats[away_team][timeframe][f'{pos_prefix}xg'] += xg
+                                        match_stats[home_team][timeframe][f'{pos_prefix}shots_conceded'] += 1
+                                        match_stats[home_team][timeframe][f'{pos_prefix}xg_conceded'] += xg
                                     if is_goal:
                                         match_stats[away_team][timeframe]['goals'] += 1
                                         match_stats[home_team][timeframe]['goals_conceded'] += 1
-                                        match_stats[away_team][timeframe][f'{pos_prefix}goals'] += 1
-                                        match_stats[home_team][timeframe][f'{pos_prefix}goals_conceded'] += 1
+                                        if not is_penalty:
+                                            match_stats[away_team][timeframe][f'{pos_prefix}goals'] += 1
+                                            match_stats[home_team][timeframe][f'{pos_prefix}goals_conceded'] += 1
                             
                             # Process own goals: Bad Touch events with subTypeId 1101
                             # The team with the Bad Touch concedes, the opponent scores
