@@ -3422,9 +3422,10 @@ if events_data is not None:
                     all_matches.sort(key=_match_sort_key)
 
                     # Prepare structures for rankings per "Speeldag" (games played count)
-                    rankings_per_team = {team: {} for team in all_teams}  # team -> {games_played: rank}
-                    points_history = {team: [] for team in all_teams}     # team -> [points_after_1, points_after_2, ...]
-                    team_game_dates = {team: [] for team in all_teams}    # team -> [date_sort per game in chrono order]
+                    rankings_per_team = {team: {} for team in all_teams}   # team -> {games_played: rank}
+                    points_history = {team: [] for team in all_teams}      # team -> [points_after_1, points_after_2, ...]
+                    team_game_dates = {team: [] for team in all_teams}     # team -> [date_sort per game in chrono order]
+                    team_match_points = {team: [] for team in all_teams}   # team -> list of {'date_sort', 'points'} per game (chronological)
                     last_snapshot_games = 0
 
                     def _update_goal_diff():
@@ -3455,12 +3456,21 @@ if events_data is not None:
 
                         # Calculate points for this match
                         if home_goals > away_goals:
-                            standings[home_team]['points'] += 3
+                            home_pts_match = 3
+                            away_pts_match = 0
                         elif away_goals > home_goals:
-                            standings[away_team]['points'] += 3
+                            home_pts_match = 0
+                            away_pts_match = 3
                         else:
-                            standings[home_team]['points'] += 1
-                            standings[away_team]['points'] += 1
+                            home_pts_match = 1
+                            away_pts_match = 1
+
+                        standings[home_team]['points'] += home_pts_match
+                        standings[away_team]['points'] += away_pts_match
+
+                        # Store per-team match points for running 5-game averages (per team, by date)
+                        team_match_points[home_team].append({'date_sort': ds, 'points': home_pts_match})
+                        team_match_points[away_team].append({'date_sort': ds, 'points': away_pts_match})
 
                         # After this match, see if all teams have completed at least N matches
                         min_games = min(standings[t]['matches_played'] for t in all_teams)
@@ -3680,17 +3690,27 @@ if events_data is not None:
                                             window = 5
                                             running_rows = []
                                             for team in all_teams:
-                                                history = points_history.get(team, [])
-                                                dates_for_team = team_game_dates.get(team, [])
-                                                for idx, pts_after in enumerate(history):
-                                                    g = idx + 1  # game number (1-based)
-                                                    if g <= window:
-                                                        avg = pts_after / g if g > 0 else 0.0
-                                                    else:
-                                                        prev_pts = history[idx - window] if idx - window >= 0 else 0.0
-                                                        avg = (pts_after - prev_pts) / window
+                                                matches_for_team = team_match_points.get(team, [])
+                                                if not matches_for_team:
+                                                    continue
 
-                                                    ds = dates_for_team[idx] if idx < len(dates_for_team) else None
+                                                # Points per game for this team, in chronological order
+                                                points_list = [m.get("points", 0) for m in matches_for_team]
+                                                # Prefix sums for O(1) window sums
+                                                prefix = [0]
+                                                for p in points_list:
+                                                    prefix.append(prefix[-1] + p)
+
+                                                for idx, m in enumerate(matches_for_team):
+                                                    g = idx + 1  # match number for this team
+                                                    if g <= window:
+                                                        total_pts = prefix[g]
+                                                        avg = total_pts / g if g > 0 else 0.0
+                                                    else:
+                                                        total_pts = prefix[g] - prefix[g - window]
+                                                        avg = total_pts / window
+
+                                                    ds = m.get("date_sort")
                                                     if ds is not None:
                                                         s = str(ds)
                                                         if len(s) == 8 and s.isdigit():
