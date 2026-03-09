@@ -3424,6 +3424,7 @@ if events_data is not None:
                     # Prepare structures for rankings per "Speeldag" (games played count)
                     rankings_per_team = {team: {} for team in all_teams}  # team -> {games_played: rank}
                     points_history = {team: [] for team in all_teams}     # team -> [points_after_1, points_after_2, ...]
+                    team_game_dates = {team: [] for team in all_teams}    # team -> [date_sort per game in chrono order]
                     last_snapshot_games = 0
 
                     def _update_goal_diff():
@@ -3436,6 +3437,11 @@ if events_data is not None:
                         away_team = match['away_team']
                         home_goals = match['home_goals']
                         away_goals = match['away_goals']
+
+                        # Track match dates per team in chronological order (may be None if unknown)
+                        ds = match.get('date_sort')
+                        team_game_dates[home_team].append(ds)
+                        team_game_dates[away_team].append(ds)
 
                         # Update goals
                         standings[home_team]['goals_for'] += home_goals
@@ -3675,24 +3681,44 @@ if events_data is not None:
                                             running_rows = []
                                             for team in all_teams:
                                                 history = points_history.get(team, [])
+                                                dates_for_team = team_game_dates.get(team, [])
                                                 for idx, pts_after in enumerate(history):
-                                                    g = idx + 1  # game number
+                                                    g = idx + 1  # game number (1-based)
                                                     if g <= window:
                                                         avg = pts_after / g if g > 0 else 0.0
                                                     else:
                                                         prev_pts = history[idx - window] if idx - window >= 0 else 0.0
                                                         avg = (pts_after - prev_pts) / window
+
+                                                    ds = dates_for_team[idx] if idx < len(dates_for_team) else None
+                                                    if ds is not None:
+                                                        s = str(ds)
+                                                        if len(s) == 8 and s.isdigit():
+                                                            date_display = f"{s[6:8]}-{s[4:6]}-{s[0:4]}"
+                                                        else:
+                                                            date_display = None
+                                                    else:
+                                                        date_display = None
+
                                                     running_rows.append({
                                                         "Team": team,
-                                                        "Speeldag": g,
+                                                        "Wedstrijd": g,
+                                                        "DateSort": ds,
+                                                        "Datum": date_display,
                                                         "Gemiddeld punten (laatste 5)": round(avg, 2),
                                                     })
 
                                             if running_rows:
                                                 df_running_all = pd.DataFrame(running_rows)
+                                                # Sort by date (if available), then by team and game number
+                                                if "DateSort" in df_running_all.columns:
+                                                    df_running_all = df_running_all.sort_values(
+                                                        by=["DateSort", "Team", "Wedstrijd"],
+                                                        ascending=[True, True, True],
+                                                    ).reset_index(drop=True)
                                                 st.subheader("Lopend gemiddelde punten per wedstrijd (laatste 5) – alle teams")
                                                 st.dataframe(
-                                                    df_running_all,
+                                                    df_running_all[["Team", "Wedstrijd", "Datum", "Gemiddeld punten (laatste 5)"]],
                                                     use_container_width=True,
                                                     hide_index=True,
                                                 )
