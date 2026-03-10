@@ -4184,6 +4184,88 @@ if events_data is not None:
                         df_other = pd.DataFrame(team_list_other)
                         st.dataframe(df_other, use_container_width=True, hide_index=True)
                     
+                    # Combined average xG and xG conceded for selected teams
+                    all_team_names = sorted(all_teams_data.keys(), key=lambda t: t.lower())
+                    default_selection = []
+                    try:
+                        if selected_team and selected_team in all_team_names:
+                            default_selection = [selected_team]
+                    except NameError:
+                        default_selection = []
+
+                    st.subheader("Gecombineerde gemiddelde xG (per wedstrijd)")
+                    selected_teams_multi = st.multiselect(
+                        "Selecteer teams voor gecombineerde xG-analyse",
+                        all_team_names,
+                        default=default_selection,
+                    )
+
+                    if selected_teams_multi:
+                        combined_rows = []
+                        total_xg_all = 0.0
+                        total_xg_conc_all = 0.0
+                        total_matches_all = 0
+
+                        for team_name in selected_teams_multi:
+                            timeframe_data = all_teams_data.get(team_name, {})
+                            # Sum xG and xG conceded over all timeframes
+                            total_xg_team = 0.0
+                            total_xg_conc_team = 0.0
+                            for timeframe_label in timeframe_labels:
+                                stats = timeframe_data.get(timeframe_label, {})
+                                total_xg_team += float(
+                                    stats.get("openplay_xg", 0.0)
+                                    + stats.get("counter_xg", 0.0)
+                                    + stats.get("other_xg", 0.0)
+                                )
+                                total_xg_conc_team += float(
+                                    stats.get("openplay_xg_conceded", 0.0)
+                                    + stats.get("counter_xg_conceded", 0.0)
+                                    + stats.get("other_xg_conceded", 0.0)
+                                )
+
+                            matches_team = len(per_match_stats.get(team_name, []))
+                            avg_xg_team = total_xg_team / matches_team if matches_team > 0 else 0.0
+                            avg_xg_conc_team = (
+                                total_xg_conc_team / matches_team if matches_team > 0 else 0.0
+                            )
+
+                            combined_rows.append(
+                                {
+                                    "Team": team_name,
+                                    "Wedstrijden": matches_team,
+                                    "Totaal xG": round(total_xg_team, 2),
+                                    "Totaal xG tegen": round(total_xg_conc_team, 2),
+                                    "Gemiddelde xG per wedstrijd": round(avg_xg_team, 3),
+                                    "Gemiddelde xG tegen per wedstrijd": round(
+                                        avg_xg_conc_team, 3
+                                    ),
+                                }
+                            )
+
+                            total_xg_all += total_xg_team
+                            total_xg_conc_all += total_xg_conc_team
+                            total_matches_all += matches_team
+
+                        # Add combined row
+                        avg_xg_all = total_xg_all / total_matches_all if total_matches_all > 0 else 0.0
+                        avg_xg_conc_all = (
+                            total_xg_conc_all / total_matches_all if total_matches_all > 0 else 0.0
+                        )
+                        combined_rows.append(
+                            {
+                                "Team": "GESELECTEERDE TEAMS (GEZAMENLIJK)",
+                                "Wedstrijden": total_matches_all,
+                                "Totaal xG": round(total_xg_all, 2),
+                                "Totaal xG tegen": round(total_xg_conc_all, 2),
+                                "Gemiddelde xG per wedstrijd": round(avg_xg_all, 3),
+                                "Gemiddelde xG tegen per wedstrijd": round(avg_xg_conc_all, 3),
+                            }
+                        )
+
+                        df_combined = pd.DataFrame(combined_rows)
+                        st.dataframe(df_combined, use_container_width=True, hide_index=True)
+
                     # Per-match stats for selected team
                     try:
                         if selected_team and selected_team in per_match_stats:
