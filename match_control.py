@@ -4362,16 +4362,42 @@ if events_data is not None:
                         import io
 
                         excel_buf = io.BytesIO()
-                        with pd.ExcelWriter(excel_buf, engine="xlsxwriter") as writer:
-                            df_tableau_export.to_excel(writer, index=False, sheet_name="tableau_combined")
-                        excel_buf.seek(0)
+                        excel_ready = False
 
-                        st.download_button(
-                            label="📥 Download gecombineerde Tableau Excel",
-                            data=excel_buf,
-                            file_name="tableau_combined_export.xlsx",
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        )
+                        # Prefer xlsxwriter, but fall back to openpyxl on environments
+                        # (like Streamlit Cloud) where xlsxwriter may not be installed.
+                        try:
+                            with pd.ExcelWriter(excel_buf, engine="xlsxwriter") as writer:
+                                df_tableau_export.to_excel(writer, index=False, sheet_name="tableau_combined")
+                            excel_ready = True
+                        except ModuleNotFoundError:
+                            try:
+                                excel_buf = io.BytesIO()
+                                with pd.ExcelWriter(excel_buf, engine="openpyxl") as writer:
+                                    df_tableau_export.to_excel(writer, index=False, sheet_name="tableau_combined")
+                                excel_ready = True
+                            except Exception:
+                                excel_ready = False
+                        except Exception:
+                            excel_ready = False
+
+                        if excel_ready:
+                            excel_buf.seek(0)
+                            st.download_button(
+                                label="📥 Download gecombineerde Tableau Excel",
+                                data=excel_buf,
+                                file_name="tableau_combined_export.xlsx",
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            )
+                        else:
+                            csv_combined = df_tableau_export.to_csv(index=False)
+                            st.warning("Excel engine niet beschikbaar in deze omgeving. CSV download gebruikt als fallback.")
+                            st.download_button(
+                                label="📥 Download gecombineerde Tableau CSV",
+                                data=csv_combined,
+                                file_name="tableau_combined_export.csv",
+                                mime="text/csv",
+                            )
                     else:
                         st.info("Geen data beschikbaar voor gecombineerde Tableau export.")
 
