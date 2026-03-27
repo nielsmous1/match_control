@@ -4266,6 +4266,115 @@ if events_data is not None:
                         df_combined = pd.DataFrame(combined_rows)
                         st.dataframe(df_combined, use_container_width=True, hide_index=True)
 
+                    # Combined Tableau export table:
+                    # merge "running average points" + "rendement per wedstrijd" for all teams
+                    st.subheader("Gecombineerde tabel (alle teams) - Tableau export")
+                    export_rows = []
+                    for team_name in sorted(per_match_stats.keys(), key=lambda t: t.lower()):
+                        team_matches = per_match_stats.get(team_name, [])
+                        if not team_matches:
+                            continue
+
+                        team_match_rows = []
+                        for match_row in team_matches:
+                            total_xg = 0.0
+                            total_xg_conceded = 0.0
+                            total_goals = 0
+                            total_goals_conceded = 0
+                            for timeframe_label in timeframe_labels:
+                                total_xg += float(match_row.get(f"{timeframe_label} - xG", 0.0) or 0.0)
+                                total_xg_conceded += float(match_row.get(f"{timeframe_label} - xG Conceded", 0.0) or 0.0)
+                                total_goals += int(match_row.get(f"{timeframe_label} - Goals", 0) or 0)
+                                total_goals_conceded += int(
+                                    match_row.get(f"{timeframe_label} - Goals Conceded", 0) or 0
+                                )
+
+                            # Determine result and points from goals
+                            if total_goals > total_goals_conceded:
+                                resultaat = "W"
+                                punten = 3
+                            elif total_goals == total_goals_conceded:
+                                resultaat = "G"
+                                punten = 1
+                            else:
+                                resultaat = "V"
+                                punten = 0
+
+                            team_match_rows.append(
+                                {
+                                    "Team": team_name,
+                                    "Datum": match_row.get("Date"),
+                                    "Opponent": match_row.get("Opponent"),
+                                    "xG": float(round(total_xg, 3)),
+                                    "xG Conceded": float(round(total_xg_conceded, 3)),
+                                    "Goals": int(total_goals),
+                                    "Goals Conceded": int(total_goals_conceded),
+                                    "Punten": int(punten),
+                                    "Resultaat": resultaat,
+                                }
+                            )
+
+                        # Sort by date for this team and compute match number + rolling avg points last 5
+                        team_match_rows = sorted(
+                            team_match_rows,
+                            key=lambda r: (r.get("Datum") or "", r.get("Opponent") or ""),
+                        )
+
+                        points_list = [r["Punten"] for r in team_match_rows]
+                        window = 5
+                        for idx, row in enumerate(team_match_rows):
+                            g = idx + 1
+                            start_idx = max(0, idx - window + 1)
+                            last_points = points_list[start_idx : idx + 1]
+                            rolling_avg = (sum(last_points) / len(last_points)) if last_points else 0.0
+
+                            row["Wedstrijd"] = int(g)
+                            row["Gemiddeld punten (laatste 5)"] = float(round(rolling_avg, 3))
+                            export_rows.append(row)
+
+                    if export_rows:
+                        df_tableau_export = pd.DataFrame(export_rows)
+                        # Global sort by team then date then match number
+                        df_tableau_export = df_tableau_export.sort_values(
+                            by=["Team", "Datum", "Wedstrijd"],
+                            ascending=[True, True, True],
+                        ).reset_index(drop=True)
+
+                        # Keep exact column order requested
+                        export_columns = [
+                            "Team",
+                            "Wedstrijd",
+                            "Datum",
+                            "Opponent",
+                            "xG",
+                            "xG Conceded",
+                            "Goals",
+                            "Goals Conceded",
+                            "Gemiddeld punten (laatste 5)",
+                            "Punten",
+                            "Resultaat",
+                        ]
+                        df_tableau_export = df_tableau_export[export_columns]
+
+                        st.dataframe(df_tableau_export, use_container_width=True, hide_index=True)
+
+                        # Single Excel export for Tableau
+                        import io
+
+                        excel_buf = io.BytesIO()
+                        with pd.ExcelWriter(excel_buf, engine="xlsxwriter") as writer:
+                            df_tableau_export.to_excel(writer, index=False, sheet_name="tableau_combined")
+                        excel_buf.seek(0)
+
+                        st.download_button(
+                            label="📥 Download gecombineerde Tableau Excel",
+                            data=excel_buf,
+                            file_name="tableau_combined_export.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        )
+                    else:
+                        st.info("Geen data beschikbaar voor gecombineerde Tableau export.")
+
                     # Per-match stats for selected team
                     try:
                         if selected_team and selected_team in per_match_stats:
